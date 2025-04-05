@@ -1,32 +1,28 @@
+require('dotenv').config();
 const express = require('express');
-const { Pool } = require('pg');
+const cors = require('cors');
+
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
 
 const app = express();
-const port = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Configuración de PostgreSQL
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
+// Middlewares
+app.use(cors({
+  origin: '*',
+  credentials: true
+}));
+app.use(express.json());
 
-// Ruta de prueba para PostgreSQL
-app.get('/test-db', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW()');
-    res.send(`PostgreSQL conectado: ${result.rows[0].now}`);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
+// Rutas principales
+app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
 
-app.get('/', (req, res) => {
-  res.send('Hola desde el backend!');
-});
+// Health check
+app.get('/health', (req, res) => res.send('OK'));
 
-app.listen(port, () => {
-  console.log(`Servidor Express corriendo en http://localhost:${port}`);
+// Iniciar servidor
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor escuchando en http://localhost:${PORT}`);
 });

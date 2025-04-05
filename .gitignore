@@ -1,0 +1,13 @@
+# Archivos de entorno
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Node modules
+node_modules/
+
+# Otros archivos sensibles
+*.pem
+*.key

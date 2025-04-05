@@ -1,16 +1,18 @@
 FROM node:lts-alpine
 
-RUN apk add --no-cache python3 g++ make postgresql-dev
+RUN apk add --no-cache g++ make postgresql-dev
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm install --production && \
+    npm install bcryptjs jsonwebtoken@latest dotenv cors
 
 COPY . .
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-CMD node -e "require('pg').Client(process.env.DATABASE_URL || 'postgres://postgres:postgres@postgres:5432/postgres').connect(() => process.exit(0))"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
 
 EXPOSE 3000
-CMD ["npm", "start"]
+
+CMD ["node", "index.js"]
