@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - GS Stock</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f4f4;
+        }
+        .header {
+            display: flex;
+            justify-content: flex-end;
+            padding: 20px;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .logout-button {
+            padding: 10px 20px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .logout-button:hover {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="logout-button">Logout</button>
+    </div>
+
+    <script>
+        //Verificar autenticación al cargar la página
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('jwtToken');
+            if (!token) {
+                //Si no hay token, redirigir al login
+                window.location.href = 'index.html';
+            }
+        });
+
+        //configurar el evento de logout
+        const logoutButton = document.querySelector('.logout-button');
+        
+        logoutButton.addEventListener('click', async () => {
+            try {
+                //Llamar al endpoint de logout en el backend (opcional)
+                const token = localStorage.getItem('jwtToken');
+                if (token) {
+                    await fetch('http://localhost:3000/api/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        mode: 'cors'
+                    });
+                }
+                
+                //Limpiar el almacenamiento local
+                localStorage.removeItem('jwtToken');
+                localStorage.removeItem('user');
+                
+                //Redirigir al usuario a la página de login
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Error durante el logout:', error);
+                //igualmente redirigir al usuario al login
+                localStorage.removeItem('jwtToken');
+                localStorage.removeItem('user');
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>
