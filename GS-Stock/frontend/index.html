@@ -4,49 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - GS Stock</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 400px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
-    }
-    input {
-      width: 100%;
-      padding: 8px;
-      box-sizing: border-box;
-      margin-bottom: 15px;
-    }
-    button {
-      background: #4CAF50;
-      color: white;
-      padding: 10px 15px;
-      border: none;
-      cursor: pointer;
-      width: 100%;
-    }
-    .error {
-      color: red;
-      margin-top: 10px;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h2>Iniciar Sesión</h2>
-  <form id="loginForm">
-    <label for="usuario">Usuario:</label>
-    <input type="text" id="usuario" required>
-    
-    <label for="contrasena">Contraseña:</label>
-    <input type="password" id="contrasena" required>
-    
-    <button type="submit">Ingresar</button>
-    <p id="error" class="error" style="display: none;"></p>
-  </form>
+  <div class="login-container">
+    <div class="logo-container">
+      <img src="../assets/logo.png" alt="GS Stock Logo">
+    </div>
+    <h2>Iniciar Sesión</h2>
+    <form id="loginForm">
+      <div class="input-group">
+        <label for="usuario">Usuario:</label>
+        <input type="text" id="usuario" required>
+      </div>
+      <div class="input-group">
+        <label for="contrasena">Contraseña:</label>
+        <input type="password" id="contrasena" required>
+      </div>
+      <button type="submit">Ingresar</button>
+      <p id="error" class="error" style="display: none;"></p>
+    </form>
+  </div>
 
   <script>
     const loginForm = document.getElementById('loginForm');
@@ -56,17 +34,17 @@
 
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-
       const usuario = usuarioInput.value.trim();
       const contrasena = contrasenaInput.value.trim();
+      
       errorElement.style.display = 'none';
-
+      
       if (!usuario || !contrasena) {
         errorElement.textContent = 'Por favor, complete todos los campos';
         errorElement.style.display = 'block';
         return;
       }
-
+      
       try {
         const response = await fetch('http://localhost:3000/api/auth/login', {
           method: 'POST',
@@ -76,18 +54,17 @@
           body: JSON.stringify({ usuario, contrasena }),
           mode: 'cors'
         });
-
+        
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error en el login');
         }
-
+        
         const data = await response.json();
-
         // Guardar token y datos de usuario
         localStorage.setItem('jwtToken', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-
+        
         // Redirigir al dashboard
         window.location.href = 'dashboard.html';
       } catch (err) {
