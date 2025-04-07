@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - GS Stock</title>
+  <title>Registro - GS Stock</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -15,19 +15,31 @@
           <div class="logo-container">
             <img src="../assets/logo.png" alt="GS Stock Logo">
           </div>
-          <h2>Iniciar Sesión</h2>
-          <form id="loginForm">
+          <h2>Crear Cuenta</h2>
+          <form id="registroForm">
+            <div class="input-group mb-3">
+              <label for="nombre" class="form-label">Nombre:</label>
+              <input type="text" class="form-control" id="nombre" required>
+            </div>
             <div class="input-group mb-3">
               <label for="usuario" class="form-label">Usuario:</label>
               <input type="text" class="form-control" id="usuario" required>
             </div>
             <div class="input-group mb-3">
+              <label for="email" class="form-label">Correo electrónico:</label>
+              <input type="email" class="form-control" id="email" required>
+            </div>
+            <div class="input-group mb-3">
               <label for="contrasena" class="form-label">Contraseña:</label>
               <input type="password" class="form-control" id="contrasena" required>
             </div>
-            <button type="submit" class="btn btn-success w-100 mb-3">Ingresar</button>
+            <div class="input-group mb-3">
+              <label for="confirmarContrasena" class="form-label">Confirmar contraseña:</label>
+              <input type="password" class="form-control" id="confirmarContrasena" required>
+            </div>
+            <button type="submit" class="btn btn-success w-100 mb-3">Registrarse</button>
             <div class="text-center">
-              <a href="registro.html" class="btn btn-outline-primary">Crear cuenta</a>
+              <a href="index.html" class="btn btn-outline-secondary">Volver al login</a>
             </div>
             <p id="error" class="error mt-3" style="display: none;"></p>
           </form>
@@ -38,46 +50,57 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const loginForm = document.getElementById('loginForm');
+    const registroForm = document.getElementById('registroForm');
+    const nombreInput = document.getElementById('nombre');
     const usuarioInput = document.getElementById('usuario');
+    const emailInput = document.getElementById('email');
     const contrasenaInput = document.getElementById('contrasena');
+    const confirmarContrasenaInput = document.getElementById('confirmarContrasena');
     const errorElement = document.getElementById('error');
 
-    loginForm.addEventListener('submit', async (e) => {
+    registroForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const nombre = nombreInput.value.trim();
       const usuario = usuarioInput.value.trim();
+      const email = emailInput.value.trim();
       const contrasena = contrasenaInput.value.trim();
+      const confirmarContrasena = confirmarContrasenaInput.value.trim();
       
       errorElement.style.display = 'none';
       
-      if (!usuario || !contrasena) {
+      // Validación básica de formulario
+      if (!nombre || !usuario || !email || !contrasena || !confirmarContrasena) {
         errorElement.textContent = 'Por favor, complete todos los campos';
         errorElement.style.display = 'block';
         return;
       }
       
+      if (contrasena !== confirmarContrasena) {
+        errorElement.textContent = 'Las contraseñas no coinciden';
+        errorElement.style.display = 'block';
+        return;
+      }
+      
       try {
-        const response = await fetch('http://localhost:3000/api/auth/login', {
+        const response = await fetch('http://localhost:3000/api/auth/register', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ usuario, contrasena }),
+          body: JSON.stringify({ nombre, usuario, email, contrasena }),
           mode: 'cors'
         });
         
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Error en el login');
+          throw new Error(errorData.error || 'Error en el registro');
         }
         
         const data = await response.json();
-        // Guardar token y datos de usuario
-        localStorage.setItem('jwtToken', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Redirigir al dashboard
-        window.location.href = 'dashboard.html';
+        // Mostrar mensaje de éxito
+        alert('Usuario registrado correctamente. Por favor inicie sesión.');
+        // Redirigir al login
+        window.location.href = 'index.html';
       } catch (err) {
         errorElement.textContent = err.message;
         errorElement.style.display = 'block';
