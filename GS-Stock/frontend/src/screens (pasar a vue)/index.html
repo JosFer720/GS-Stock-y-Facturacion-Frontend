@@ -4,39 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - GS Stock</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../styles/style.css">
 </head>
 <body>
-  <div class="container">
-    <div class="row justify-content-center">
-      <div class="col-md-6">
-        <div class="login-container">
-          <div class="logo-container">
-            <img src="../../src/assets/images/logo.svg" alt="GS Stock Logo">
-          </div>
-          <h2>Iniciar Sesión</h2>
-          <form id="loginForm">
-            <div class="input-group mb-3">
-              <label for="usuario" class="form-label">Usuario:</label>
-              <input type="text" class="form-control" id="usuario" required>
-            </div>
-            <div class="input-group mb-3">
-              <label for="contrasena" class="form-label">Contraseña:</label>
-              <input type="password" class="form-control" id="contrasena" required>
-            </div>
-            <button type="submit" class="btn btn-success w-100 mb-3">Ingresar</button>
-            <div class="text-center">
-              <!-- <a href="registro.html" class="btn btn-outline-primary">Crear cuenta</a> -->
-            </div>
-            <p id="error" class="error mt-3" style="display: none;"></p>
-          </form>
-        </div>
-      </div>
+  <div class="login-container">
+    <div class="logo-container">
+      <img src="../assets/images/logo.svg" alt="GS Stock Logo">
     </div>
+    <h2>Iniciar Sesión</h2>
+    <form id="loginForm">
+      <div class="input-group">
+        <label for="usuario">Usuario:</label>
+        <input type="text" id="usuario" required>
+      </div>
+      <div class="input-group">
+        <label for="contrasena">Contraseña:</label>
+        <input type="password" id="contrasena" required>
+      </div>
+      <button type="submit">Ingresar</button>
+      <p id="error" class="error" style="display: none;"></p>
+    </form>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const loginForm = document.getElementById('loginForm');
     const usuarioInput = document.getElementById('usuario');
