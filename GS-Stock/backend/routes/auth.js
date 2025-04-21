@@ -171,3 +171,53 @@ router.post('/forgot-password', async (req, res) => {
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
+
+router.post('/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  try {
+    // Validar longitud mínima
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+    }
+    
+    // Buscar token válido
+    const tokenResult = await pool.query(
+      `SELECT * FROM password_reset_tokens 
+      WHERE token = $1 AND used = FALSE AND expires_at > NOW()`,
+      [token]
+    );
+    if (tokenResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Token inválido o expirado' });
+    }
+    
+    const resetToken = tokenResult.rows[0];
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Actualizar contraseña
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await client.query(
+        'UPDATE cuentas_usuarios SET contrasena = $1 WHERE id_usuarios = $2',
+        [hashedPassword, resetToken.user_id]
+      );
+      
+      // Marcar token como usado
+      await client.query(
+        'UPDATE password_reset_tokens SET used = TRUE WHERE id = $1',
+        [resetToken.id]
+      );
+      
+      await client.query('COMMIT');
+      res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error en reset-password:', err);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
