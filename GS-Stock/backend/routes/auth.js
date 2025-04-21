@@ -136,3 +136,38 @@ router.post('/logout', (req, res) => {
 });
 
 module.exports = router;
+
+const crypto = require('crypto');
+
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    // Verificar si el email existe
+    const userResult = await pool.query(
+      'SELECT id_usuarios FROM cuentas_usuarios WHERE email = $1',
+      [email]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Email no registrado' });
+    }
+    const userId = userResult.rows[0].id_usuarios;
+    
+    // Generar token único (válido por 1 hora)
+    const token = crypto.randomBytes(20).toString('hex');
+    const expiresAt = new Date(Date.now() + 3600000); 
+    
+    // Guardar token en DB
+    await pool.query(
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [userId, token, expiresAt]
+    );
+    
+    // Simular envío de correo (en producción, usar SendGrid/Nodemailer)
+    console.log(`Token para ${email}: ${token}`);
+    
+    res.json({ message: 'Se ha enviado un enlace de recuperación a tu correo' });
+  } catch (err) {
+    console.error('Error en forgot-password:', err);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
