@@ -214,3 +214,13 @@ CREATE TABLE Facturas (
     Total DECIMAL(10,2),
     Estado VARCHAR(50) NOT NULL
 );
+
+-- Tabla de tokens para recuperación de contraseña
+CREATE TABLE password_reset_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES usuarios(id),
+    token VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
