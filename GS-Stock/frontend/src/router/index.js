@@ -10,8 +10,12 @@ const routes = [
   {
     path: '/dashboard',
     name: 'dashboard',
-    // Usando lazy-loading para el dashboard
     component: () => import('../views/DashboardView.vue')
+  },
+  {
+    path: '/restablecer',
+    name: 'restablecer',
+    component: () => import('../views/RestablecerView.vue')
   }
 ]
 
@@ -22,7 +26,7 @@ const router = createRouter({
 
 // Middleware de autenticación
 router.beforeEach((to, from, next) => {
-  const publicPages = ['/'];
+  const publicPages = ['/', '/restablecer'];
   const authRequired = !publicPages.includes(to.path);
   const token = localStorage.getItem('jwtToken');
 

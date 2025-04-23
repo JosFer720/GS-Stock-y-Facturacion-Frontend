@@ -16,6 +16,9 @@
       <button type="submit">Ingresar</button>
       <p v-if="error" class="error">{{ error }}</p>
     </form>
+    <div class="recover-link">
+      <a href="#" @click.prevent="irARestablecer">Recuperar contraseña</a>
+    </div>
   </div>
 </template>
 
@@ -62,15 +65,33 @@ export default {
         localStorage.setItem('user', JSON.stringify(data.user));
         
         // Redirigir al dashboard
-        // En Vue Router usamos this.$router.push en lugar de window.location
         this.$router.push('/dashboard');
       } catch (err) {
         this.error = err.message;
       }
+    },
+    irARestablecer() {
+      this.$router.push('/restablecer');
     }
   }
 }
 </script>
 
 <style scoped>
+.recover-link {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.recover-link a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.recover-link a:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
 </style>
