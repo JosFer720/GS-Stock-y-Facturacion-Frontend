@@ -78,7 +78,7 @@ export default {
 </script>
 
 <style scoped>
-@import '@/styles/main.css';
+@import '@/styles/style.css';
 
 h2 {
   margin-top: 10px;

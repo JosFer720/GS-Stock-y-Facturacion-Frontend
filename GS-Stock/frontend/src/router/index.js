@@ -16,6 +16,11 @@ const routes = [
     path: '/restablecer',
     name: 'restablecer',
     component: () => import('../views/RestablecerView.vue')
+  },
+  {
+    path: '/cambiar',
+    name: 'cambiar',
+    component: () => import('../views/CambiarView.vue')
   }
 ]
 
@@ -26,7 +31,7 @@ const router = createRouter({
 
 // Middleware de autenticación
 router.beforeEach((to, from, next) => {
-  const publicPages = ['/', '/restablecer'];
+  const publicPages = ['/', '/restablecer', '/cambiar'];
   const authRequired = !publicPages.includes(to.path);
   const token = localStorage.getItem('jwtToken');
 
@@ -36,5 +41,6 @@ router.beforeEach((to, from, next) => {
 
   next();
 });
+
 
 export default router
