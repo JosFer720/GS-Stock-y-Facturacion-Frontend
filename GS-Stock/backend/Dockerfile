@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY package*.json ./
 RUN npm install --production && \
-    npm install bcryptjs jsonwebtoken@latest dotenv cors pg
+    npm install bcryptjs jsonwebtoken@latest dotenv cors pg nodemailer
 
 COPY . .
 

@@ -10,3 +10,6 @@ UPDATE Usuarios SET Email = 'marta.gomez@example.com' WHERE Id = 4;
 -- Agregar las restricciones NOT NULL y UNIQUE
 ALTER TABLE Usuarios ALTER COLUMN Email SET NOT NULL;
 ALTER TABLE Usuarios ADD CONSTRAINT email_unique UNIQUE (Email);
+
+-- Agregar columna estado con valor por defecto TRUE (activo)
+ALTER TABLE Usuarios ADD COLUMN Estado BOOLEAN NOT NULL DEFAULT TRUE;
