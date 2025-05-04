@@ -63,7 +63,7 @@ router.get('/admin', authenticateJWT(['Administrador']), (req, res) => {
   });
 });
 
-// NUEVO ENDPOINT 1: Crear nuevo usuario (solo para administradores)
+// NUEVO ENDPOINT 1: Crear nuevo usuario 
 router.post('/create', authenticateJWT(['Administrador']), async (req, res) => {
   try {
     const { nombre, apellido, usuario, email, contrasena, id_roles } = req.body;
@@ -277,7 +277,7 @@ router.put('/update/:id', authenticateJWT(), async (req, res) => {
 router.delete('/delete/:id', authenticateJWT(), async (req, res) => {
   try {
     const { id } = req.params;
-    const { action = 'deactivate' } = req.body; // Por defecto desactiva en lugar de eliminar
+    const { action = 'deactivate' } = req.body; 
     const userRole = req.user.rol;
     const userId = req.user.id;
     
@@ -301,22 +301,19 @@ router.delete('/delete/:id', authenticateJWT(), async (req, res) => {
       await client.query('BEGIN');
       
       if (action === 'delete') {
-        // Eliminar completamente el usuario (esto podría causar problemas si hay referencias en otras tablas)
         await client.query('DELETE FROM cuentas_usuarios WHERE id_usuarios = $1', [id]);
         await client.query('DELETE FROM usuarios WHERE id = $1', [id]);
         
         await client.query('COMMIT');
         res.json({ message: 'Usuario eliminado correctamente' });
       } else {
-        // Desactivar el usuario (enfoque recomendado)
-        // Añadir columna 'activo' si no existe en la tabla
+        // Desactivar el usuario 
         try {
           await client.query('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE');
         } catch (err) {
           console.log('La columna activo ya existe o hubo un error:', err.message);
         }
         
-        // Desactivar el usuario
         await client.query('UPDATE usuarios SET activo = FALSE WHERE id = $1', [id]);
         
         await client.query('COMMIT');
