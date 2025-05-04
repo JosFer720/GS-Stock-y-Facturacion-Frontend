@@ -179,46 +179,76 @@ const filteredProducts = computed(() => {
 </script>
 
 <style scoped>
+.product-management-container {
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
 .content-section {
-  padding: 20px;
+  padding: 15px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 100px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 60px;
 }
 
 .page-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: bold;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   text-align: center;
   color: #333;
+  width: 100%;
 }
 
 .actions-section {
-  margin: 20px 0;
+  margin: 15px 0;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  width: 100%;
+  gap: 8px;
 }
 
 .search-section {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+  width: 100%;
+}
+
+.search-section input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px; /* Mejor para inputs en móviles */
 }
 
 .action-button {
-  padding: 8px 16px;
+  padding: 12px 16px;
   border: 1px solid #333;
   border-radius: 4px;
   background-color: white;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, transform 0.1s;
   color: #333;
+  width: 100%;
+  font-size: 16px;
+  text-align: center;
 }
 
 .action-button:hover {
   background-color: #f0f0f0;
+}
+
+.action-button:active {
+  transform: scale(0.98);
 }
 
 .delete-button {
@@ -227,10 +257,12 @@ const filteredProducts = computed(() => {
 }
 
 .list-title {
-  margin-top: 20px;
-  font-size: 1.5em;
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 18px;
   font-weight: bold;
   text-align: center;
+  width: 100%;
 }
 
 .modal {
@@ -239,40 +271,139 @@ const filteredProducts = computed(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
 .modal-content {
   background: white;
-  padding: 20px;
+  padding: 15px;
   border-radius: 8px;
-  width: 400px;
+  width: 100%;
+  max-width: 400px;
   text-align: center;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .close {
   float: right;
-  font-size: 28px;
+  font-size: 24px;
   cursor: pointer;
+  padding: 5px;
+  line-height: 0.8;
 }
 
 .form-group {
   margin-bottom: 15px;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
 }
 
 .modal-actions {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   gap: 10px;
   margin-top: 20px;
+  width: 100%;
 }
 
 .modal-actions button {
-  padding: 8px 16px;
+  padding: 12px 16px;
   cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid #333;
+  background-color: #f8f8f8;
+  font-size: 16px;
+  width: 100%;
+}
+
+.modal-actions button:first-child {
+  background-color: #333;
+  color: white;
+}
+
+.modal-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Media Queries - Tablet */
+@media (min-width: 576px) {
+  .content-section {
+    padding: 20px;
+    margin-top: 70px;
+  }
+  
+  .page-title {
+    font-size: 22px;
+  }
+  
+  .search-section {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .search-section input {
+    max-width: 250px;
+  }
+  
+  .modal-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .modal-actions button {
+    width: auto;
+    min-width: 120px;
+  }
+}
+
+/* Media Queries - Desktop */
+@media (min-width: 768px) {
+  .content-section {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 100px;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .actions-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .action-button {
+    width: auto;
+  }
+  
+  .list-title {
+    font-size: 20px;
+  }
 }
 </style>
