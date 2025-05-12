@@ -100,7 +100,6 @@
     <!-- Modal para confirmar eliminación/desactivación -->
     <div v-if="showDeleteModal" class="modal">
       <div class="modal-content">
-        <span class="close" @click="showDeleteModal = false">&times;</span>
         <h2>{{ deleteAction === 'delete' ? 'Eliminar' : 'Desactivar' }} Usuario</h2>
         <p>¿Está seguro que desea {{ deleteAction === 'delete' ? 'eliminar' : 'desactivar' }} al usuario {{ selectedUser ? selectedUser.nombre + ' ' + selectedUser.apellido : '' }}?</p>
         <div class="form-group">
@@ -115,35 +114,39 @@
       </div>
     </div>
     
-    <!-- Modal para mostrar mensajes -->
-    <div v-if="showMessageModal" class="modal">
-      <div class="modal-content">
-        <span class="close" @click="showMessageModal = false">&times;</span>
-        <h2>{{ messageTitle }}</h2>
-        <p>{{ messageContent }}</p>
-        <div class="modal-actions">
-          <button @click="showMessageModal = false" class="btn-ok">Aceptar</button>
-        </div>
-      </div>
-    </div>
+    <!-- Modal para mensajes -->
+    <modal-message 
+      :show="showMessageModal"
+      :title="messageTitle"
+      :message="messageContent"
+      :type="messageType"
+      @close="hideMessage"
+    />
   </div>
 </template>
 
 <script>
 import UsersTable from '@/components/UsersTable.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
-import axios from 'axios';
+import ModalMessage from '@/components/ModalMessage.vue';
 
 export default {
   name: 'UserManagementView',
   components: {
     UsersTable,
-    HeaderComponent
+    HeaderComponent,
+    ModalMessage
   },
   data() {
     return {
-      users: [],
-      roles: [],
+      users: [
+        { id: 1, nombre: 'Admin', apellido: 'Principal', usuario: 'admin', email: 'admin@example.com', id_roles: 1, activo: true },
+        { id: 2, nombre: 'Usuario', apellido: 'Normal', usuario: 'user1', email: 'user1@example.com', id_roles: 2, activo: true }
+      ],
+      roles: [
+        { id: 1, nombre: 'Administrador' },
+        { id: 2, nombre: 'Usuario' }
+      ],
       selectedUser: null,
       showCreateModal: false,
       showEditModal: false,
@@ -151,6 +154,7 @@ export default {
       showMessageModal: false,
       messageTitle: '',
       messageContent: '',
+      messageType: 'info',
       deleteCompletely: false,
       deleteAction: 'deactivate',
       newUser: {
@@ -171,55 +175,26 @@ export default {
     };
   },
   created() {
-    this.fetchUsers();
     this.fetchRoles();
   },
-  computed: {
-    authHeader() {
-      // Obtener el token JWT del almacenamiento local
-      const token = localStorage.getItem('token');
-      return token ? { Authorization: `Bearer ${token}` } : {};
-    }
-  },
   methods: {
-    async fetchUsers() {
-      try {
-        // Llamada a un endpoint que obtenga todos los usuarios
-        // Este endpoint puede ser creado en el backend basado en los existentes
-        const response = await axios.get('/api/users', {
-          headers: this.authHeader
-        });
-        
-        // Transformar los usuarios al formato esperado por la tabla
-        this.users = response.data.map(user => ({
-          id: user.id,
-          nombre: user.nombre,
-          apellido: user.apellido,
-          usuario: user.usuario,
-          email: user.email,
-          rolId: user.id_roles,
-          estado: user.activo ? 'Activo' : 'Inactivo',
-          rol: user.rol
-        }));
-      } catch (error) {
-        console.error('Error al obtener usuarios:', error);
-        this.showMessage('Error', 'No se pudieron cargar los usuarios. Verifica tu conexión.');
-      }
+    showMessage(title, message, type = 'info') {
+      this.messageTitle = title;
+      this.messageContent = message;
+      this.messageType = type;
+      this.showMessageModal = true;
+    },
+    hideMessage() {
+      this.showMessageModal = false;
     },
     async fetchRoles() {
       try {
-        // Llamada a un endpoint para obtener roles
-        const response = await axios.get('/api/roles', {
-          headers: this.authHeader
-        });
-        this.roles = response.data;
+        // Simular llamada a API
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // this.roles = response.data;
       } catch (error) {
         console.error('Error al obtener roles:', error);
-        // Usar roles de ejemplo si la API falla
-        this.roles = [
-          { id: 1, nombre: 'Administrador' },
-          { id: 2, nombre: 'Usuario' }
-        ];
+        this.showMessage('Error', 'No se pudieron cargar los roles', 'error');
       }
     },
     handleUserSelection(user) {
@@ -250,69 +225,78 @@ export default {
       this.showEditModal = true;
     },
     confirmDeleteUser() {
-      if (!this.selectedUser) return;
+      if (!this.selectedUser) {
+        this.showMessage('Error', 'No hay ningún usuario seleccionado', 'error');
+        return;
+      }
       
-      this.deleteAction = 'deactivate';
-      this.deleteCompletely = false;
       this.showDeleteModal = true;
     },
     async createUser() {
       try {
-        const response = await axios.post('/api/users/create', this.newUser, {
-          headers: this.authHeader
+        // Simular llamada a API
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const newId = this.users.length > 0 
+          ? Math.max(...this.users.map(u => u.id)) + 1 
+          : 1;
+        
+        this.users.push({
+          id: newId,
+          ...this.newUser,
+          activo: true
         });
         
-        // Actualizar la lista de usuarios
-        this.fetchUsers();
         this.showCreateModal = false;
-        
-        this.showMessage('Éxito', 'Usuario creado correctamente');
+        this.showMessage('Éxito', 'Usuario creado correctamente', 'success');
       } catch (error) {
-        console.error('Error al crear usuario:', error);
-        this.showMessage('Error', error.response?.data?.error || 'Error al crear usuario');
+        this.showMessage('Error', 'Error al crear usuario', 'error');
       }
     },
     async updateUser() {
       try {
-        const response = await axios.put(`/api/users/update/${this.editingUser.id}`, this.editingUser, {
-          headers: this.authHeader
-        });
+        // Simular llamada a API
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Actualizar la lista de usuarios
-        this.fetchUsers();
+        const index = this.users.findIndex(u => u.id === this.editingUser.id);
+        if (index !== -1) {
+          this.users[index] = {
+            ...this.users[index],
+            nombre: this.editingUser.nombre,
+            apellido: this.editingUser.apellido,
+            usuario: this.editingUser.usuario,
+            email: this.editingUser.email
+          };
+        }
+        
         this.showEditModal = false;
-        
-        this.showMessage('Éxito', 'Usuario actualizado correctamente');
+        this.showMessage('Éxito', 'Usuario actualizado correctamente', 'success');
       } catch (error) {
-        console.error('Error al actualizar usuario:', error);
-        this.showMessage('Error', error.response?.data?.error || 'Error al actualizar usuario');
+        this.showMessage('Error', 'Error al actualizar usuario', 'error');
       }
     },
     async deleteUser() {
       try {
-        this.deleteAction = this.deleteCompletely ? 'delete' : 'deactivate';
+        // Simular llamada a API
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        await axios.delete(`/api/users/delete/${this.selectedUser.id}`, {
-          headers: this.authHeader,
-          data: { action: this.deleteAction }
-        });
+        if (this.deleteAction === 'delete') {
+          this.users = this.users.filter(u => u.id !== this.selectedUser.id);
+        } else {
+          const index = this.users.findIndex(u => u.id === this.selectedUser.id);
+          if (index !== -1) {
+            this.users[index].activo = false;
+          }
+        }
         
-        // Actualizar la lista de usuarios
-        this.fetchUsers();
         this.showDeleteModal = false;
         this.selectedUser = null;
         
         const actionText = this.deleteAction === 'delete' ? 'eliminado' : 'desactivado';
-        this.showMessage('Éxito', `Usuario ${actionText} correctamente`);
+        this.showMessage('Éxito', `Usuario ${actionText} correctamente`, 'success');
       } catch (error) {
-        console.error('Error al eliminar/desactivar usuario:', error);
-        this.showMessage('Error', error.response?.data?.error || `Error al ${this.deleteAction === 'delete' ? 'eliminar' : 'desactivar'} usuario`);
+        this.showMessage('Error', `Error al ${this.deleteAction === 'delete' ? 'eliminar' : 'desactivar'} usuario`, 'error');
       }
-    },
-    showMessage(title, content) {
-      this.messageTitle = title;
-      this.messageContent = content;
-      this.showMessageModal = true;
     }
   },
   watch: {
@@ -345,6 +329,7 @@ export default {
   justify-content: center;
   gap: 20px;
   margin-bottom: 30px;
+  flex-wrap: wrap;
 }
 
 .action-button {
@@ -355,17 +340,26 @@ export default {
   cursor: pointer;
   transition: background-color 0.3s;
   font-weight: 500;
+  min-width: 150px;
 }
 
 .action-button:hover {
   background-color: #f0f0f0;
-  color: rgb(28, 104, 233);
-  border-color: rgb(28, 104, 233);
 }
 
 .action-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.create-button:hover {
+  color: #4CAF50;
+  border-color: #4CAF50;
+}
+
+.edit-button:hover {
+  color: #2196F3;
+  border-color: #2196F3;
 }
 
 .delete-button {
@@ -379,7 +373,7 @@ export default {
   border-color: #c9302c;
 }
 
-/* Estilos para el modal */
+/* Estilos para modales */
 .modal {
   position: fixed;
   top: 0;
@@ -463,15 +457,6 @@ export default {
   cursor: pointer;
 }
 
-.btn-ok {
-  background-color: #4CAF50;
-  color: white;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
 .btn-submit:hover {
   background-color: #45a049;
 }
@@ -484,7 +469,20 @@ export default {
   background-color: #bbb;
 }
 
-.btn-ok:hover {
-  background-color: #45a049;
+/* Responsive */
+@media (max-width: 768px) {
+  .actions-section {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .action-button {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .modal-content {
+    width: 90%;
+  }
 }
 </style>

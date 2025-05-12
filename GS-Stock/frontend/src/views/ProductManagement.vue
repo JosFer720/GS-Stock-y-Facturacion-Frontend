@@ -9,13 +9,13 @@
         <button class="action-button create-button" @click="openCreateProductModal">
           Crear Producto
         </button>
-        <button class="action-button edit-button" @click="showEditConfirmation = true">
+        <button class="action-button edit-button" @click="confirmEdit" :disabled="!selectedProduct">
           Editar Producto
         </button>
         <button class="action-button search-button" @click="toggleSearch">
           Buscar Producto
         </button>
-        <button class="action-button delete-button" @click="showDeleteConfirmation = true">
+        <button class="action-button delete-button" @click="confirmDelete" :disabled="!selectedProduct">
           Eliminar Producto
         </button>
       </div>
@@ -33,6 +33,7 @@
       />
     </div>
 
+    <!-- Modal para crear producto -->
     <div v-if="showCreateModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showCreateModal = false">&times;</span>
@@ -40,142 +41,200 @@
         <form @submit.prevent="createProduct">
           <div class="form-group" v-for="field in ['nombre', 'codigo', 'precio', 'stock']" :key="field">
             <label :for="field">{{ field.charAt(0).toUpperCase() + field.slice(1) }}:</label>
-            <input :type="field === 'precio' || field === 'stock' ? 'number' : 'text'" :id="field" v-model="newProduct[field]" required>
+            <input 
+              :type="field === 'precio' || field === 'stock' ? 'number' : 'text'" 
+              :id="field" 
+              v-model="newProduct[field]" 
+              required
+              step="any"
+            >
           </div>
           <button type="submit">Guardar</button>
         </form>
       </div>
     </div>
 
+    <!-- Modal para editar producto -->
     <div v-if="showEditModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showEditModal = false">&times;</span>
         <h2>Editar Producto</h2>
         <form @submit.prevent="updateProduct">
           <div class="form-group" v-for="field in ['nombre', 'codigo', 'precio', 'stock']" :key="field">
-            <label :for="field">{{ field.charAt(0).toUpperCase() + field.slice(1) }}:</label>
-            <input :type="field === 'precio' || field === 'stock' ? 'number' : 'text'" :id="field" v-model="selectedProduct[field]" required>
+            <label :for="'edit-' + field">{{ field.charAt(0).toUpperCase() + field.slice(1) }}:</label>
+            <input 
+              :type="field === 'precio' || field === 'stock' ? 'number' : 'text'" 
+              :id="'edit-' + field" 
+              v-model="selectedProduct[field]" 
+              required
+              step="any"
+            >
           </div>
           <button type="submit">Actualizar</button>
         </form>
       </div>
     </div>
 
-    <div v-if="showDeleteConfirmation" class="modal">
-      <div class="modal-content">
-        <h2>Confirmación</h2>
-        <p v-if="selectedProduct">
-          ¿Estás seguro de eliminar el producto <strong>{{ selectedProduct.nombre }}</strong>?
-        </p>
-        <p v-else>
-          No hay ningún producto seleccionado para eliminar.
-        </p>
-        <div class="modal-actions">
-          <button @click="deleteProduct" :disabled="!selectedProduct">Sí, Eliminar</button>
-          <button @click="showDeleteConfirmation = false">Cancelar</button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="showEditConfirmation" class="modal">
-      <div class="modal-content">
-        <h2>Confirmación</h2>
-        <p v-if="selectedProduct">
-          ¿Estás seguro de que deseas editar el producto <strong>{{ selectedProduct.nombre }}</strong>?
-        </p>
-        <p v-else>
-          No hay ningún producto seleccionado para editar.
-        </p>
-        <div class="modal-actions">
-          <button @click="confirmEdit" :disabled="!selectedProduct">Sí, Editar</button>
-          <button @click="showEditConfirmation = false">Cancelar</button>
-        </div>
-      </div>
-    </div>
+    <!-- Modal para confirmaciones -->
+    <modal-message 
+      :show="showMessageModal"
+      :title="messageTitle"
+      :message="messageContent"
+      :type="messageType"
+      @close="hideMessage"
+    />
   </div>
 </template>
 
-<script setup>
+<script>
 import { ref, computed } from 'vue';
 import ProductsTable from '@/components/ProductsTable.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
+import ModalMessage from '@/components/ModalMessage.vue';
 
-const products = ref(Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  nombre: `Producto ${i + 1}`,
-  codigo: `P${(i + 1).toString().padStart(3, '0')}`,
-  precio: Math.floor(Math.random() * 400) + 50,
-  stock: Math.floor(Math.random() * 100) + 1
-})));
+export default {
+  name: 'ProductManagementView',
+  components: {
+    ProductsTable,
+    HeaderComponent,
+    ModalMessage
+  },
+  setup() {
+    const products = ref([
+      { id: 1, nombre: 'Producto 1', codigo: 'P001', precio: 100, stock: 50 },
+      { id: 2, nombre: 'Producto 2', codigo: 'P002', precio: 200, stock: 30 },
+      { id: 3, nombre: 'Producto 3', codigo: 'P003', precio: 150, stock: 20 }
+    ]);
 
-const selectedProduct = ref(null);
-const showCreateModal = ref(false);
-const showEditModal = ref(false);
-const showSearch = ref(false);
-const showDeleteConfirmation = ref(false);
-const showEditConfirmation = ref(false);
+    const selectedProduct = ref(null);
+    const showCreateModal = ref(false);
+    const showEditModal = ref(false);
+    const showSearch = ref(false);
+    const showMessageModal = ref(false);
+    const messageTitle = ref('');
+    const messageContent = ref('');
+    const messageType = ref('info');
 
-const newProduct = ref({ nombre: '', codigo: '', precio: '', stock: '' });
-const searchQuery = ref({ nombre: '', codigo: '' });
+    const newProduct = ref({ nombre: '', codigo: '', precio: '', stock: '' });
+    const searchQuery = ref({ nombre: '', codigo: '' });
 
-const openCreateProductModal = () => {
-  newProduct.value = { nombre: '', codigo: '', precio: '', stock: '' };
-  showCreateModal.value = true;
-};
+    const showMessage = (title, message, type = 'info') => {
+      messageTitle.value = title;
+      messageContent.value = message;
+      messageType.value = type;
+      showMessageModal.value = true;
+    };
 
-const toggleSearch = () => {
-  showSearch.value = !showSearch.value;
-};
+    const hideMessage = () => {
+      showMessageModal.value = false;
+    };
 
-const createProduct = () => {
-  const id = products.value.length + 1;
-  products.value.push({ id, ...newProduct.value });
-  showCreateModal.value = false;
-};
+    const openCreateProductModal = () => {
+      newProduct.value = { nombre: '', codigo: '', precio: '', stock: '' };
+      showCreateModal.value = true;
+    };
 
-const confirmEdit = () => {
-  if (!selectedProduct.value) {
-    showEditConfirmation.value = false;
-    return;
+    const toggleSearch = () => {
+      showSearch.value = !showSearch.value;
+    };
+
+    const createProduct = () => {
+      const id = products.value.length > 0 
+        ? Math.max(...products.value.map(p => p.id)) + 1 
+        : 1;
+      
+      products.value.push({ 
+        id, 
+        ...newProduct.value,
+        precio: parseFloat(newProduct.value.precio),
+        stock: parseInt(newProduct.value.stock)
+      });
+      
+      showCreateModal.value = false;
+      showMessage('Éxito', 'Producto creado correctamente', 'success');
+    };
+
+    const confirmEdit = () => {
+      if (!selectedProduct.value) {
+        showMessage('Error', 'No hay ningún producto seleccionado para editar', 'error');
+        return;
+      }
+      showEditModal.value = true;
+    };
+
+    const updateProduct = () => {
+      showEditModal.value = false;
+      showMessage('Éxito', 'Producto actualizado correctamente', 'success');
+    };
+
+    const confirmDelete = () => {
+      if (!selectedProduct.value) {
+        showMessage('Error', 'No hay ningún producto seleccionado para eliminar', 'error');
+        return;
+      }
+      
+      if (confirm(`¿Estás seguro de eliminar el producto "${selectedProduct.value.nombre}"?`)) {
+        deleteProduct();
+      }
+    };
+
+    const deleteProduct = () => {
+      products.value = products.value.filter(
+        (product) => product.id !== selectedProduct.value.id
+      );
+      selectedProduct.value = null;
+      showMessage('Éxito', 'Producto eliminado correctamente', 'success');
+    };
+
+    const handleProductSelection = (product) => {
+      selectedProduct.value = product;
+    };
+
+    const filteredProducts = computed(() => {
+      let result = products.value;
+
+      if (searchQuery.value.nombre) {
+        result = result.filter(p =>
+          p.nombre.toLowerCase().includes(searchQuery.value.nombre.toLowerCase())
+        );
+      }
+
+      if (searchQuery.value.codigo) {
+        result = result.filter(p =>
+          p.codigo.toLowerCase().includes(searchQuery.value.codigo.toLowerCase())
+        );
+      }
+
+      return result;
+    });
+
+
+    return {
+      products,
+      selectedProduct,
+      showCreateModal,
+      showEditModal,
+      showSearch,
+      showMessageModal,
+      messageTitle,
+      messageContent,
+      messageType,
+      newProduct,
+      searchQuery,
+      showMessage,
+      hideMessage,
+      openCreateProductModal,
+      toggleSearch,
+      createProduct,
+      confirmEdit,
+      updateProduct,
+      confirmDelete,
+      deleteProduct,
+      handleProductSelection,
+      filteredProducts
+    };
   }
-  showEditModal.value = true;
-  showEditConfirmation.value = false;
-};
-
-const updateProduct = () => {
-  showEditModal.value = false;
-};
-
-const deleteProduct = () => {
-  if (!selectedProduct.value) {
-    showDeleteConfirmation.value = false;
-    return;
-  }
-  products.value = products.value.filter(
-    (product) => product.id !== selectedProduct.value.id
-  );
-  selectedProduct.value = null;
-  showDeleteConfirmation.value = false;
-};
-
-const handleProductSelection = (product) => {
-  selectedProduct.value = product;
-};
-
-const filteredProducts = computed(() => {
-  let result = products.value;
-  if (searchQuery.value.nombre) {
-    result = result.filter(p =>
-      p.nombre.toLowerCase().includes(searchQuery.value.nombre.toLowerCase())
-    );
-  }
-  if (searchQuery.value.codigo) {
-    result = result.filter(p =>
-      p.codigo.toLowerCase().includes(searchQuery.value.codigo.toLowerCase())
-    );
-  }
-  return result;
-});
+}
 </script>
 
 <style scoped>
@@ -227,7 +286,7 @@ const filteredProducts = computed(() => {
   border-radius: 4px;
   width: 100%;
   box-sizing: border-box;
-  font-size: 16px; /* Mejor para inputs en móviles */
+  font-size: 16px;
 }
 
 .action-button {
@@ -251,9 +310,35 @@ const filteredProducts = computed(() => {
   transform: scale(0.98);
 }
 
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.create-button:hover {
+  color: #4CAF50;
+  border-color: #4CAF50;
+}
+
+.edit-button:hover {
+  color: #2196F3;
+  border-color: #2196F3;
+}
+
+.search-button:hover {
+  color: #FF9800;
+  border-color: #FF9800;
+}
+
 .delete-button {
   border: 1px solid #dc3545;
   color: #dc3545;
+}
+
+.delete-button:hover {
+  background-color: #f9e2e2;
+  color: #c9302c;
+  border-color: #c9302c;
 }
 
 .list-title {
@@ -289,6 +374,10 @@ const filteredProducts = computed(() => {
   text-align: center;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+.modal-content h2 {
+  margin-top: 0;
 }
 
 .close {
@@ -367,6 +456,17 @@ const filteredProducts = computed(() => {
     max-width: 250px;
   }
   
+  .actions-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .action-button {
+    width: auto;
+  }
+  
   .modal-actions {
     flex-direction: row;
     justify-content: center;
@@ -389,17 +489,6 @@ const filteredProducts = computed(() => {
   
   .page-title {
     font-size: 24px;
-  }
-  
-  .actions-section {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-  }
-  
-  .action-button {
-    width: auto;
   }
   
   .list-title {

@@ -11,34 +11,51 @@
         <input type="email" id="correo" v-model="correo" required>
       </div>
       <button type="submit" class="submit-button">Enviar</button>
-      <p v-if="mensaje" class="mensaje" :class="{ 'error': tipoMensaje === 'error', 'success': tipoMensaje === 'success' }">
-        {{ mensaje }}
-      </p>
     </form>
     <div class="back-link">
       <a href="#" @click.prevent="volverAlLogin">Volver al login</a>
     </div>
+
+    <modal-message 
+      :show="showMessageModal"
+      :title="messageTitle"
+      :message="messageContent"
+      :type="messageType"
+      @close="hideMessage"
+    />
   </div>
 </template>
 
 <script>
+import ModalMessage from '@/components/ModalMessage.vue';
+
 export default {
   name: 'RestablecerView',
+  components: {
+    ModalMessage
+  },
   data() {
     return {
       correo: '',
-      mensaje: '',
-      tipoMensaje: '' // 'error' o 'success'
+      showMessageModal: false,
+      messageTitle: '',
+      messageContent: '',
+      messageType: 'info'
     }
   },
   methods: {
+    showMessage(title, message, type = 'info') {
+      this.messageTitle = title;
+      this.messageContent = message;
+      this.messageType = type;
+      this.showMessageModal = true;
+    },
+    hideMessage() {
+      this.showMessageModal = false;
+    },
     async enviarSolicitud() {
-      this.mensaje = '';
-      this.tipoMensaje = '';
-      
       if (!this.correo) {
-        this.mensaje = 'Por favor, ingrese su correo electrónico';
-        this.tipoMensaje = 'error';
+        this.showMessage('Error', 'Por favor, ingrese su correo electrónico', 'error');
         return;
       }
       
@@ -57,17 +74,13 @@ export default {
           throw new Error(errorData.error || 'Error al procesar la solicitud');
         }
         
-        // Si la solicitud fue exitosa
-        this.mensaje = 'Se ha enviado un correo con las instrucciones para restablecer su contraseña';
-        this.tipoMensaje = 'success';
+        this.showMessage('Éxito', 'Se ha enviado un correo con las instrucciones para restablecer su contraseña', 'success');
         
-        // Opcional: redirigir al login después de unos segundos
         setTimeout(() => {
           this.$router.push('/');
         }, 5000);
       } catch (err) {
-        this.mensaje = err.message;
-        this.tipoMensaje = 'error';
+        this.showMessage('Error', err.message, 'error');
       }
     },
     volverAlLogin() {
@@ -77,116 +90,85 @@ export default {
 }
 </script>
 
-
-
-
 <style scoped>
-/* Eliminar el @import ya que el CSS global ya se aplica */
+.login-container {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.logo-container {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.logo-container img {
+  max-width: 150px;
+}
+
 h2 {
-  margin-top: 0;
-  margin-bottom: 25px;
-  font-size: 24px;
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #333;
 }
 
 .instructions {
   text-align: center;
-  color: var(--text-color);
-  margin-bottom: 25px;
-  font-size: 15px;
-  line-height: 1.4;
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
 }
 
 .input-group {
-  margin-bottom: 20px;
+  margin-bottom: 1rem;
 }
 
-label {
-  margin-bottom: 8px;
+.input-group label {
   display: block;
-  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #555;
 }
 
-input {
-  padding: 12px 15px;
-  font-size: 15px;
+.input-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
 }
 
 .submit-button {
-  margin-top: 10px;
-  margin-bottom: 15px;
-  padding: 14px;
-  font-size: 16px;
-  font-weight: 500;
   width: 100%;
+  padding: 0.75rem;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
 }
 
-.mensaje {
-  text-align: center;
-  margin-top: 15px;
-  margin-bottom: 15px;
-  padding: 12px;
-  border-radius: 5px;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.success {
-  background-color: rgba(76, 175, 80, 0.1);
-  color: #4CAF50;
-  border: 1px solid #4CAF50;
-}
-
-.error {
-  background-color: rgba(244, 67, 54, 0.1);
-  color: var(--error-color);
-  border: 1px solid var(--error-color);
+.submit-button:hover {
+  background-color: #0b7dda;
 }
 
 .back-link {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 1.5rem;
 }
 
 .back-link a {
-  color: var(--text-color);
+  color: #666;
   text-decoration: none;
-  font-size: 14px;
-  transition: color 0.2s;
-  padding: 5px;
+  font-size: 0.9rem;
 }
 
 .back-link a:hover {
-  color: var(--primary-color);
   text-decoration: underline;
-}
-
-/* Media queries consistentes con LoginView */
-@media (max-width: 480px) {
-  .login-container {
-    padding: 25px;
-  }
-  
-  h2 {
-    margin-bottom: 20px;
-    font-size: 22px;
-  }
-  
-  .instructions {
-    margin-bottom: 20px;
-  }
-}
-@media (max-width: 480px) {
-  h2 {
-    margin-bottom: 20px;
-    font-size: 22px;
-  }
-  
-  .instructions, .input-group {
-    margin-bottom: 20px;
-  }
-  
-  input, button {
-    padding: 12px;
-  }
+  color: #2196F3;
 }
 </style>

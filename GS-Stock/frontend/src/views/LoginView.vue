@@ -14,30 +14,52 @@
         <input type="password" id="contrasena" v-model="contrasena" required>
       </div>
       <button type="submit">Ingresar</button>
-      <p v-if="error" class="error">{{ error }}</p>
     </form>
     <div class="recover-link">
       <a href="#" @click.prevent="irARestablecer">Recuperar contraseña</a>
     </div>
+
+    <modal-message 
+      :show="showMessageModal"
+      :title="messageTitle"
+      :message="messageContent"
+      :type="messageType"
+      @close="hideMessage"
+    />
   </div>
 </template>
 
 <script>
+import ModalMessage from '@/components/ModalMessage.vue';
+
 export default {
   name: 'LoginView',
+  components: {
+    ModalMessage
+  },
   data() {
     return {
       usuario: '',
       contrasena: '',
-      error: ''
+      showMessageModal: false,
+      messageTitle: '',
+      messageContent: '',
+      messageType: 'info'
     }
   },
   methods: {
+    showMessage(title, message, type = 'info') {
+      this.messageTitle = title;
+      this.messageContent = message;
+      this.messageType = type;
+      this.showMessageModal = true;
+    },
+    hideMessage() {
+      this.showMessageModal = false;
+    },
     async handleLogin() {
-      this.error = '';
-      
       if (!this.usuario || !this.contrasena) {
-        this.error = 'Por favor, complete todos los campos';
+        this.showMessage('Error', 'Por favor, complete todos los campos', 'error');
         return;
       }
       
@@ -60,14 +82,15 @@ export default {
         }
         
         const data = await response.json();
-        // Guardar token y datos de usuario
         localStorage.setItem('jwtToken', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Redirigir al dashboard
-        this.$router.push('/dashboard');
+        this.showMessage('Éxito', 'Inicio de sesión exitoso', 'success');
+        setTimeout(() => {
+          this.$router.push('/dashboard');
+        }, 1500);
       } catch (err) {
-        this.error = err.message;
+        this.showMessage('Error', err.message, 'error');
       }
     },
     irARestablecer() {
@@ -77,41 +100,78 @@ export default {
 }
 </script>
 
-
 <style scoped>
+.login-container {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.logo-container {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.logo-container img {
+  max-width: 150px;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.input-group {
+  margin-bottom: 1rem;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #555;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+button {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
 .recover-link {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 1.5rem;
 }
 
 .recover-link a {
-  color: var(--text-color);
+  color: #666;
   text-decoration: none;
-  font-size: 14px;
-  transition: color 0.2s;
+  font-size: 0.9rem;
 }
 
 .recover-link a:hover {
-  color: var(--primary-color);
   text-decoration: underline;
-}
-
-.error {
-  margin-top: 15px;
-  margin-bottom: 15px;
-}
-@media (max-width: 480px) {
-  h2 {
-    margin-bottom: 20px;
-    font-size: 22px;
-  }
-  
-  .instructions, .input-group {
-    margin-bottom: 20px;
-  }
-  
-  input, button {
-    padding: 12px;
-  }
+  color: #4CAF50;
 }
 </style>
