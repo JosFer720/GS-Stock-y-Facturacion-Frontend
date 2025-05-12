@@ -77,6 +77,7 @@ export default {
 }
 </script>
 
+
 <style scoped>
 .recover-link {
   text-align: center;
@@ -84,14 +85,33 @@ export default {
 }
 
 .recover-link a {
-  color: var(--primary-color);
+  color: var(--text-color);
   text-decoration: none;
   font-size: 14px;
   transition: color 0.2s;
 }
 
 .recover-link a:hover {
-  color: var(--primary-hover);
+  color: var(--primary-color);
   text-decoration: underline;
+}
+
+.error {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+@media (max-width: 480px) {
+  h2 {
+    margin-bottom: 20px;
+    font-size: 22px;
+  }
+  
+  .instructions, .input-group {
+    margin-bottom: 20px;
+  }
+  
+  input, button {
+    padding: 12px;
+  }
 }
 </style>

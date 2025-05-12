@@ -77,42 +77,44 @@ export default {
 }
 </script>
 
-<style scoped>
-@import '@/styles/style.css';
 
+
+
+<style scoped>
+/* Eliminar el @import ya que el CSS global ya se aplica */
 h2 {
-  margin-top: 10px;
-  margin-bottom: 30px;
-  font-size: 28px;
+  margin-top: 0;
+  margin-bottom: 25px;
+  font-size: 24px;
 }
 
 .instructions {
   text-align: center;
   color: var(--text-color);
-  margin-bottom: 35px;
-  font-size: 16px;
+  margin-bottom: 25px;
+  font-size: 15px;
   line-height: 1.4;
 }
 
 .input-group {
-  margin-bottom: 8px;
+  margin-bottom: 20px;
 }
 
 label {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   display: block;
   font-weight: 500;
 }
 
 input {
-  padding: 14px 16px;
-  font-size: 16px;
+  padding: 12px 15px;
+  font-size: 15px;
 }
 
 .submit-button {
-  margin-top: 5px;
-  margin-bottom: 20px;
-  padding: 16px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+  padding: 14px;
   font-size: 16px;
   font-weight: 500;
   width: 100%;
@@ -120,11 +122,12 @@ input {
 
 .mensaje {
   text-align: center;
-  margin-top: 20px;
-  margin-bottom: 20px;
+  margin-top: 15px;
+  margin-bottom: 15px;
   padding: 12px;
   border-radius: 5px;
   font-weight: 500;
+  font-size: 14px;
 }
 
 .success {
@@ -141,7 +144,7 @@ input {
 
 .back-link {
   text-align: center;
-  margin-top: 30px;
+  margin-top: 20px;
 }
 
 .back-link a {
@@ -157,18 +160,33 @@ input {
   text-decoration: underline;
 }
 
-/* Mejores espaciados en la vista móvil */
+/* Media queries consistentes con LoginView */
 @media (max-width: 480px) {
+  .login-container {
+    padding: 25px;
+  }
+  
   h2 {
-    margin-bottom: 25px;
+    margin-bottom: 20px;
+    font-size: 22px;
   }
   
   .instructions {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
+  }
+}
+@media (max-width: 480px) {
+  h2 {
+    margin-bottom: 20px;
+    font-size: 22px;
   }
   
-  .input-group {
-    margin-bottom: 30px;
+  .instructions, .input-group {
+    margin-bottom: 20px;
+  }
+  
+  input, button {
+    padding: 12px;
   }
 }
 </style>

@@ -15,11 +15,12 @@ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   margin: 0;
-  padding: 0;
+  padding: 20px; /* Añadido padding para dispositivos móviles */
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  box-sizing: border-box; /* Asegura que el padding no afecte el ancho */
 }
 
 .login-container {
@@ -28,26 +29,27 @@ body {
   box-shadow: var(--shadow);
   width: 100%;
   max-width: 400px;
-  padding: 35px;
-  margin: 20px auto;
+  min-width: 300px;
+  padding: 35px 40px; /* Aumenté el padding horizontal para mejor balance */
+  margin: 20px;
   transition: all 0.3s ease;
+  box-sizing: border-box;
 }
+
 
 .logo-container {
   text-align: center;
-  margin-bottom: 30px;
+  margin: 0 auto 30px; /* Centrado y margen inferior */
   padding: 10px;
-  border-radius: 8px;
-  display: inline-block;
-  width: auto;
-  margin-left: auto;
-  margin-right: auto;
-  display: block;
+  width: 100%; /* Ocupa todo el ancho disponible */
 }
 
 .logo-container img {
   max-width: 230px;
+  width: 100%; /* Responsive */
   height: auto;
+  display: block; /* Elimina espacio inferior fantasma */
+  margin: 0 auto; /* Centrado horizontal */
 }
 
 h2 {
@@ -129,12 +131,25 @@ button:active {
 }
 
 @media (max-width: 480px) {
+  body {
+    padding: 15px;
+    align-items: flex-start; /* Centrado desde la parte superior en móviles */
+    padding-top: 30px; /* Espacio superior en móviles */
+  }
+  
   .login-container {
-    margin: 15px;
     padding: 25px;
+    margin: 0 auto; /* Centrado horizontal */
+    width: 100%;
+  }
+}
+
+@media (max-width: 350px) {
+  .login-container {
+    padding: 20px 15px;
   }
   
   h2 {
-    font-size: 22px;
+    font-size: 20px;
   }
 }
