@@ -3,19 +3,23 @@
     <div class="logo-container">
       <img src="../assets/images/logo-without-back-letters.png" alt="Logo" class="logo-image" />
     </div>
-    
-    <nav class="navigation">
+
+    <button class="hamburger" @click="toggleMenu">
+      ☰
+    </button>
+
+    <nav class="navigation" :class="{ open: isMenuOpen }">
       <ul>
-        <li><a href="/inventario" :class="{ active: currentPath === '/inventario' }">Inventario</a></li>
-        <li><a href="/usuarios" :class="{ active: currentPath === '/usuarios' }">Gestión Usuarios</a></li>
-        <li><a href="/rendimiento" :class="{ active: currentPath === '/rendimiento' }">Rendimiento</a></li>
-        <li><a href="/clientes" :class="{ active: currentPath === '/clientes' }">Clientes</a></li>
+        <li><a href="/inventario" :class="{ active: currentPath === '/inventario' }" @click="closeMenu">Inventario</a></li>
+        <li><a href="/usuarios" :class="{ active: currentPath === '/usuarios' }" @click="closeMenu">Gestión Usuarios</a></li>
+        <li><a href="/rendimiento" :class="{ active: currentPath === '/rendimiento' }" @click="closeMenu">Rendimiento</a></li>
+        <li><a href="/clientes" :class="{ active: currentPath === '/clientes' }" @click="closeMenu">Clientes</a></li>
       </ul>
     </nav>
-    
+
     <div class="header-right">
       <div class="secondary-logo">
-        <img src="../assets/images/perfil.png" alt="Secondary Logo" class="logo-image" />
+        <img src="../assets/images/perfil.png" alt="Perfil" class="logo-image" />
       </div>
       <button class="logout-button" @click="handleLogout">Logout</button>
     </div>
@@ -27,8 +31,9 @@ export default {
   name: 'HeaderComponent',
   data() {
     return {
-      currentPath: ''
-    }
+      currentPath: '',
+      isMenuOpen: false
+    };
   },
   created() {
     this.currentPath = this.$route.path;
@@ -39,9 +44,14 @@ export default {
     }
   },
   methods: {
+    toggleMenu() {
+      this.isMenuOpen = !this.isMenuOpen;
+    },
+    closeMenu() {
+      this.isMenuOpen = false;
+    },
     async handleLogout() {
       try {
-        // Llamar al endpoint de logout en el backend (opcional)
         const token = localStorage.getItem('jwtToken');
         if (token) {
           await fetch('http://localhost:3000/api/auth/logout', {
@@ -53,23 +63,18 @@ export default {
             mode: 'cors'
           });
         }
-        
-        // Limpiar el almacenamiento local
         localStorage.removeItem('jwtToken');
         localStorage.removeItem('user');
-        
-        // Redirigir al usuario a la página de login usando Vue Router
         this.$router.push('/');
       } catch (error) {
         console.error('Error durante el logout:', error);
-        // Igualmente redirigir al usuario al login
         localStorage.removeItem('jwtToken');
         localStorage.removeItem('user');
         this.$router.push('/');
       }
     }
   }
-}
+};
 </script>
 
 <style scoped>
@@ -81,48 +86,36 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
+  padding: 10px 20px;
   height: 60px;
   background-color: #fff;
   border-bottom: 1px solid #ddd;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 100;
 }
 
-.logo-container, .secondary-logo {
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-}
-
-.logo-container img{
-  margin-top: 30px;
-  max-width: 200px;
-  min-width: 100px;
-  width: 100%;
-}
-
-.secondary-logo img {
-  max-width: 100%;
-  max-height: 100%;
+.logo-container img {
+  height: 30px;
+  width: auto;
+  object-fit: contain;
 }
 
 .navigation {
   flex: 1;
-  text-align: center;
 }
 
 .navigation ul {
   display: flex;
   justify-content: center;
-  list-style: none;
+  align-items: center;
+  gap: 30px;
   padding: 0;
   margin: 0;
+  list-style: none;
 }
 
 .navigation li {
-  margin: 0 15px;
+  display: block;
 }
 
 .navigation a {
@@ -132,6 +125,8 @@ export default {
   padding: 5px 10px;
   border-radius: 4px;
   transition: all 0.3s ease;
+  display: block;
+  text-align: center;
 }
 
 .navigation a:hover {
@@ -150,6 +145,12 @@ export default {
   gap: 15px;
 }
 
+.secondary-logo img {
+  height: 50px;
+  width: 50px;
+  object-fit: cover;
+}
+
 .logout-button {
   background-color: #f44336;
   color: white;
@@ -163,5 +164,47 @@ export default {
 
 .logout-button:hover {
   background-color: #d32f2f;
+}
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: black;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+@media (max-width: 768px) {
+  .hamburger {
+    display: block;
+  }
+
+  .navigation {
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    display: none;
+    flex-direction: column;
+    border-top: 1px solid #ddd;
+  }
+
+  .navigation.open {
+    display: flex;
+  }
+
+  .navigation ul {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 0;
+  }
+
+  .navigation a {
+    padding: 10px;
+    width: 100%;
+  }
 }
 </style>
