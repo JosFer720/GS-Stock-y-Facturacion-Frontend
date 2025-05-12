@@ -53,6 +53,8 @@ export default {
     hideMessage() {
       this.showMessageModal = false;
     },
+    
+    // Coneccion con el endpoint de forgot-password ------------
     async enviarSolicitud() {
       if (!this.correo) {
         this.showMessage('Error', 'Por favor, ingrese su correo electrónico', 'error');
@@ -60,12 +62,12 @@ export default {
       }
       
       try {
-        const response = await fetch('http://localhost:3000/api/auth/recuperar', {
+        const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ correo: this.correo }),
+          body: JSON.stringify({ email: this.correo }), // Cambiar 'correo' a 'email' para que coincida con el backend
           mode: 'cors'
         });
         

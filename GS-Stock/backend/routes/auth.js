@@ -5,10 +5,10 @@ const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
+  user: process.env.DB_USER || 'admin',
   host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'gs_stock',
-  password: process.env.DB_PASSWORD || 'postgres',
+  database: process.env.DB_NAME || 'mydb',
+  password: process.env.DB_PASSWORD || 'secret',
   port: process.env.DB_PORT || 5432,
 });
 
