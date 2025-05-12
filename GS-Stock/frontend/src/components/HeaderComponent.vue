@@ -1,15 +1,16 @@
 <template>
   <header class="app-header">
     <div class="logo-container">
-      <img src="../assets/images/logo-without-back-letters.png" alt="Logo" class="logo-image" />
+      <router-link to="/dashboard">
+        <img src="../assets/images/logo-without-back-letters.png" alt="Logo" class="logo-image" />
+      </router-link>
     </div>
 
-    <button class="hamburger" @click="toggleMenu">
-      ☰
-    </button>
+    <button class="hamburger" @click="toggleMenu">☰</button>
 
     <nav class="navigation" :class="{ open: isMenuOpen }">
       <ul>
+        <li><a href="/dashboard" :class="{ active: currentPath === '/dashboard' }" @click="closeMenu">Dashboard</a></li>
         <li><a href="/inventario" :class="{ active: currentPath === '/inventario' }" @click="closeMenu">Inventario</a></li>
         <li><a href="/usuarios" :class="{ active: currentPath === '/usuarios' }" @click="closeMenu">Gestión Usuarios</a></li>
         <li><a href="/rendimiento" :class="{ active: currentPath === '/rendimiento' }" @click="closeMenu">Rendimiento</a></li>
@@ -94,14 +95,17 @@ export default {
   z-index: 100;
 }
 
-.logo-container img {
-  height: 30px;
-  width: auto;
-  object-fit: contain;
+.logo-container {
+  display: flex;
+  align-items: center;
+  margin-right: auto;
 }
 
-.navigation {
-  flex: 1;
+.logo-container img {
+  height: 50px;
+  width: auto;
+  object-fit: contain;
+  margin-top: 10px; /* Espacio vertical */
 }
 
 .navigation ul {
@@ -143,11 +147,12 @@ export default {
   display: flex;
   align-items: center;
   gap: 15px;
+  margin-left: 20px; /* Espacio entre "Clientes" y el ícono de usuario */
 }
 
 .secondary-logo img {
-  height: 50px;
-  width: 50px;
+  height: 40px;
+  width: 40px;
   object-fit: cover;
 }
 
