@@ -1,109 +1,97 @@
 <template>
   <div class="products-table-container">
-    <!-- Vista de tabla para pantallas medianas y grandes -->
+    <!-- Vista de tabla -->
     <div class="table-responsive">
       <table class="products-table">
         <thead>
           <tr>
-            <th>Nombre</th>
-            <th>Código</th>
-            <th>Precio</th>
-            <th>Stock</th>
+            <th>ID</th>
+            <th>Cantidad</th>
+            <th>ID Zapatos</th>
+            <th>Fecha Ingreso</th>
+            <th>Estado</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="product in paginatedProducts"
-            :key="product.id"
-            :class="{ selected: selectedProductId === product.id }"
-            @click="selectProduct(product)"
-          >
-            <td data-label="Nombre">{{ product.nombre }}</td>
-            <td data-label="Código">{{ product.codigo }}</td>
-            <td data-label="Precio">{{ product.precio }}</td>
-            <td data-label="Stock">{{ product.stock }}</td>
-            <td data-label="Acciones">
-              <button @click.stop="$emit('product-selected', product)" class="select-btn">Seleccionar</button>
+          <tr v-for="product in paginatedProducts" :key="product.id">
+            <td>{{ product.id || '-' }}</td>
+            <td>{{ product.cantidad || '0' }}</td>
+            <td>{{ product.id_zapatos || '-' }}</td>
+            <td>{{ formatDate(product.fecha_ingreso) }}</td>
+            <td>{{ product.estado || 'Desconocido' }}</td>
+            <td>
+              <button @click.stop="$emit('product-selected', product)" class="select-btn">
+                Seleccionar
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Visualización en tarjetas para móviles -->
+    <!-- Vista de tarjetas para móviles -->
     <div class="card-view">
-      <div 
-        v-for="product in paginatedProducts" 
-        :key="product.id"
-        :class="['product-card', { selected: selectedProductId === product.id }]"
-        @click="selectProduct(product)"
-      >
+      <div v-for="product in paginatedProducts" :key="product.id" class="product-card">
         <div class="card-content">
           <div class="card-row">
-            <strong>Nombre:</strong>
-            <span>{{ product.nombre }}</span>
+            <strong>ID:</strong>
+            <span>{{ product.id || '-' }}</span>
           </div>
           <div class="card-row">
-            <strong>Código:</strong>
-            <span>{{ product.codigo }}</span>
+            <strong>Cantidad:</strong>
+            <span>{{ product.cantidad || '0' }}</span>
           </div>
           <div class="card-row">
-            <strong>Precio:</strong>
-            <span>{{ product.precio }}</span>
+            <strong>ID Zapatos:</strong>
+            <span>{{ product.id_zapatos || '-' }}</span>
           </div>
           <div class="card-row">
-            <strong>Stock:</strong>
-            <span>{{ product.stock }}</span>
+            <strong>Fecha Ingreso:</strong>
+            <span>{{ formatDate(product.fecha_ingreso) }}</span>
           </div>
-          <button @click.stop="$emit('product-selected', product)" class="select-btn">Seleccionar</button>
+          <div class="card-row">
+            <strong>Estado:</strong>
+            <span>{{ product.estado || 'Desconocido' }}</span>
+          </div>
+          <button @click.stop="$emit('product-selected', product)" class="select-btn">
+            Seleccionar
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Paginación responsiva -->
+    <!-- Paginación -->
     <div class="pagination">
-      <!-- Botón anterior -->
-      <button 
-        @click="previousPage" 
-        :disabled="currentPage === 1"
-        class="pagination-nav"
-      >
-        &laquo;
-      </button>
-      
-      <div class="page-numbers">
-        <button
-          v-for="pageNum in displayedPageNumbers"
-          :key="pageNum"
-          @click="currentPage = pageNum"
-          :class="{ active: currentPage === pageNum }"
-        >
-          {{ pageNum }}
-        </button>
-      </div>
-      
-      <!-- Botón siguiente -->
-      <button 
-        @click="nextPage" 
-        :disabled="currentPage === totalPages"
-        class="pagination-nav"
-      >
-        &raquo;
-      </button>
+      <!-- ... (mantén tu código de paginación existente) ... -->
     </div>
   </div>
 </template>
 
+
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString(); // Formato local simple
+  } catch {
+    return dateString;
+  }
+};
 
 const props = defineProps({
   products: {
     type: Array,
-    required: true
+    required: true,
+    default: () => [] // Valor por defecto array vacío
   }
 });
+
+
+
 
 const emit = defineEmits(['product-selected']);
 const selectedProductId = ref(null);

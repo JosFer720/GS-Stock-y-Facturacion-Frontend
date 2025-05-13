@@ -5,6 +5,7 @@ const { Pool } = require('pg');
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const pruebaRoutes = require('./routes/prueba'); // Importamos nuestro nuevo módulo
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,7 @@ app.use(express.json());
 // Rutas principales
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api', pruebaRoutes); // Usamos la nueva ruta de prueba
 
 // Health check mejorado
 app.get('/health', async (req, res) => {

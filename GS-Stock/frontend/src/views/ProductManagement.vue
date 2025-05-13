@@ -3,20 +3,20 @@
     <header-component />
 
     <div class="content-section">
-      <div class="page-title">Gestión de Productos</div>
+      <div class="page-title">Gestión de Inventarios</div>
 
       <div class="actions-section">
         <button class="action-button create-button" @click="openCreateProductModal">
-          Crear Producto
+          Crear Inventario
         </button>
         <button class="action-button edit-button" @click="confirmEdit" :disabled="!selectedProduct">
-          Editar Producto
+          Editar Inventario
         </button>
         <button class="action-button search-button" @click="toggleSearch">
-          Buscar Producto
+          Buscar Inventario
         </button>
         <button class="action-button delete-button" @click="confirmDelete" :disabled="!selectedProduct">
-          Eliminar Producto
+          Eliminar Inventario
         </button>
       </div>
 
@@ -25,9 +25,18 @@
         <input v-model="searchQuery.codigo" placeholder="Buscar por código" />
       </div>
 
-      <h2 class="list-title">Lista de productos</h2>
+      <h2 class="list-title">Lista de inventarios</h2>
+
+      <div v-if="loading" class="loading-indicator">
+        Cargando inventarios...
+      </div>
+      
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
 
       <products-table
+        v-if="!loading && !error"
         :products="filteredProducts"
         @product-selected="handleProductSelection"
       />
@@ -37,14 +46,14 @@
     <div v-if="showCreateModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showCreateModal = false">&times;</span>
-        <h2>Crear Nuevo Producto</h2>
+        <h2>Crear Nuevo Inventario</h2>
         <form @submit.prevent="createProduct">
-          <div class="form-group" v-for="field in ['nombre', 'codigo', 'precio', 'stock']" :key="field">
-            <label :for="field">{{ field.charAt(0).toUpperCase() + field.slice(1) }}:</label>
+          <div class="form-group" v-for="field in formFields" :key="field.name">
+            <label :for="field.name">{{ field.label }}:</label>
             <input 
-              :type="field === 'precio' || field === 'stock' ? 'number' : 'text'" 
-              :id="field" 
-              v-model="newProduct[field]" 
+              :type="field.type" 
+              :id="field.name" 
+              v-model="newProduct[field.name]" 
               required
               step="any"
             >
@@ -58,14 +67,14 @@
     <div v-if="showEditModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showEditModal = false">&times;</span>
-        <h2>Editar Producto</h2>
+        <h2>Editar Inventario</h2>
         <form @submit.prevent="updateProduct">
-          <div class="form-group" v-for="field in ['nombre', 'codigo', 'precio', 'stock']" :key="field">
-            <label :for="'edit-' + field">{{ field.charAt(0).toUpperCase() + field.slice(1) }}:</label>
+          <div class="form-group" v-for="field in formFields" :key="field.name">
+            <label :for="'edit-' + field.name">{{ field.label }}:</label>
             <input 
-              :type="field === 'precio' || field === 'stock' ? 'number' : 'text'" 
-              :id="'edit-' + field" 
-              v-model="selectedProduct[field]" 
+              :type="field.type" 
+              :id="'edit-' + field.name" 
+              v-model="selectedProduct[field.name]" 
               required
               step="any"
             >
@@ -87,10 +96,11 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import ProductsTable from '@/components/ProductsTable.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'ProductManagementView',
@@ -100,12 +110,10 @@ export default {
     ModalMessage
   },
   setup() {
-    const products = ref([
-      { id: 1, nombre: 'Producto 1', codigo: 'P001', precio: 100, stock: 50 },
-      { id: 2, nombre: 'Producto 2', codigo: 'P002', precio: 200, stock: 30 },
-      { id: 3, nombre: 'Producto 3', codigo: 'P003', precio: 150, stock: 20 }
-    ]);
-
+    const router = useRouter();
+    const products = ref([]);
+    const loading = ref(true);
+    const error = ref(null);
     const selectedProduct = ref(null);
     const showCreateModal = ref(false);
     const showEditModal = ref(false);
@@ -115,7 +123,22 @@ export default {
     const messageContent = ref('');
     const messageType = ref('info');
 
-    const newProduct = ref({ nombre: '', codigo: '', precio: '', stock: '' });
+    const newProduct = ref({
+      nombre: '',
+      codigo: '',
+      cantidad: '',
+      estado: 'activo',
+      ubicacion: ''
+    });
+    
+    const formFields = [
+      { name: 'nombre', label: 'Nombre', type: 'text' },
+      { name: 'codigo', label: 'Código', type: 'text' },
+      { name: 'cantidad', label: 'Cantidad', type: 'number' },
+      { name: 'estado', label: 'Estado', type: 'text' },
+      { name: 'ubicacion', label: 'Ubicación', type: 'text' }
+    ];
+    
     const searchQuery = ref({ nombre: '', codigo: '' });
 
     const showMessage = (title, message, type = 'info') => {
@@ -130,7 +153,13 @@ export default {
     };
 
     const openCreateProductModal = () => {
-      newProduct.value = { nombre: '', codigo: '', precio: '', stock: '' };
+      newProduct.value = { 
+        nombre: '',
+        codigo: '',
+        cantidad: '',
+        estado: 'activo',
+        ubicacion: ''
+      };
       showCreateModal.value = true;
     };
 
@@ -138,56 +167,160 @@ export default {
       showSearch.value = !showSearch.value;
     };
 
-    const createProduct = () => {
-      const id = products.value.length > 0 
-        ? Math.max(...products.value.map(p => p.id)) + 1 
-        : 1;
+    const checkAuth = () => {
+      const token = localStorage.getItem('jwtToken');
+      if (!token) {
+        showMessage('Error', 'No has iniciado sesión', 'error');
+        setTimeout(() => {
+          router.push('/login');
+        }, 1500);
+        return false;
+      }
+      return token;
+    };
+
+    const fetchInventarios = async () => {
+      const token = checkAuth();
+      if (!token) return;
       
-      products.value.push({ 
-        id, 
-        ...newProduct.value,
-        precio: parseFloat(newProduct.value.precio),
-        stock: parseInt(newProduct.value.stock)
-      });
+      loading.value = true;
+      error.value = null;
       
-      showCreateModal.value = false;
-      showMessage('Éxito', 'Producto creado correctamente', 'success');
+      try {
+        const response = await fetch('http://localhost:3000/api/inventarios', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al cargar los inventarios');
+        }
+        
+        const data = await response.json();
+        console.log('Datos recibidos:', data); // Para depuración
+        
+        // Asegúrate de mapear todos los campos necesarios
+        products.value = data.data.map(item => ({
+          id: item.id ?? null,
+          cantidad: item.cantidad ?? 0,
+          id_zapatos: item.id_zapatos ?? null,
+          fecha_ingreso: item.fecha_de_ingreso ?? null,
+          id_usuario: item.id_usuarios ?? null,
+          estado: item.estado ?? 'Desconocido'
+        }));
+      } catch (err) {
+        error.value = `Error: ${err.message}`;
+        console.error('Error al obtener inventarios:', err);
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    const createProduct = async () => {
+      const token = checkAuth();
+      if (!token) return;
+      
+      try {
+        const response = await fetch('http://localhost:3000/api/inventarios', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newProduct.value)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al crear el inventario');
+        }
+        
+        showCreateModal.value = false;
+        showMessage('Éxito', 'Inventario creado correctamente', 'success');
+        fetchInventarios(); // Recargar la lista
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      }
     };
 
     const confirmEdit = () => {
       if (!selectedProduct.value) {
-        showMessage('Error', 'No hay ningún producto seleccionado para editar', 'error');
+        showMessage('Error', 'No hay ningún inventario seleccionado para editar', 'error');
         return;
       }
       showEditModal.value = true;
     };
 
-    const updateProduct = () => {
-      showEditModal.value = false;
-      showMessage('Éxito', 'Producto actualizado correctamente', 'success');
+    const updateProduct = async () => {
+      const token = checkAuth();
+      if (!token) return;
+      
+      try {
+        const response = await fetch(`http://localhost:3000/api/inventarios/${selectedProduct.value.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(selectedProduct.value)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al actualizar el inventario');
+        }
+        
+        showEditModal.value = false;
+        showMessage('Éxito', 'Inventario actualizado correctamente', 'success');
+        fetchInventarios(); // Recargar la lista
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      }
     };
 
     const confirmDelete = () => {
       if (!selectedProduct.value) {
-        showMessage('Error', 'No hay ningún producto seleccionado para eliminar', 'error');
+        showMessage('Error', 'No hay ningún inventario seleccionado para eliminar', 'error');
         return;
       }
       
-      if (confirm(`¿Estás seguro de eliminar el producto "${selectedProduct.value.nombre}"?`)) {
+      if (confirm(`¿Estás seguro de eliminar el inventario "${selectedProduct.value.nombre}"?`)) {
         deleteProduct();
       }
     };
 
-    const deleteProduct = () => {
-      products.value = products.value.filter(
-        (product) => product.id !== selectedProduct.value.id
-      );
-      selectedProduct.value = null;
-      showMessage('Éxito', 'Producto eliminado correctamente', 'success');
+    const deleteProduct = async () => {
+      const token = checkAuth();
+      if (!token) return;
+      
+      try {
+        const response = await fetch(`http://localhost:3000/api/inventarios/${selectedProduct.value.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al eliminar el inventario');
+        }
+        
+        products.value = products.value.filter(
+          (product) => product.id !== selectedProduct.value.id
+        );
+        selectedProduct.value = null;
+        showMessage('Éxito', 'Inventario eliminado correctamente', 'success');
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      }
     };
 
     const handleProductSelection = (product) => {
-      selectedProduct.value = product;
+      selectedProduct.value = { ...product };
     };
 
     const filteredProducts = computed(() => {
@@ -208,9 +341,14 @@ export default {
       return result;
     });
 
+    onMounted(() => {
+      fetchInventarios();
+    });
 
     return {
       products,
+      loading,
+      error,
       selectedProduct,
       showCreateModal,
       showEditModal,
@@ -221,6 +359,7 @@ export default {
       messageType,
       newProduct,
       searchQuery,
+      formFields,
       showMessage,
       hideMessage,
       openCreateProductModal,
@@ -348,6 +487,24 @@ export default {
   font-weight: bold;
   text-align: center;
   width: 100%;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  color: #666;
+}
+
+.error-message {
+  text-align: center;
+  padding: 20px;
+  color: #dc3545;
+  font-weight: bold;
+  border: 1px solid #dc3545;
+  border-radius: 4px;
+  background-color: #f8d7da;
+  margin: 15px 0;
 }
 
 .modal {
