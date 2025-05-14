@@ -8,6 +8,7 @@ const userRoutes = require('./routes/users');
 const pruebaRoutes = require('./routes/prueba'); // Importamos nuestro nuevo módulo
 const agregarProductoRoutes = require('./routes/agregarProducto');
 const eliminarProductoRoutes = require('./routes/eliminarProducto');
+const modificarProductoRoutes = require('./routes/modificarProducto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,7 @@ app.use('/api/user', userRoutes);
 app.use('/api', pruebaRoutes); // Usamos la nueva ruta de prueba
 app.use('/api', agregarProductoRoutes);
 app.use('/api', eliminarProductoRoutes);
+app.use('/api', modificarProductoRoutes);
 
 // Health check mejorado
 app.get('/health', async (req, res) => {
