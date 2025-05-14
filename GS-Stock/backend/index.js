@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const pruebaRoutes = require('./routes/prueba'); // Importamos nuestro nuevo módulo
+const pruebaRoutes = require('./routes/prueba');
 const agregarProductoRoutes = require('./routes/agregarProducto');
 const eliminarProductoRoutes = require('./routes/eliminarProducto');
 const modificarProductoRoutes = require('./routes/modificarProducto');
@@ -32,7 +32,7 @@ app.use(express.json());
 // Rutas principales
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api', pruebaRoutes); // Usamos la nueva ruta de prueba
+app.use('/api', pruebaRoutes);
 app.use('/api', agregarProductoRoutes);
 app.use('/api', eliminarProductoRoutes);
 app.use('/api', modificarProductoRoutes);

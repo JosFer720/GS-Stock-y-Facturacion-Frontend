@@ -7,22 +7,22 @@
 
       <div class="actions-section">
         <button class="action-button create-button" @click="openCreateProductModal">
-          Crear Inventario
+          Agregar al Inventario
         </button>
         <button class="action-button edit-button" @click="confirmEdit" :disabled="!selectedProduct">
           Editar Inventario
-        </button>
-        <button class="action-button search-button" @click="toggleSearch">
-          Buscar Inventario
         </button>
         <button class="action-button delete-button" @click="confirmDelete" :disabled="!selectedProduct">
           Eliminar Inventario
         </button>
       </div>
 
-      <div v-if="showSearch" class="search-section">
-        <input v-model="searchQuery.nombre" placeholder="Buscar por nombre" />
-        <input v-model="searchQuery.codigo" placeholder="Buscar por código" />
+      <div class="search-section">
+        <input 
+          v-model="searchQuery.id" 
+          placeholder="Buscar por ID del producto" 
+          @input="searchProduct"
+        />
       </div>
 
       <h2 class="list-title">Lista de inventarios</h2>
@@ -46,17 +46,44 @@
     <div v-if="showCreateModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showCreateModal = false">&times;</span>
-        <h2>Crear Nuevo Inventario</h2>
+        <h2>Agregar al Inventario</h2>
         <form @submit.prevent="createProduct">
-          <div class="form-group" v-for="field in formFields" :key="field.name">
-            <label :for="field.name">{{ field.label }}:</label>
+          <div class="form-group">
+            <label for="cantidad">Cantidad:</label>
             <input 
-              :type="field.type" 
-              :id="field.name" 
-              v-model="newProduct[field.name]" 
+              type="number" 
+              id="cantidad" 
+              v-model="newProduct.cantidad" 
               required
-              step="any"
+              min="1"
             >
+          </div>
+          <div class="form-group">
+            <label for="id_zapatos">ID de Zapatos:</label>
+            <input 
+              type="number" 
+              id="id_zapatos" 
+              v-model="newProduct.id_zapatos" 
+              required
+              min="1"
+            >
+          </div>
+          <div class="form-group">
+            <label for="id_usuarios">ID de Usuario:</label>
+            <input 
+              type="number" 
+              id="id_usuarios" 
+              v-model="newProduct.id_usuarios" 
+              required
+              min="1"
+            >
+          </div>
+          <div class="form-group">
+            <label for="estado">Estado:</label>
+            <select id="estado" v-model="newProduct.estado" required>
+              <option value="Disponible">Disponible</option>
+              <option value="Agotado">Agotado</option>
+            </select>
           </div>
           <button type="submit">Guardar</button>
         </form>
@@ -69,15 +96,43 @@
         <span class="close" @click="showEditModal = false">&times;</span>
         <h2>Editar Inventario</h2>
         <form @submit.prevent="updateProduct">
-          <div class="form-group" v-for="field in formFields" :key="field.name">
-            <label :for="'edit-' + field.name">{{ field.label }}:</label>
+          <div class="form-group">
+            <label for="edit-cantidad">Cantidad:</label>
             <input 
-              :type="field.type" 
-              :id="'edit-' + field.name" 
-              v-model="selectedProduct[field.name]" 
+              type="number" 
+              id="edit-cantidad" 
+              v-model="selectedProduct.cantidad" 
               required
-              step="any"
+              min="1"
             >
+          </div>
+          <div class="form-group">
+            <label for="edit-id_zapatos">ID de Zapatos:</label>
+            <input 
+              type="number" 
+              id="edit-id_zapatos" 
+              v-model="selectedProduct.id_zapatos" 
+              required
+              min="1"
+            >
+          </div>
+          <div class="form-group">
+            <label for="edit-id_usuarios">ID de Usuario:</label>
+            <input 
+              type="number" 
+              id="edit-id_usuarios" 
+              v-model="selectedProduct.id_usuarios" 
+              required
+              min="1"
+            >
+          </div>
+          <div class="form-group">
+            <label for="edit-estado">Estado:</label>
+            <select id="edit-estado" v-model="selectedProduct.estado" required>
+              <option value="activo">Activo</option>
+              <option value="inactivo">Inactivo</option>
+              <option value="agotado">Agotado</option>
+            </select>
           </div>
           <button type="submit">Actualizar</button>
         </form>
@@ -117,29 +172,19 @@ export default {
     const selectedProduct = ref(null);
     const showCreateModal = ref(false);
     const showEditModal = ref(false);
-    const showSearch = ref(false);
     const showMessageModal = ref(false);
     const messageTitle = ref('');
     const messageContent = ref('');
     const messageType = ref('info');
 
     const newProduct = ref({
-      nombre: '',
-      codigo: '',
       cantidad: '',
-      estado: 'activo',
-      ubicacion: ''
+      id_zapatos: '',
+      id_usuarios: '',
+      estado: 'activo'
     });
     
-    const formFields = [
-      { name: 'nombre', label: 'Nombre', type: 'text' },
-      { name: 'codigo', label: 'Código', type: 'text' },
-      { name: 'cantidad', label: 'Cantidad', type: 'number' },
-      { name: 'estado', label: 'Estado', type: 'text' },
-      { name: 'ubicacion', label: 'Ubicación', type: 'text' }
-    ];
-    
-    const searchQuery = ref({ nombre: '', codigo: '' });
+    const searchQuery = ref({ id: '' });
 
     const showMessage = (title, message, type = 'info') => {
       messageTitle.value = title;
@@ -154,17 +199,17 @@ export default {
 
     const openCreateProductModal = () => {
       newProduct.value = { 
-        nombre: '',
-        codigo: '',
         cantidad: '',
-        estado: 'activo',
-        ubicacion: ''
+        id_zapatos: '',
+        id_usuarios: '',
+        estado: 'activo'
       };
       showCreateModal.value = true;
     };
 
-    const toggleSearch = () => {
-      showSearch.value = !showSearch.value;
+    const searchProduct = () => {
+      // endpointColocarDespues para buscar por ID
+      console.log("Buscar producto con ID:", searchQuery.value.id);
     };
 
     const checkAuth = () => {
@@ -200,15 +245,14 @@ export default {
         }
         
         const data = await response.json();
-        console.log('Datos recibidos:', data); // Para depuración
+        console.log('Datos recibidos:', data);
         
-        // Asegúrate de mapear todos los campos necesarios
         products.value = data.data.map(item => ({
           id: item.id ?? null,
           cantidad: item.cantidad ?? 0,
           id_zapatos: item.id_zapatos ?? null,
           fecha_ingreso: item.fecha_de_ingreso ?? null,
-          id_usuario: item.id_usuarios ?? null,
+          id_usuarios: item.id_usuarios ?? null,
           estado: item.estado ?? 'Desconocido'
         }));
       } catch (err) {
@@ -238,9 +282,12 @@ export default {
           throw new Error(errorData.error || 'Error al crear el inventario');
         }
         
+        const data = await response.json();
+        console.log("Inventario creado:", data);
+        
         showCreateModal.value = false;
         showMessage('Éxito', 'Inventario creado correctamente', 'success');
-        fetchInventarios(); // Recargar la lista
+        fetchInventarios();
       } catch (err) {
         showMessage('Error', err.message, 'error');
       }
@@ -265,7 +312,12 @@ export default {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(selectedProduct.value)
+          body: JSON.stringify({
+            cantidad: selectedProduct.value.cantidad,
+            id_zapatos: selectedProduct.value.id_zapatos,
+            id_usuarios: selectedProduct.value.id_usuarios,
+            estado: selectedProduct.value.estado
+          })
         });
         
         if (!response.ok) {
@@ -273,9 +325,12 @@ export default {
           throw new Error(errorData.error || 'Error al actualizar el inventario');
         }
         
+        const data = await response.json();
+        console.log("Inventario actualizado:", data);
+        
         showEditModal.value = false;
         showMessage('Éxito', 'Inventario actualizado correctamente', 'success');
-        fetchInventarios(); // Recargar la lista
+        fetchInventarios();
       } catch (err) {
         showMessage('Error', err.message, 'error');
       }
@@ -287,8 +342,11 @@ export default {
         return;
       }
       
-      if (confirm(`¿Estás seguro de eliminar el inventario "${selectedProduct.value.nombre}"?`)) {
+      const idToDelete = prompt(`Ingrese el ID del producto que desea eliminar (ID seleccionado: ${selectedProduct.value.id})`);
+      if (idToDelete && idToDelete === selectedProduct.value.id.toString()) {
         deleteProduct();
+      } else if (idToDelete) {
+        showMessage('Error', 'El ID ingresado no coincide con el producto seleccionado', 'error');
       }
     };
 
@@ -309,11 +367,9 @@ export default {
           throw new Error(errorData.error || 'Error al eliminar el inventario');
         }
         
-        products.value = products.value.filter(
-          (product) => product.id !== selectedProduct.value.id
-        );
         selectedProduct.value = null;
         showMessage('Éxito', 'Inventario eliminado correctamente', 'success');
+        fetchInventarios();
       } catch (err) {
         showMessage('Error', err.message, 'error');
       }
@@ -326,15 +382,9 @@ export default {
     const filteredProducts = computed(() => {
       let result = products.value;
 
-      if (searchQuery.value.nombre) {
+      if (searchQuery.value.id) {
         result = result.filter(p =>
-          p.nombre.toLowerCase().includes(searchQuery.value.nombre.toLowerCase())
-        );
-      }
-
-      if (searchQuery.value.codigo) {
-        result = result.filter(p =>
-          p.codigo.toLowerCase().includes(searchQuery.value.codigo.toLowerCase())
+          p.id.toString().includes(searchQuery.value.id)
         );
       }
 
@@ -352,18 +402,16 @@ export default {
       selectedProduct,
       showCreateModal,
       showEditModal,
-      showSearch,
       showMessageModal,
       messageTitle,
       messageContent,
       messageType,
       newProduct,
       searchQuery,
-      formFields,
       showMessage,
       hideMessage,
       openCreateProductModal,
-      toggleSearch,
+      searchProduct,
       createProduct,
       confirmEdit,
       updateProduct,
@@ -377,6 +425,7 @@ export default {
 </script>
 
 <style scoped>
+/* Estilos anteriores se mantienen igual */
 .product-management-container {
   width: 100%;
   box-sizing: border-box;
@@ -412,9 +461,6 @@ export default {
 }
 
 .search-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   margin-bottom: 15px;
   width: 100%;
 }
@@ -462,11 +508,6 @@ export default {
 .edit-button:hover {
   color: #2196F3;
   border-color: #2196F3;
-}
-
-.search-button:hover {
-  color: #FF9800;
-  border-color: #FF9800;
 }
 
 .delete-button {
@@ -556,7 +597,8 @@ export default {
   font-weight: bold;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
   width: 100%;
   padding: 10px;
   border: 1px solid #ddd;
@@ -602,15 +644,6 @@ export default {
   
   .page-title {
     font-size: 22px;
-  }
-  
-  .search-section {
-    flex-direction: row;
-    justify-content: center;
-  }
-  
-  .search-section input {
-    max-width: 250px;
   }
   
   .actions-section {

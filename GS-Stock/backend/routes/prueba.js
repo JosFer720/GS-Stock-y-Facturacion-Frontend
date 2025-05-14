@@ -1,5 +1,3 @@
-// Este archivo contiene las rutas actualizadas para permitir que la aplicación acceda a los endpoints de inventarios
-
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
@@ -18,7 +16,6 @@ const pool = new Pool({
 // Este middleware debe implementarse en un archivo separado
 // y ser importado aquí como se muestra arriba
 
-// Endpoint para obtener todos los inventarios (protegido)
 // Endpoint para obtener todos los inventarios (protegido)
 router.get('/inventarios', auth, async (req, res) => {
   try {
@@ -69,16 +66,28 @@ router.get('/inventarios/:id', auth, async (req, res) => {
 // Crear un nuevo inventario (protegido)
 router.post('/inventarios', auth, async (req, res) => {
   try {
-    const { nombre, codigo, cantidad, estado, ubicacion } = req.body;
+    const { cantidad, id_zapatos, id_usuarios, estado } = req.body;
     
     // Validación básica
-    if (!nombre || !codigo || !cantidad) {
-      return res.status(400).json({ error: 'Los campos nombre, código y cantidad son obligatorios' });
+    if (!cantidad || !id_zapatos || !id_usuarios || !estado) {
+      return res.status(400).json({ 
+        error: 'Los campos cantidad, id_zapatos, id_usuarios y estado son obligatorios' 
+      });
+    }
+    
+    // Validar que la cantidad sea un número positivo
+    if (isNaN(cantidad) || cantidad <= 0) {
+      return res.status(400).json({ 
+        error: 'La cantidad debe ser un número positivo' 
+      });
     }
     
     const result = await pool.query(
-      'INSERT INTO inventarios (nombre, codigo, cantidad, estado, ubicacion) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [nombre, codigo, cantidad, estado, ubicacion]
+      `INSERT INTO inventarios 
+       (cantidad, id_zapatos, id_usuarios, estado) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING *`,
+      [cantidad, id_zapatos, id_usuarios, estado]
     );
     
     res.status(201).json({
@@ -87,7 +96,10 @@ router.post('/inventarios', auth, async (req, res) => {
     });
   } catch (err) {
     console.error('Error al crear inventario:', err);
-    res.status(500).json({ error: 'Error en el servidor' });
+    res.status(500).json({ 
+      error: 'Error en el servidor',
+      details: err.message 
+    });
   }
 });
 
@@ -95,7 +107,21 @@ router.post('/inventarios', auth, async (req, res) => {
 router.put('/inventarios/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, codigo, cantidad, estado, ubicacion } = req.body;
+    const { cantidad, id_zapatos, id_usuarios, estado } = req.body;
+    
+    // Validación básica
+    if (!cantidad || !id_zapatos || !id_usuarios || !estado) {
+      return res.status(400).json({ 
+        error: 'Los campos cantidad, id_zapatos, id_usuarios y estado son obligatorios' 
+      });
+    }
+    
+    // Validar que la cantidad sea un número positivo
+    if (isNaN(cantidad)) {
+      return res.status(400).json({ 
+        error: 'La cantidad debe ser un número' 
+      });
+    }
     
     // Validar que el inventario existe
     const checkResult = await pool.query(
@@ -110,9 +136,10 @@ router.put('/inventarios/:id', auth, async (req, res) => {
     // Actualizar el inventario
     const result = await pool.query(
       `UPDATE inventarios 
-       SET nombre = $1, codigo = $2, cantidad = $3, estado = $4, ubicacion = $5 
-       WHERE id = $6 RETURNING *`,
-      [nombre, codigo, cantidad, estado, ubicacion, id]
+       SET cantidad = $1, id_zapatos = $2, id_usuarios = $3, estado = $4 
+       WHERE id = $5 
+       RETURNING *`,
+      [cantidad, id_zapatos, id_usuarios, estado, id]
     );
     
     res.status(200).json({
@@ -121,7 +148,10 @@ router.put('/inventarios/:id', auth, async (req, res) => {
     });
   } catch (err) {
     console.error('Error al actualizar inventario:', err);
-    res.status(500).json({ error: 'Error en el servidor' });
+    res.status(500).json({ 
+      error: 'Error en el servidor',
+      details: err.message 
+    });
   }
 });
 
