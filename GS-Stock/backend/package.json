@@ -7,7 +7,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js" 
+    "start": "node index.js"
   },
   "repository": {
     "type": "git",
@@ -22,12 +22,12 @@
   "homepage": "https://github.com/JosFer720/GS-Stock-y-Facturacion#readme",
   "description": "",
   "dependencies": {
-    "express": "^4.18.2",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.3",
-    "dotenv": "^16.3.1",
     "cors": "^2.8.5",
-    "nodemailer": "^6.9.8"
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.8",
+    "pg": "^8.11.3"
   }
 }
