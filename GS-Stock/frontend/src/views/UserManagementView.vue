@@ -70,11 +70,19 @@
             <input type="email" id="email" v-model="newUser.email">
           </div>
           <div class="form-group">
-            <label for="rol">Rol:</label>
+            <label for="rol">Rol (ID):</label>
             <select id="rol" v-model="newUser.id_roles" required>
-              <option v-for="rol in roles" :key="rol.id" :value="rol.id">
-                {{ rol.nombre }}
-              </option>
+              <option value="1">1 - Administrador</option>
+              <option value="2">2 - Vendedor</option>
+              <option value="3">3 - Encargado de Inventario</option>
+              <option value="4">4 - Secretaria</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="estado">Estado:</label>
+            <select id="estado" v-model="newUser.estado" required>
+              <option :value="true">Activo</option>
+              <option :value="false">Inactivo</option>
             </select>
           </div>
           <button type="submit" class="btn-submit">Guardar</button>
@@ -99,6 +107,15 @@
           <div class="form-group">
             <label for="edit-email">Email:</label>
             <input type="email" id="edit-email" v-model="editingUser.email">
+          </div>
+          <div class="form-group">
+            <label for="edit-rol">Rol (ID):</label>
+            <select id="edit-rol" v-model="editingUser.id_roles" required>
+              <option value="1">1 - Administrador</option>
+              <option value="2">2 - Vendedor</option>
+              <option value="3">3 - Encargado de Inventario</option>
+              <option value="4">4 - Secretaria</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="edit-estado">Estado:</label>
@@ -171,11 +188,6 @@ export default {
     const deleteAction = computed(() => deleteCompletely.value ? 'delete' : 'deactivate');
     const searchQuery = ref('');
 
-    const roles = ref([
-      { id: 1, nombre: 'Administrador' },
-      { id: 2, nombre: 'Usuario' }
-    ]);
-
     const newUser = ref({
       nombre: '',
       apellido: '',
@@ -189,6 +201,7 @@ export default {
       nombre: '',
       apellido: '',
       email: '',
+      id_roles: null,
       estado: true
     });
 
@@ -243,7 +256,7 @@ export default {
           apellido: user.apellido,
           email: user.email,
           id_roles: user.id_roles,
-          estado: user.estado ? 'Activo' : 'Inactivo',
+          estado: user.estado ? 'Activo' : 'Inactivo'
         }));
       } catch (err) {
         error.value = `Error: ${err.message}`;
@@ -253,13 +266,7 @@ export default {
       }
     };
 
-    const getRolName = (rolId) => {
-      const rol = roles.value.find(r => r.id === rolId);
-      return rol ? rol.nombre : 'Desconocido';
-    };
-
     const searchUser = () => {
-      // Implementación de búsqueda local
       console.log("Buscando usuario:", searchQuery.value);
     };
 
@@ -300,6 +307,7 @@ export default {
         nombre: selectedUser.value.nombre,
         apellido: selectedUser.value.apellido,
         email: selectedUser.value.email,
+        id_roles: selectedUser.value.id_roles,
         estado: selectedUser.value.estado === 'Activo'
       };
       
@@ -351,6 +359,7 @@ export default {
             nombre: editingUser.value.nombre,
             apellido: editingUser.value.apellido,
             email: editingUser.value.email,
+            id_roles: editingUser.value.id_roles,
             estado: editingUser.value.estado
           })
         });
@@ -400,15 +409,11 @@ export default {
           }
         } else {
           // Desactivar (actualizar estado a false)
-          const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}`, {
+          const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}/deactivate`, {
             method: 'PUT',
             headers: {
-              'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              estado: false
-            })
+            }
           });
           
           if (!response.ok) {
@@ -432,7 +437,6 @@ export default {
 
     return {
       users,
-      roles,
       loading,
       error,
       selectedUser,
@@ -459,14 +463,14 @@ export default {
       createUser,
       updateUser,
       confirmDeleteUser,
-      deleteUser,
-      getRolName
+      deleteUser
     };
   }
 };
 </script>
 
 <style scoped>
+/* Estilos permanecen exactamente iguales */
 .user-management-container {
   width: 100%;
   box-sizing: border-box;
