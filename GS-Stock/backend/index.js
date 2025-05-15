@@ -10,6 +10,9 @@ const agregarProductoRoutes = require('./routes/agregarProducto');
 const eliminarProductoRoutes = require('./routes/eliminarProducto');
 const modificarProductoRoutes = require('./routes/modificarProducto');
 
+const mostrarUsuariosRoutes = require('./routes/usuarios');
+
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -37,6 +40,9 @@ app.use('/api', agregarProductoRoutes);
 app.use('/api', eliminarProductoRoutes);
 app.use('/api', modificarProductoRoutes);
 
+app.use('/api', mostrarUsuariosRoutes);
+
+
 // Health check mejorado
 app.get('/health', async (req, res) => {
   try {
@@ -57,7 +63,7 @@ async function testDbConnection() {
       break;
     } catch (err) {
       retries -= 1;
-      console.error(`Error de conexión a PostgreSQL, reintentos restantes: ${retries}`, err);
+      console.error('Error de conexión a PostgreSQL, reintentos restantes: ${retries}', err);
       await new Promise(res => setTimeout(res, 5000));
     }
   }
@@ -70,10 +76,10 @@ async function testDbConnection() {
 testDbConnection()
   .then(() => {
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Servidor escuchando en http://localhost:${PORT}`);
+      console.log('Servidor escuchando en http://localhost:${PORT}');
     });
   })
   .catch(err => {
     console.error('Error al iniciar la aplicación:', err);
     process.exit(1);
-  });
+  });

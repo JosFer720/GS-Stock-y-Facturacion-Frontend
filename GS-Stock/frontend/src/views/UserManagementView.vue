@@ -25,10 +25,30 @@
         </button>
       </div>
       
+      <div class="search-section">
+        <input 
+          v-model="searchQuery" 
+          placeholder="Buscar por nombre o email" 
+          @input="searchUser"
+        />
+      </div>
+
+      <h2 class="list-title">Lista de Usuarios</h2>
+
+      <div v-if="loading" class="loading-indicator">
+        Cargando usuarios...
+      </div>
+      
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
+
       <users-table 
-        :users="users" 
+        v-if="!loading && !error"
+        :users="filteredUsers"
         :roles="roles"
-        @user-selected="handleUserSelection" />
+        @user-selected="handleUserSelection"
+      />
     </div>
     
     <!-- Modal para crear usuario -->
@@ -43,19 +63,11 @@
           </div>
           <div class="form-group">
             <label for="apellido">Apellido:</label>
-            <input type="text" id="apellido" v-model="newUser.apellido">
-          </div>
-          <div class="form-group">
-            <label for="usuario">Usuario:</label>
-            <input type="text" id="usuario" v-model="newUser.usuario" required>
+            <input type="text" id="apellido" v-model="newUser.apellido" required>
           </div>
           <div class="form-group">
             <label for="email">Email:</label>
-            <input type="email" id="email" v-model="newUser.email" required>
-          </div>
-          <div class="form-group">
-            <label for="contrasena">Contraseña:</label>
-            <input type="password" id="contrasena" v-model="newUser.contrasena" required>
+            <input type="email" id="email" v-model="newUser.email">
           </div>
           <div class="form-group">
             <label for="rol">Rol:</label>
@@ -82,15 +94,18 @@
           </div>
           <div class="form-group">
             <label for="edit-apellido">Apellido:</label>
-            <input type="text" id="edit-apellido" v-model="editingUser.apellido">
-          </div>
-          <div class="form-group">
-            <label for="edit-usuario">Usuario:</label>
-            <input type="text" id="edit-usuario" v-model="editingUser.usuario" required>
+            <input type="text" id="edit-apellido" v-model="editingUser.apellido" required>
           </div>
           <div class="form-group">
             <label for="edit-email">Email:</label>
-            <input type="email" id="edit-email" v-model="editingUser.email" required>
+            <input type="email" id="edit-email" v-model="editingUser.email">
+          </div>
+          <div class="form-group">
+            <label for="edit-estado">Estado:</label>
+            <select id="edit-estado" v-model="editingUser.estado">
+              <option :value="true">Activo</option>
+              <option :value="false">Inactivo</option>
+            </select>
           </div>
           <button type="submit" class="btn-submit">Actualizar</button>
         </form>
@@ -116,19 +131,21 @@
     </div>
     
     <modal-message 
-      v-if="showMessageModal"
+      :show="showMessageModal"
       :title="messageTitle"
-      :content="messageContent"
-      @close="showMessageModal = false"
+      :message="messageContent"
+      :type="messageType"
+      @close="hideMessage"
     />
   </div>
 </template>
 
 <script>
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import UsersTable from '@/components/UsersTable.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
-import axios from 'axios';
 
 export default {
   name: 'UserManagementView',
@@ -137,185 +154,314 @@ export default {
     HeaderComponent,
     ModalMessage
   },
-  data() {
-    return {
-      users: [],
-      roles: [],
-      selectedUser: null,
-      showCreateModal: false,
-      showEditModal: false,
-      showDeleteModal: false,
-      showMessageModal: false,
-      messageTitle: '',
-      messageContent: '',
-      deleteCompletely: false,
-      deleteAction: 'deactivate',
-      newUser: {
-        nombre: '',
-        apellido: '',
-        usuario: '',
-        email: '',
-        contrasena: '',
-        id_roles: null
-      },
-      editingUser: {
-        id: null,
-        nombre: '',
-        apellido: '',
-        usuario: '',
-        email: ''
+  setup() {
+    const router = useRouter();
+    const users = ref([]);
+    const loading = ref(true);
+    const error = ref(null);
+    const selectedUser = ref(null);
+    const showCreateModal = ref(false);
+    const showEditModal = ref(false);
+    const showDeleteModal = ref(false);
+    const showMessageModal = ref(false);
+    const messageTitle = ref('');
+    const messageContent = ref('');
+    const messageType = ref('info');
+    const deleteCompletely = ref(false);
+    const deleteAction = computed(() => deleteCompletely.value ? 'delete' : 'deactivate');
+    const searchQuery = ref('');
+
+    const roles = ref([
+      { id: 1, nombre: 'Administrador' },
+      { id: 2, nombre: 'Usuario' }
+    ]);
+
+    const newUser = ref({
+      nombre: '',
+      apellido: '',
+      email: '',
+      id_roles: 2,
+      estado: true
+    });
+
+    const editingUser = ref({
+      id: null,
+      nombre: '',
+      apellido: '',
+      email: '',
+      estado: true
+    });
+
+    const checkAuth = () => {
+      const token = localStorage.getItem('jwtToken');
+      if (!token) {
+        showMessage('Error', 'No has iniciado sesión', 'error');
+        setTimeout(() => {
+          router.push('/login');
+        }, 1500);
+        return false;
       }
+      return token;
     };
-  },
-  created() {
-    this.fetchUsers();
-    this.fetchRoles();
-  },
-  computed: {
-    authHeader() {
-      // Obtener el token JWT del almacenamiento local
-      const token = localStorage.getItem('token');
-      return token ? { Authorization: `Bearer ${token}` } : {};
-    }
-  },
-  methods: {
-    async fetchUsers() {
+
+    const showMessage = (title, message, type = 'info') => {
+      messageTitle.value = title;
+      messageContent.value = message;
+      messageType.value = type;
+      showMessageModal.value = true;
+    };
+
+    const hideMessage = () => {
+      showMessageModal.value = false;
+    };
+
+    const fetchUsers = async () => {
+      const token = checkAuth();
+      if (!token) return;
+      
+      loading.value = true;
+      error.value = null;
+      
       try {
-        // Llamada a un endpoint que obtenga todos los usuarios
-        // Este endpoint puede ser creado en el backend basado en los existentes
-        const response = await axios.get('/api/users', {
-          headers: this.authHeader
+        const response = await fetch('http://localhost:3000/api/usuarios', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
         
-        // Transformar los usuarios al formato esperado por la tabla
-        this.users = response.data.map(user => ({
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al cargar los usuarios');
+        }
+        
+        const data = await response.json();
+        
+        users.value = data.data.map(user => ({
           id: user.id,
           nombre: user.nombre,
           apellido: user.apellido,
-          usuario: user.usuario,
           email: user.email,
-          rolId: user.id_roles,
-          estado: user.activo ? 'Activo' : 'Inactivo',
-          rol: user.rol
+          id_roles: user.id_roles,
+          estado: user.estado ? 'Activo' : 'Inactivo',
         }));
-      } catch (error) {
-        console.error('Error al obtener usuarios:', error);
-        this.showMessage('Error', 'No se pudieron cargar los usuarios. Verifica tu conexión.');
+      } catch (err) {
+        error.value = `Error: ${err.message}`;
+        console.error('Error al obtener usuarios:', err);
+      } finally {
+        loading.value = false;
       }
-    },
-    async fetchRoles() {
-      try {
-        // Llamada a un endpoint para obtener roles
-        const response = await axios.get('/api/roles', {
-          headers: this.authHeader
-        });
-        this.roles = response.data;
-      } catch (error) {
-        console.error('Error al obtener roles:', error);
-        // Usar roles de ejemplo si la API falla
-        this.roles = [
-          { id: 1, nombre: 'Administrador' },
-          { id: 2, nombre: 'Usuario' }
-        ];
-      }
-    },
-    handleUserSelection(user) {
-      this.selectedUser = user;
-    },
-    openCreateUserModal() {
-      this.newUser = {
+    };
+
+    const getRolName = (rolId) => {
+      const rol = roles.value.find(r => r.id === rolId);
+      return rol ? rol.nombre : 'Desconocido';
+    };
+
+    const searchUser = () => {
+      // Implementación de búsqueda local
+      console.log("Buscando usuario:", searchQuery.value);
+    };
+
+    const filteredUsers = computed(() => {
+      if (!searchQuery.value) return users.value;
+      
+      const query = searchQuery.value.toLowerCase();
+      return users.value.filter(user => 
+        user.nombre.toLowerCase().includes(query) || 
+        user.apellido.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query)
+      );
+    });
+
+    const handleUserSelection = (user) => {
+      selectedUser.value = { ...user };
+    };
+
+    const openCreateUserModal = () => {
+      newUser.value = {
         nombre: '',
         apellido: '',
-        usuario: '',
         email: '',
-        contrasena: '',
-        id_roles: this.roles.length > 0 ? this.roles[0].id : null
+        id_roles: 2,
+        estado: true
       };
-      this.showCreateModal = true;
-    },
-    openEditUserModal() {
-      if (!this.selectedUser) return;
+      showCreateModal.value = true;
+    };
+
+    const openEditUserModal = () => {
+      if (!selectedUser.value) {
+        showMessage('Error', 'No hay ningún usuario seleccionado para editar', 'error');
+        return;
+      }
       
-      this.editingUser = {
-        id: this.selectedUser.id,
-        nombre: this.selectedUser.nombre,
-        apellido: this.selectedUser.apellido,
-        usuario: this.selectedUser.usuario,
-        email: this.selectedUser.email
+      editingUser.value = {
+        id: selectedUser.value.id,
+        nombre: selectedUser.value.nombre,
+        apellido: selectedUser.value.apellido,
+        email: selectedUser.value.email,
+        estado: selectedUser.value.estado === 'Activo'
       };
       
-      this.showEditModal = true;
-    },
-    confirmDeleteUser() {
-      if (!this.selectedUser) return;
+      showEditModal.value = true;
+    };
+
+    const createUser = async () => {
+      const token = checkAuth();
+      if (!token) return;
       
-      this.deleteAction = 'deactivate';
-      this.deleteCompletely = false;
-      this.showDeleteModal = true;
-    },
-    async createUser() {
       try {
-        const response = await axios.post('/api/users/create', this.newUser, {
-          headers: this.authHeader
+        const response = await fetch('http://localhost:3000/api/usuarios', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newUser.value)
         });
         
-        // Actualizar la lista de usuarios
-        this.fetchUsers();
-        this.showCreateModal = false;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al crear el usuario');
+        }
         
-        this.showMessage('Éxito', 'Usuario creado correctamente');
-      } catch (error) {
-        console.error('Error al crear usuario:', error);
-        this.showMessage('Error', error.response?.data?.error || 'Error al crear usuario');
+        const data = await response.json();
+        console.log("Usuario creado:", data);
+        
+        showCreateModal.value = false;
+        showMessage('Éxito', 'Usuario creado correctamente', 'success');
+        fetchUsers();
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
       }
-    },
-    async updateUser() {
+    };
+
+    const updateUser = async () => {
+      const token = checkAuth();
+      if (!token) return;
+      
       try {
-        const response = await axios.put(`/api/users/update/${this.editingUser.id}`, this.editingUser, {
-          headers: this.authHeader
+        const response = await fetch(`http://localhost:3000/api/usuarios/${editingUser.value.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            nombre: editingUser.value.nombre,
+            apellido: editingUser.value.apellido,
+            email: editingUser.value.email,
+            estado: editingUser.value.estado
+          })
         });
         
-        // Actualizar la lista de usuarios
-        this.fetchUsers();
-        this.showEditModal = false;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al actualizar el usuario');
+        }
         
-        this.showMessage('Éxito', 'Usuario actualizado correctamente');
-      } catch (error) {
-        console.error('Error al actualizar usuario:', error);
-        this.showMessage('Error', error.response?.data?.error || 'Error al actualizar usuario');
+        const data = await response.json();
+        console.log("Usuario actualizado:", data);
+        
+        showEditModal.value = false;
+        showMessage('Éxito', 'Usuario actualizado correctamente', 'success');
+        fetchUsers();
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
       }
-    },
-    async deleteUser() {
+    };
+
+    const confirmDeleteUser = () => {
+      if (!selectedUser.value) {
+        showMessage('Error', 'No hay ningún usuario seleccionado para eliminar', 'error');
+        return;
+      }
+      
+      showDeleteModal.value = true;
+    };
+
+    const deleteUser = async () => {
+      const token = checkAuth();
+      if (!token) return;
+      
       try {
-        this.deleteAction = this.deleteCompletely ? 'delete' : 'deactivate';
+        if (deleteCompletely.value) {
+          // Eliminar completamente
+          const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al eliminar el usuario');
+          }
+        } else {
+          // Desactivar (actualizar estado a false)
+          const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              estado: false
+            })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al desactivar el usuario');
+          }
+        }
         
-        await axios.delete(`/api/users/delete/${this.selectedUser.id}`, {
-          headers: this.authHeader,
-          data: { action: this.deleteAction }
-        });
-        
-        // Actualizar la lista de usuarios
-        this.fetchUsers();
-        this.showDeleteModal = false;
-        this.selectedUser = null;
-        
-        const actionText = this.deleteAction === 'delete' ? 'eliminado' : 'desactivado';
-        this.showMessage('Éxito', `Usuario ${actionText} correctamente`);
-      } catch (error) {
-        console.error('Error al eliminar/desactivar usuario:', error);
-        this.showMessage('Error', error.response?.data?.error || `Error al ${this.deleteAction === 'delete' ? 'eliminar' : 'desactivar'} usuario`);
+        selectedUser.value = null;
+        showDeleteModal.value = false;
+        showMessage('Éxito', `Usuario ${deleteCompletely.value ? 'eliminado' : 'desactivado'} correctamente`, 'success');
+        fetchUsers();
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
       }
-    },
-    showMessage(title, content) {
-      this.messageTitle = title;
-      this.messageContent = content;
-      this.showMessageModal = true;
-    }
-  },
-  watch: {
-    deleteCompletely(newVal) {
-      this.deleteAction = newVal ? 'delete' : 'deactivate';
-    }
+    };
+
+    onMounted(() => {
+      fetchUsers();
+    });
+
+    return {
+      users,
+      roles,
+      loading,
+      error,
+      selectedUser,
+      showCreateModal,
+      showEditModal,
+      showDeleteModal,
+      showMessageModal,
+      messageTitle,
+      messageContent,
+      messageType,
+      deleteCompletely,
+      deleteAction,
+      newUser,
+      editingUser,
+      searchQuery,
+      filteredUsers,
+      showMessage,
+      hideMessage,
+      fetchUsers,
+      searchUser,
+      handleUserSelection,
+      openCreateUserModal,
+      openEditUserModal,
+      createUser,
+      updateUser,
+      confirmDeleteUser,
+      deleteUser,
+      getRolName
+    };
   }
 };
 </script>
@@ -323,41 +469,71 @@ export default {
 <style scoped>
 .user-management-container {
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .content-section {
-  padding: 20px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 60px;
 }
 
 .page-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 15px;
   text-align: center;
-  margin-bottom: 25px;
   color: #333;
+  width: 100%;
 }
 
 .actions-section {
+  margin: 15px 0;
   display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 30px;
+  flex-direction: column;
+  width: 100%;
+  gap: 8px;
+}
+
+.search-section {
+  margin-bottom: 15px;
+  width: 100%;
+}
+
+.search-section input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px;
 }
 
 .action-button {
-  padding: 10px 20px;
+  padding: 12px 16px;
   border: 1px solid #333;
-  background-color: #ffffff;
-  color: #000000;
+  border-radius: 4px;
+  background-color: white;
   cursor: pointer;
-  transition: background-color 0.3s;
-  font-weight: 500;
+  transition: background-color 0.2s, transform 0.1s;
+  color: #333;
+  width: 100%;
+  font-size: 16px;
+  text-align: center;
 }
 
 .action-button:hover {
   background-color: #f0f0f0;
-  color: rgb(28, 104, 233);
-  border-color: rgb(28, 104, 233);
+}
+
+.action-button:active {
+  transform: scale(0.98);
 }
 
 .action-button:disabled {
@@ -365,9 +541,19 @@ export default {
   cursor: not-allowed;
 }
 
+.create-button:hover {
+  color: #4CAF50;
+  border-color: #4CAF50;
+}
+
+.edit-button:hover {
+  color: #2196F3;
+  border-color: #2196F3;
+}
+
 .delete-button {
-  border-color: #d9534f;
-  color: #d9534f;
+  border: 1px solid #dc3545;
+  color: #dc3545;
 }
 
 .delete-button:hover {
@@ -376,39 +562,74 @@ export default {
   border-color: #c9302c;
 }
 
-/* Estilos para el modal */
+.list-title {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  width: 100%;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  color: #666;
+}
+
+.error-message {
+  text-align: center;
+  padding: 20px;
+  color: #dc3545;
+  font-weight: bold;
+  border: 1px solid #dc3545;
+  border-radius: 4px;
+  background-color: #f8d7da;
+  margin: 15px 0;
+}
+
 .modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
 .modal-content {
-  background-color: white;
-  padding: 20px;
-  border-radius: 4px;
-  width: 500px;
-  max-width: 90%;
-  position: relative;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  margin-top: 0;
 }
 
 .close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  float: right;
   font-size: 24px;
   cursor: pointer;
+  padding: 5px;
+  line-height: 0.8;
 }
 
 .form-group {
   margin-bottom: 15px;
+  text-align: left;
 }
 
 .form-group label {
@@ -420,68 +641,111 @@ export default {
 .form-group input,
 .form-group select {
   width: 100%;
-  padding: 8px;
+  padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+  font-size: 16px;
+  box-sizing: border-box;
 }
 
 .btn-submit {
   background-color: #4CAF50;
   color: white;
-  padding: 10px 15px;
+  padding: 12px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  float: right;
-}
-
-.btn-cancel {
-  background-color: #ccc;
-  color: #333;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.btn-delete {
-  background-color: #d9534f;
-  color: white;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.btn-ok {
-  background-color: #4CAF50;
-  color: white;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+  margin-top: 10px;
 }
 
 .btn-submit:hover {
   background-color: #45a049;
 }
 
+.btn-cancel {
+  background-color: #ccc;
+  color: #333;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+}
+
+.btn-delete {
+  background-color: #d9534f;
+  color: white;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+}
+
 .btn-delete:hover {
   background-color: #c9302c;
 }
 
-.btn-cancel:hover {
-  background-color: #bbb;
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+  width: 100%;
 }
 
-.btn-ok:hover {
-  background-color: #45a049;
+/* Media Queries - Tablet */
+@media (min-width: 576px) {
+  .content-section {
+    padding: 20px;
+    margin-top: 70px;
+  }
+  
+  .page-title {
+    font-size: 22px;
+  }
+  
+  .actions-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .action-button {
+    width: auto;
+  }
+  
+  .modal-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .modal-actions button {
+    width: auto;
+    min-width: 120px;
+  }
+}
+
+/* Media Queries - Desktop */
+@media (min-width: 768px) {
+  .content-section {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 100px;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .list-title {
+    font-size: 20px;
+  }
 }
 </style>
