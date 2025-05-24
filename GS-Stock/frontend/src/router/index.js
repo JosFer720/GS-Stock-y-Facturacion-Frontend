@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
+import SalesManagment from '@/views/SalesManagment.vue';
 
 const routes = [
   {
@@ -30,8 +31,13 @@ const routes = [
   {
     path: '/inventario',
     name: 'Inventario',
-    component: () => import('../views/ProductManagement.vue'),
-  }  
+    component: () => import('../views/ProductManagement.vue')
+  },
+  {
+    path: '/ventas',
+    name: 'Ventas',
+    component: () => import('../views/SalesManagment.vue')
+  }
 ]
 
 const router = createRouter({
