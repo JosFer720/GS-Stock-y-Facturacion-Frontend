@@ -12,9 +12,6 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Middleware para verificar token JWT
-// Este middleware debe implementarse en un archivo separado
-// y ser importado aquí como se muestra arriba
 
 // Endpoint para obtener todos los inventarios (protegido)
 router.get('/inventarios', auth, async (req, res) => {

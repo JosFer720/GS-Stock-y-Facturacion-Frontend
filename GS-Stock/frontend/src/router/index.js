@@ -37,7 +37,12 @@ const routes = [
     path: '/ventas',
     name: 'Ventas',
     component: () => import('../views/SalesManagment.vue')
-  }
+  },
+  {
+  path: '/ventas',
+  name: 'Ventas',
+  component: () => import('../views/SalesManagment.vue')
+}
 ]
 
 const router = createRouter({

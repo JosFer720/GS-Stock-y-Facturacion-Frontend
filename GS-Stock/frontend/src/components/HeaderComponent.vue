@@ -15,6 +15,7 @@
         <li><a href="/usuarios" :class="{ active: currentPath === '/usuarios' }" @click="closeMenu">Gestión Usuarios</a></li>
         <li><a href="/rendimiento" :class="{ active: currentPath === '/rendimiento' }" @click="closeMenu">Rendimiento</a></li>
         <li><a href="/clientes" :class="{ active: currentPath === '/clientes' }" @click="closeMenu">Clientes</a></li>
+        <li><a href="/ventas" :class="{ active: currentPath === '/ventas' }" @click="closeMenu">Ventas</a></li>
       </ul>
     </nav>
 

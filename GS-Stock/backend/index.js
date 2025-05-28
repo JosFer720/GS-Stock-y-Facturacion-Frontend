@@ -11,7 +11,7 @@ const eliminarProductoRoutes = require('./routes/eliminarProducto');
 const modificarProductoRoutes = require('./routes/modificarProducto');
 
 const mostrarUsuariosRoutes = require('./routes/usuarios');
-
+const ventasRoutes = require('./routes/ventas');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,6 +41,8 @@ app.use('/api', eliminarProductoRoutes);
 app.use('/api', modificarProductoRoutes);
 
 app.use('/api', mostrarUsuariosRoutes);
+app.use('/api', ventasRoutes);
+
 
 
 // Health check mejorado
