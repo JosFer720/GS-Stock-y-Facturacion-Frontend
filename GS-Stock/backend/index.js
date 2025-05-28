@@ -14,6 +14,7 @@ const modificarProductoRoutes = require('./routes/modificarProducto');
 const mostrarUsuariosRoutes = require('./routes/usuarios');
 const ventasRoutes = require('./routes/ventas');
 const inventoryRoutes = require('./routes/inventory');
+const salesRoutes = require('./routes/sales');
 
 const app = express();
 const server = http.createServer(app);
@@ -53,6 +54,7 @@ app.use('/api', modificarProductoRoutes);
 app.use('/api', mostrarUsuariosRoutes);
 app.use('/api', ventasRoutes);
 app.use('/api', inventoryRoutes);
+app.use('/api', salesRoutes);
 
 // Health check
 app.get('/health', async (req, res) => {
