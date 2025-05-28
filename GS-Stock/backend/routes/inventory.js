@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const auth = require('../middleware/auth');
 const SocketService = require('../services/socketService');
 
-// Configuración de la conexión a PostgreSQL
+// Configuración de la conexión a PostgreSQL con variables de entorno
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
   host: process.env.DB_HOST || 'postgres',
@@ -13,44 +12,42 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Middleware para obtener el servicio de socket
+// Middleware para obtener el servicio socket
 router.use((req, res, next) => {
   const io = req.app.get('socketio');
   req.socketService = new SocketService(io);
   next();
 });
 
-// Actualizar inventario
+// Ruta para actualizar inventario
 router.put('/update/:id', async (req, res) => {
   try {
     const productId = req.params.id;
     const updateData = req.body;
-    
-    // Obtener stock anterior (esto depende de tu implementación de base de datos)
-    const previousStock = await getProductStock(productId); // Implementa esta función
-    
-    // Actualizar en base de datos
-    const updatedProduct = await updateProductInDB(productId, updateData); // Implementa esta función
-    
-    // GSS-77: Emitir evento de actualización de inventario
+
+    // Obtener stock anterior
+    const previousStock = await getProductStock(productId);
+
+    // Actualizar producto en DB
+    const updatedProduct = await updateProductInDB(productId, updateData);
+
+    // Emitir evento de actualización de inventario
     req.socketService.emitInventoryUpdate(updatedProduct);
-    
-    // Si cambió el stock, emitir evento específico
+
     if (updateData.stock !== undefined && updateData.stock !== previousStock) {
       req.socketService.emitStockUpdate(productId, updateData.stock, previousStock);
-      
-      // Verificar si el stock está bajo
+
+      // Emitir alerta si stock está bajo
       if (updateData.stock <= (updatedProduct.minimum_stock || 5)) {
         req.socketService.emitLowStockAlert(updatedProduct);
       }
     }
-    
+
     res.json({
       success: true,
       data: updatedProduct,
       message: 'Inventario actualizado correctamente'
     });
-    
   } catch (error) {
     console.error('Error actualizando inventario:', error);
     res.status(500).json({
@@ -60,23 +57,22 @@ router.put('/update/:id', async (req, res) => {
   }
 });
 
-// Agregar nuevo producto
+// Ruta para agregar nuevo producto
 router.post('/add', async (req, res) => {
   try {
     const productData = req.body;
-    
-    // Agregar a base de datos
-    const newProduct = await addProductToDB(productData); // Implementa esta función
-    
-    // GSS-77: Emitir evento de nuevo producto
+
+    // Insertar nuevo producto en DB
+    const newProduct = await addProductToDB(productData);
+
+    // Emitir evento de nuevo producto
     req.socketService.emitNewProduct(newProduct);
-    
+
     res.json({
       success: true,
       data: newProduct,
       message: 'Producto agregado correctamente'
     });
-    
   } catch (error) {
     console.error('Error agregando producto:', error);
     res.status(500).json({
@@ -85,5 +81,47 @@ router.post('/add', async (req, res) => {
     });
   }
 });
+
+// Función para obtener stock actual de un producto
+async function getProductStock(productId) {
+  const res = await pool.query('SELECT stock FROM productos WHERE id = $1', [productId]);
+  return res.rows[0]?.stock || 0;
+}
+
+// Función para actualizar producto en base de datos
+async function updateProductInDB(productId, updateData) {
+  const fields = [];
+  const values = [];
+  let idx = 1;
+
+  for (const key in updateData) {
+    fields.push(`${key} = $${idx}`);
+    values.push(updateData[key]);
+    idx++;
+  }
+
+  values.push(productId);
+
+  const query = `UPDATE productos SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`;
+
+  const res = await pool.query(query, values);
+  return res.rows[0];
+}
+
+// Función para agregar un producto nuevo a la base de datos
+async function addProductToDB(productData) {
+  const { nombre, descripcion, stock, precio, minimum_stock } = productData;
+
+  const query = `
+    INSERT INTO productos (nombre, descripcion, stock, precio, minimum_stock)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING *
+  `;
+
+  const values = [nombre, descripcion, stock, precio, minimum_stock || 5];
+
+  const res = await pool.query(query, values);
+  return res.rows[0];
+}
 
 module.exports = router;
