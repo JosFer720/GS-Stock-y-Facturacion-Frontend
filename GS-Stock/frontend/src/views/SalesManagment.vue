@@ -94,27 +94,36 @@
     </div>
   </div>
 
+ 
+  
   <div class="form-group">
-    <label for="id_vendedor">ID Vendedor:</label>
-    <input 
-      type="number" 
+    <label for="id_vendedor">Vendedor:</label>
+    <select 
       id="id_vendedor" 
       v-model="newSale.id_vendedor" 
       required
-      min="1"
     >
+      <option value="">Seleccione un vendedor</option>
+      <option v-for="vendedor in vendedores" :key="vendedor.id" :value="vendedor.id">
+        {{ vendedor.nombre }} {{ vendedor.apellido }}
+      </option>
+    </select>
   </div>
 
   <div class="form-group">
-    <label for="id_metodo_pago">ID Método de Pago:</label>
-    <input 
-      type="number" 
+    <label for="id_metodo_pago">Método de Pago:</label>
+    <select 
       id="id_metodo_pago" 
       v-model="newSale.id_metodo_pago" 
       required
-      min="1"
     >
+      <option value="">Seleccione un método</option>
+      <option v-for="metodo in metodosPago" :key="metodo.id" :value="metodo.id">
+        {{ metodo.tipo }}
+      </option>
+    </select>
   </div>
+
 
   <div class="productos-section">
     <label>Productos:</label>
@@ -280,6 +289,9 @@ export default {
     const messageContent = ref('');
     const messageType = ref('info');
     
+    const vendedores = ref([]);
+    const metodosPago = ref([]);
+    
     const filters = ref({
       date: '',
       client: '',
@@ -300,6 +312,62 @@ export default {
     const mostrarConfirmacionCliente = ref(false);
     const buscandoCliente = ref(false);
 
+const fetchVendedores = async () => {
+      try {
+        const token = checkAuth();
+        const response = await fetch('http://localhost:3000/api/vendedores', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener vendedores');
+        
+        const data = await response.json();
+        vendedores.value = data.data || [];
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      }
+    };
+    
+    // Función para obtener métodos de pago
+    const fetchMetodosPago = async () => {
+      try {
+        const token = checkAuth();
+        const response = await fetch('http://localhost:3000/api/metodos-pago', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener métodos de pago');
+        
+        const data = await response.json();
+        metodosPago.value = data.data || [];
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      }
+    };
+    
+    // Función para verificar stock
+    const verificarStock = async (productos) => {
+      try {
+        const token = checkAuth();
+        const response = await fetch('http://localhost:3000/api/inventario/verificar-stock', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ productos })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al verificar stock');
+        }
+        
+        return await response.json();
+      } catch (err) {
+        throw err;
+      }
+    };
 
     const showMessage = (title, message, type = 'info') => {
       messageTitle.value = title;
@@ -381,45 +449,51 @@ const eliminarProducto = (index) => {
   showAddSaleModal.value = true;
 };
 
-   const addSale = async () => {
-  try {
-    const token = checkAuth();
-    if (!token) return;
+ const addSale = async () => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
 
-    const ventaData = {
-      id_cliente: newSale.value.id_cliente,
-      empresa_cliente: newSale.value.empresa_cliente,
-      id_vendedor: parseInt(newSale.value.id_vendedor),
-      id_metodo_pago: parseInt(newSale.value.id_metodo_pago),
-      productos: newSale.value.productos.map(p => ({
-        id_zapato: parseInt(p.id_zapato),
-        cantidad: parseInt(p.cantidad)
-      })),
-      subtotal: parseFloat(newSale.value.subtotal),
-      total: parseFloat(newSale.value.total)
+        // Verificar stock antes de proceder
+        const productosParaVerificar = newSale.value.productos.map(p => ({
+          id_zapato: parseInt(p.id_zapato),
+          cantidad: parseInt(p.cantidad)
+        }));
+        
+        await verificarStock(productosParaVerificar);
+        
+        const ventaData = {
+          id_cliente: newSale.value.id_cliente,
+          empresa_cliente: newSale.value.empresa_cliente,
+          id_vendedor: parseInt(newSale.value.id_vendedor),
+          id_metodo_pago: parseInt(newSale.value.id_metodo_pago),
+          productos: productosParaVerificar,
+          subtotal: parseFloat(newSale.value.subtotal),
+          total: parseFloat(newSale.value.total)
+        };
+
+        const response = await fetch('http://localhost:3000/api/ventas', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(ventaData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.details || 'Error al crear la venta');
+        }
+
+        showMessage('Éxito', 'Venta creada correctamente', 'success');
+        showAddSaleModal.value = false;
+        fetchSales();
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      }
     };
 
-    const response = await fetch('http://localhost:3000/api/ventas', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(ventaData)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.details || 'Error al crear la venta');
-    }
-
-    showMessage('Éxito', 'Venta creada correctamente', 'success');
-    showAddSaleModal.value = false;
-    fetchSales();
-  } catch (err) {
-    showMessage('Error', err.message, 'error');
-  }
-};
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
       const date = new Date(dateString);
@@ -558,6 +632,9 @@ const eliminarProducto = (index) => {
 
     onMounted(() => {
       fetchSales();
+      fetchVendedores();
+      fetchMetodosPago();
+
     });
 
     return {
@@ -593,7 +670,12 @@ const eliminarProducto = (index) => {
   confirmarCliente,
   cancelarCliente,
   agregarProducto,
-  eliminarProducto
+  eliminarProducto,
+      vendedores,
+      metodosPago,
+      fetchVendedores,
+      fetchMetodosPago,
+      verificarStock
     };
   }
 }

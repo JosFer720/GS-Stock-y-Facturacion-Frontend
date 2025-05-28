@@ -181,6 +181,7 @@ router.get('/clientes/buscar-empresa/:empresa', auth, async (req, res) => {
 });
 
 // Endpoint para crear nueva venta
+// Endpoint para crear nueva venta
 router.post('/ventas', auth, async (req, res) => {
   const client = await pool.connect();
   
@@ -248,15 +249,42 @@ router.post('/ventas', auth, async (req, res) => {
         throw new Error(`Zapato con ID ${producto.id_zapato} no encontrado`);
       }
 
+      // Insertar detalle
       const detalleQuery = `
         INSERT INTO Detalle_Pedidos (Id_Pedido, Id_Zapato, Cantidad)
         VALUES ($1, $2, $3)
       `;
-      
       await client.query(detalleQuery, [pedidoId, producto.id_zapato, producto.cantidad]);
+
+      // Descontar stock en Zapatos_Tallas (asumiendo que usamos la primera talla disponible)
+      const updateStockQuery = `
+        UPDATE Zapatos_Tallas
+        SET Stock = Stock - $1
+        WHERE Id_Zapato = $2 AND Stock >= $1
+        RETURNING Id
+      `;
+      
+      const updateResult = await client.query(updateStockQuery, [producto.cantidad, producto.id_zapato]);
+      
+      if (updateResult.rows.length === 0) {
+        throw new Error(`No se pudo actualizar stock para el producto ID ${producto.id_zapato}`);
+      }
+
+      // Actualizar la tabla Inventarios
+      const updateInventarioQuery = `
+        UPDATE Inventarios
+        SET Cantidad = Cantidad - $1
+        WHERE Id_Zapatos = $2 AND Cantidad >= $1
+        RETURNING Id
+      `;
+      
+      const inventarioResult = await client.query(updateInventarioQuery, [producto.cantidad, producto.id_zapato]);
+      
+      if (inventarioResult.rows.length === 0) {
+        throw new Error(`No se pudo actualizar inventario para el producto ID ${producto.id_zapato}`);
+      }
     }
 
-    // Confirmar transacción
     await client.query('COMMIT');
 
     res.status(201).json({
@@ -265,11 +293,106 @@ router.post('/ventas', auth, async (req, res) => {
     });
 
   } catch (err) {
-    // Revertir transacción en caso de error
     await client.query('ROLLBACK');
     console.error('Error al crear venta:', err);
     res.status(400).json({
       error: 'Error al crear la venta',
+      details: err.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
+
+// Obtener lista de vendedores
+router.get('/vendedores', auth, async (req, res) => {
+  try {
+    const query = `
+      SELECT v.Id, u.Nombre, u.Apellido 
+      FROM Vendedores v
+      JOIN Usuarios u ON v.Id_Usuarios = u.Id
+      ORDER BY u.Nombre, u.Apellido
+    `;
+    
+    const result = await pool.query(query);
+    res.status(200).json({
+      message: 'Vendedores obtenidos correctamente',
+      data: result.rows
+    });
+  } catch (err) {
+    console.error('Error al obtener vendedores:', err);
+    res.status(500).json({ 
+      error: 'Error al consultar la base de datos',
+      details: err.message
+    });
+  }
+});
+
+// Obtener métodos de pago
+router.get('/metodos-pago', auth, async (req, res) => {
+  try {
+    const query = 'SELECT Id, Tipo FROM Metodos_De_Pago ORDER BY Tipo';
+    const result = await pool.query(query);
+    res.status(200).json({
+      message: 'Métodos de pago obtenidos correctamente',
+      data: result.rows
+    });
+  } catch (err) {
+    console.error('Error al obtener métodos de pago:', err);
+    res.status(500).json({ 
+      error: 'Error al consultar la base de datos',
+      details: err.message
+    });
+  }
+});
+
+// Verificar stock antes de vender
+// Verificar stock antes de vender
+router.post('/inventario/verificar-stock', auth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { productos } = req.body;
+    
+    await client.query('BEGIN');
+    
+    // Verificar stock para cada producto
+    for (const producto of productos) {
+      // Verificar en Zapatos_Tallas
+      const tallasQuery = `
+        SELECT SUM(Stock) as stock_disponible
+        FROM Zapatos_Tallas
+        WHERE Id_Zapato = $1
+      `;
+      
+      const tallasResult = await client.query(tallasQuery, [producto.id_zapato]);
+      const stockTallas = parseInt(tallasResult.rows[0].stock_disponible) || 0;
+      
+      // Verificar en Inventarios
+      const inventarioQuery = `
+        SELECT SUM(Cantidad) as stock_inventario
+        FROM Inventarios
+        WHERE Id_Zapatos = $1
+      `;
+      
+      const inventarioResult = await client.query(inventarioQuery, [producto.id_zapato]);
+      const stockInventario = parseInt(inventarioResult.rows[0].stock_inventario) || 0;
+      
+      const stockTotal = stockTallas + stockInventario;
+      
+      if (stockTotal < producto.cantidad) {
+        throw new Error(`No hay suficiente stock para el producto ID ${producto.id_zapato}. Stock disponible: ${stockTotal}`);
+      }
+    }
+    
+    await client.query('COMMIT');
+    res.status(200).json({ message: 'Stock disponible para todos los productos' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error al verificar stock:', err);
+    res.status(400).json({ 
+      error: 'Error al verificar stock',
       details: err.message
     });
   } finally {
