@@ -146,4 +146,135 @@ router.get('/ventas/:id', auth, async (req, res) => { // Añadido: middleware au
   }
 });
 
+// Endpoint para buscar cliente por empresa
+router.get('/clientes/buscar-empresa/:empresa', auth, async (req, res) => {
+  try {
+    const { empresa } = req.params;
+    
+    const query = `
+      SELECT Id, Nombre, Apellido, Empresa 
+      FROM Clientes 
+      WHERE LOWER(Empresa) LIKE LOWER($1)
+      ORDER BY Empresa, Nombre
+    `;
+    
+    const result = await pool.query(query, [`%${empresa}%`]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        message: 'No se encontraron clientes para esta empresa',
+        data: [] 
+      });
+    }
+    
+    res.status(200).json({
+      message: 'Clientes encontrados',
+      data: result.rows
+    });
+  } catch (err) {
+    console.error('Error al buscar clientes por empresa:', err);
+    res.status(500).json({ 
+      error: 'Error al buscar clientes',
+      details: err.message
+    });
+  }
+});
+
+// Endpoint para crear nueva venta
+router.post('/ventas', auth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { 
+      id_cliente, 
+      empresa_cliente, 
+      id_vendedor,
+      id_metodo_pago,
+      productos, 
+      subtotal,
+      total
+    } = req.body;
+
+    // Iniciar transacción
+    await client.query('BEGIN');
+
+    // Si viene empresa_cliente, buscar el cliente
+    let clienteId = id_cliente;
+    if (empresa_cliente && !id_cliente) {
+      const clienteQuery = `
+        SELECT Id, Nombre, Apellido 
+        FROM Clientes 
+        WHERE LOWER(Empresa) = LOWER($1)
+        LIMIT 1
+      `;
+      const clienteResult = await client.query(clienteQuery, [empresa_cliente]);
+      
+      if (clienteResult.rows.length === 0) {
+        throw new Error(`No se encontró cliente para la empresa: ${empresa_cliente}`);
+      }
+      
+      clienteId = clienteResult.rows[0].id;
+    }
+
+    // Validar que existan los registros referenciados
+    const validaciones = await Promise.all([
+      client.query('SELECT Id FROM Clientes WHERE Id = $1', [clienteId]),
+      client.query('SELECT Id FROM Vendedores WHERE Id = $1', [id_vendedor]),
+      client.query('SELECT Id FROM Metodos_De_Pago WHERE Id = $1', [id_metodo_pago])
+    ]);
+
+    if (validaciones[0].rows.length === 0) throw new Error('Cliente no encontrado');
+    if (validaciones[1].rows.length === 0) throw new Error('Vendedor no encontrado');
+    if (validaciones[2].rows.length === 0) throw new Error('Método de pago no encontrado');
+
+    // Crear el pedido
+    const pedidoQuery = `
+      INSERT INTO Pedidos (Id_Cliente, Id_Vendedor, Id_Metodo_De_Pago, Subtotal, Total)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING Id
+    `;
+    
+    const pedidoResult = await client.query(pedidoQuery, [
+      clienteId, id_vendedor, id_metodo_pago, subtotal, total
+    ]);
+    
+    const pedidoId = pedidoResult.rows[0].id;
+
+    // Insertar detalles del pedido
+    for (const producto of productos) {
+      // Validar que existe el zapato
+      const zapatoQuery = await client.query('SELECT Id FROM Zapatos WHERE Id = $1', [producto.id_zapato]);
+      if (zapatoQuery.rows.length === 0) {
+        throw new Error(`Zapato con ID ${producto.id_zapato} no encontrado`);
+      }
+
+      const detalleQuery = `
+        INSERT INTO Detalle_Pedidos (Id_Pedido, Id_Zapato, Cantidad)
+        VALUES ($1, $2, $3)
+      `;
+      
+      await client.query(detalleQuery, [pedidoId, producto.id_zapato, producto.cantidad]);
+    }
+
+    // Confirmar transacción
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      message: 'Venta creada exitosamente',
+      pedido_id: pedidoId
+    });
+
+  } catch (err) {
+    // Revertir transacción en caso de error
+    await client.query('ROLLBACK');
+    console.error('Error al crear venta:', err);
+    res.status(400).json({
+      error: 'Error al crear la venta',
+      details: err.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

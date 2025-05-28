@@ -6,6 +6,9 @@
       <div class="page-title">Gestión de Ventas</div>
 
       <div class="actions-section">
+        <button class="action-button add-button" @click="openAddSaleModal">
+          Agregar Venta
+        </button>
         <button class="action-button view-button" @click="viewSaleDetails" :disabled="!selectedSale">
           Ver Detalles
         </button>
@@ -52,6 +55,131 @@
         :sales="filteredSales"
         @sale-selected="handleSaleSelection"
       />
+    </div>
+
+    <!-- Modal para agregar venta -->
+    <div v-if="showAddSaleModal" class="modal">
+      <div class="modal-content">
+        <span class="close" @click="showAddSaleModal = false">&times;</span>
+        <h2>Agregar Nueva Venta</h2>
+        <form @submit.prevent="addSale">
+  <div class="form-group">
+    <label for="empresa_cliente">Empresa del Cliente:</label>
+    <div style="display: flex; gap: 10px;">
+      <input 
+        type="text" 
+        id="empresa_cliente" 
+        v-model="newSale.empresa_cliente" 
+        placeholder="Nombre de la empresa"
+        :disabled="buscandoCliente"
+      >
+      <button 
+        type="button" 
+        @click="buscarClientePorEmpresa"
+        :disabled="buscandoCliente"
+        class="search-button"
+      >
+        {{ buscandoCliente ? 'Buscando...' : 'Buscar' }}
+      </button>
+    </div>
+  </div>
+
+  <div v-if="clienteEncontrado && mostrarConfirmacionCliente" class="cliente-confirmacion">
+    <p><strong>¿El cliente responsable es:</strong></p>
+    <p>{{ clienteEncontrado.nombre }} {{ clienteEncontrado.apellido }}</p>
+    <p><small>Empresa: {{ clienteEncontrado.empresa }}</small></p>
+    <div style="display: flex; gap: 10px; margin-top: 10px;">
+      <button type="button" @click="confirmarCliente" class="confirm-button">Confirmar</button>
+      <button type="button" @click="cancelarCliente" class="cancel-button">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="id_vendedor">ID Vendedor:</label>
+    <input 
+      type="number" 
+      id="id_vendedor" 
+      v-model="newSale.id_vendedor" 
+      required
+      min="1"
+    >
+  </div>
+
+  <div class="form-group">
+    <label for="id_metodo_pago">ID Método de Pago:</label>
+    <input 
+      type="number" 
+      id="id_metodo_pago" 
+      v-model="newSale.id_metodo_pago" 
+      required
+      min="1"
+    >
+  </div>
+
+  <div class="productos-section">
+    <label>Productos:</label>
+    <div 
+      v-for="(producto, index) in newSale.productos" 
+      :key="index"
+      class="producto-item"
+    >
+      <input 
+        type="number" 
+        placeholder="ID Zapato"
+        v-model="producto.id_zapato" 
+        required
+        min="1"
+      >
+      <input 
+        type="number" 
+        placeholder="Cantidad"
+        v-model="producto.cantidad" 
+        required
+        min="1"
+      >
+      <button 
+        type="button" 
+        @click="eliminarProducto(index)"
+        v-if="newSale.productos.length > 1"
+        class="remove-product-button"
+      >
+        ✕
+      </button>
+    </div>
+    <button type="button" @click="agregarProducto" class="add-product-button">
+      + Agregar Producto
+    </button>
+  </div>
+
+  <div class="form-group">
+    <label for="subtotal">Subtotal:</label>
+    <input 
+      type="number" 
+      id="subtotal" 
+      v-model="newSale.subtotal" 
+      required
+      min="0"
+      step="0.01"
+    >
+  </div>
+
+  <div class="form-group">
+    <label for="total">Total:</label>
+    <input 
+      type="number" 
+      id="total" 
+      v-model="newSale.total" 
+      required
+      min="0"
+      step="0.01"
+    >
+  </div>
+
+  <button type="submit" class="submit-button" :disabled="!newSale.id_cliente">
+    Guardar Venta
+  </button>
+</form>
+      </div>
     </div>
 
     <!-- Modal para ver detalles de venta -->
@@ -146,6 +274,7 @@ export default {
     const error = ref(null);
     const selectedSale = ref(null);
     const showDetailsModal = ref(false);
+    const showAddSaleModal = ref(false);
     const showMessageModal = ref(false);
     const messageTitle = ref('');
     const messageContent = ref('');
@@ -156,6 +285,21 @@ export default {
       client: '',
       status: ''
     });
+
+    const newSale = ref({
+      empresa_cliente: '',
+      id_cliente: '',
+      id_vendedor: '',
+      id_metodo_pago: '',
+      productos: [{ id_zapato: '', cantidad: '' }],
+      subtotal: '',
+      total: ''
+    });
+
+    const clienteEncontrado = ref(null);
+    const mostrarConfirmacionCliente = ref(false);
+    const buscandoCliente = ref(false);
+
 
     const showMessage = (title, message, type = 'info') => {
       messageTitle.value = title;
@@ -168,6 +312,114 @@ export default {
       showMessageModal.value = false;
     };
 
+    const buscarClientePorEmpresa = async () => {
+  if (!newSale.value.empresa_cliente.trim()) {
+    showMessage('Error', 'Ingrese el nombre de la empresa', 'error');
+    return;
+  }
+
+  buscandoCliente.value = true;
+  
+  try {
+    const token = checkAuth();
+    const response = await fetch(`http://localhost:3000/api/clientes/buscar-empresa/${encodeURIComponent(newSale.value.empresa_cliente)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error('No se encontró la empresa');
+    }
+
+    const data = await response.json();
+    if (data.data.length > 0) {
+      clienteEncontrado.value = data.data[0];
+      mostrarConfirmacionCliente.value = true;
+    } else {
+      showMessage('Error', 'No se encontraron clientes para esta empresa', 'error');
+    }
+  } catch (err) {
+    showMessage('Error', err.message, 'error');
+  } finally {
+    buscandoCliente.value = false;
+  }
+};
+
+const confirmarCliente = () => {
+  newSale.value.id_cliente = clienteEncontrado.value.id;
+  mostrarConfirmacionCliente.value = false;
+  showMessage('Éxito', 'Cliente confirmado', 'success');
+};
+
+const cancelarCliente = () => {
+  clienteEncontrado.value = null;
+  mostrarConfirmacionCliente.value = false;
+  newSale.value.empresa_cliente = '';
+};
+
+const agregarProducto = () => {
+  newSale.value.productos.push({ id_zapato: '', cantidad: '' });
+};
+
+const eliminarProducto = (index) => {
+  if (newSale.value.productos.length > 1) {
+    newSale.value.productos.splice(index, 1);
+  }
+};
+
+    const openAddSaleModal = () => {
+  newSale.value = {
+    empresa_cliente: '',
+    id_cliente: '',
+    id_vendedor: '',
+    id_metodo_pago: '',
+    productos: [{ id_zapato: '', cantidad: '' }],
+    subtotal: '',
+    total: ''
+  };
+  clienteEncontrado.value = null;
+  mostrarConfirmacionCliente.value = false;
+  showAddSaleModal.value = true;
+};
+
+   const addSale = async () => {
+  try {
+    const token = checkAuth();
+    if (!token) return;
+
+    const ventaData = {
+      id_cliente: newSale.value.id_cliente,
+      empresa_cliente: newSale.value.empresa_cliente,
+      id_vendedor: parseInt(newSale.value.id_vendedor),
+      id_metodo_pago: parseInt(newSale.value.id_metodo_pago),
+      productos: newSale.value.productos.map(p => ({
+        id_zapato: parseInt(p.id_zapato),
+        cantidad: parseInt(p.cantidad)
+      })),
+      subtotal: parseFloat(newSale.value.subtotal),
+      total: parseFloat(newSale.value.total)
+    };
+
+    const response = await fetch('http://localhost:3000/api/ventas', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(ventaData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.details || 'Error al crear la venta');
+    }
+
+    showMessage('Éxito', 'Venta creada correctamente', 'success');
+    showAddSaleModal.value = false;
+    fetchSales();
+  } catch (err) {
+    showMessage('Error', err.message, 'error');
+  }
+};
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
       const date = new Date(dateString);
@@ -314,13 +566,17 @@ export default {
       error,
       selectedSale,
       showDetailsModal,
+      showAddSaleModal,
       showMessageModal,
       messageTitle,
       messageContent,
       messageType,
       filters,
+      newSale,
       showMessage,
       hideMessage,
+      openAddSaleModal,
+      addSale,
       formatDate,
       formatCurrency,
       getStatusClass,
@@ -329,7 +585,15 @@ export default {
       resetFilters,
       fetchSales,
       handleSaleSelection,
-      filteredSales
+      filteredSales,
+      clienteEncontrado,
+  mostrarConfirmacionCliente,
+  buscandoCliente,
+  buscarClientePorEmpresa,
+  confirmarCliente,
+  cancelarCliente,
+  agregarProducto,
+  eliminarProducto
     };
   }
 }
@@ -459,6 +723,11 @@ export default {
   cursor: not-allowed;
 }
 
+.add-button:hover {
+  color: #4CAF50;
+  border-color: #4CAF50;
+}
+
 .view-button:hover {
   color: #2196F3;
   border-color: #2196F3;
@@ -518,7 +787,7 @@ export default {
   padding: 20px;
   border-radius: 8px;
   width: 100%;
-  max-width: 600px;
+  max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -618,6 +887,45 @@ export default {
   padding: 15px;
   border-radius: 4px;
   border: 1px solid #dee2e6;
+}
+
+/* Form styles */
+.form-group {
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.submit-button {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4CAF50;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 16px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.submit-button:hover {
+  background-color: #45a049;
 }
 
 /* Status badges */
@@ -736,5 +1044,87 @@ export default {
   .detail-row strong {
     min-width: 150px;
   }
+}
+.cliente-confirmacion {
+  background-color: #e8f5e8;
+  padding: 15px;
+  border-radius: 6px;
+  margin: 10px 0;
+  border: 1px solid #4caf50;
+}
+
+.search-button {
+  padding: 8px 12px;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.search-button:hover {
+  background-color: #1976D2;
+}
+
+.search-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.confirm-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cancel-button {
+  background-color: #f44336;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.productos-section {
+  margin: 15px 0;
+}
+
+.producto-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.producto-item input {
+  flex: 1;
+}
+
+.remove-product-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-product-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
 }
 </style>
