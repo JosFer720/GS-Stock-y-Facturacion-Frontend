@@ -38,7 +38,7 @@ app.use('/api', ventasRoutes);
 app.use('/api', inventoryRoutes);
 app.use('/api', salesRoutes);
 
-// Endpoint para healthcheck (útil para Docker)
+
 app.get('/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
