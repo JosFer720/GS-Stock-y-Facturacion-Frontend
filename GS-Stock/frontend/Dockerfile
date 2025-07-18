@@ -3,7 +3,7 @@ FROM node:lts-alpine
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm install && npm install -D vitest @vue/test-utils jsdom
 
 COPY . .
 
