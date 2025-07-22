@@ -3,7 +3,7 @@ const router = express.Router();
 const { Pool } = require('pg');
 const auth = require('../middleware/auth'); // Middleware de autenticación
 
-// Configuración de la conexión a PostgreSQL usando las variables del docker-compose
+// Configuración de la conexión a postgres
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
   host: process.env.DB_HOST || 'postgres',
@@ -12,7 +12,7 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Endpoint para obtener todos los clientes con sus direcciones y teléfonos (protegido)
+// Endpoint para obtener todos los clientes con sus direcciones y teléfonos 
 router.get('/clientes', auth, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -79,7 +79,7 @@ router.get('/clientes', auth, async (req, res) => {
   }
 });
 
-// Endpoint para obtener un cliente específico por ID (protegido)
+// Endpoint para obtener un cliente específico por ID 
 router.get('/clientes/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -142,7 +142,7 @@ router.get('/clientes/:id', auth, async (req, res) => {
   }
 });
 
-// Crear un nuevo cliente con direcciones y teléfonos (protegido)
+// Crear un nuevo cliente con direcciones y teléfonos 
 router.post('/clientes', auth, async (req, res) => {
   const client = await pool.connect();
   
@@ -216,7 +216,7 @@ router.post('/clientes', auth, async (req, res) => {
         
         telefonosInsertados.push(telefonoResult.rows[0]);
         
-        // Actualizar la referencia en la tabla clientes (según la modificación en 06-modify-clients.sql)
+        // Actualizar la referencia en la tabla clientes 
         if (telefonosInsertados.length === 1) { // Solo para el primer teléfono
           await client.query(
             'UPDATE clientes SET id_cliente_telefono = $1 WHERE id = $2',
@@ -248,7 +248,7 @@ router.post('/clientes', auth, async (req, res) => {
   }
 });
 
-// Actualizar un cliente existente (protegido)
+// Actualizar un cliente existente 
 router.put('/clientes/:id', auth, async (req, res) => {
   const client = await pool.connect();
   
@@ -367,7 +367,7 @@ router.put('/clientes/:id', auth, async (req, res) => {
   }
 });
 
-// Eliminar un cliente (protegido)
+// Eliminar un cliente 
 router.delete('/clientes/:id', auth, async (req, res) => {
   const client = await pool.connect();
   
@@ -417,7 +417,7 @@ router.delete('/clientes/:id', auth, async (req, res) => {
   }
 });
 
-// Endpoint para buscar clientes por nombre o empresa (protegido)
+// Endpoint para buscar clientes por nombre o empresa 
 router.get('/clientes/buscar/:termino', auth, async (req, res) => {
   try {
     const { termino } = req.params;
@@ -447,7 +447,7 @@ router.get('/clientes/buscar/:termino', auth, async (req, res) => {
   }
 });
 
-// Endpoint para obtener solo direcciones de un cliente (protegido)
+// Endpoint para obtener solo direcciones de un cliente 
 router.get('/clientes/:id/direcciones', auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -469,7 +469,7 @@ router.get('/clientes/:id/direcciones', auth, async (req, res) => {
   }
 });
 
-// Endpoint para obtener solo teléfonos de un cliente (protegido)
+// Endpoint para obtener solo teléfonos de un cliente 
 router.get('/clientes/:id/telefonos', auth, async (req, res) => {
   try {
     const { id } = req.params;
