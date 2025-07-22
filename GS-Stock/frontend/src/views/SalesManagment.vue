@@ -55,9 +55,12 @@
         :sales="filteredSales"
         @sale-selected="handleSaleSelection"
       />
+
+      <div class="facturas-section">
+      <historial-facturas />
+      </div>
     </div>
 
-    <!-- Modal para agregar venta -->
     <div v-if="showAddSaleModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showAddSaleModal = false">&times;</span>
@@ -191,7 +194,6 @@
       </div>
     </div>
 
-    <!-- Modal para ver detalles de venta -->
     <div v-if="showDetailsModal" class="modal">
       <div class="modal-content details-modal">
         <span class="close" @click="showDetailsModal = false">&times;</span>
@@ -251,7 +253,6 @@
       </div>
     </div>
 
-    <!-- Modal para mensajes -->
     <modal-message 
       :show="showMessageModal"
       :title="messageTitle"
@@ -268,13 +269,15 @@ import VentasTabla from '@/components/VentasTabla.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
 import { useRouter } from 'vue-router';
+import HistorialFacturas from '@/components/HistorialFacturas.vue';
 
 export default {
   name: 'SalesManagementView',
   components: {
     VentasTabla,
     HeaderComponent,
-    ModalMessage
+    ModalMessage,
+    HistorialFacturas
   },
   setup() {
     const router = useRouter();
@@ -328,7 +331,6 @@ const fetchVendedores = async () => {
       }
     };
     
-    // Función para obtener métodos de pago
     const fetchMetodosPago = async () => {
       try {
         const token = checkAuth();
@@ -345,7 +347,6 @@ const fetchVendedores = async () => {
       }
     };
     
-    // Función para verificar stock
     const verificarStock = async (productos) => {
       try {
         const token = checkAuth();
@@ -454,7 +455,6 @@ const eliminarProducto = (index) => {
         const token = checkAuth();
         if (!token) return;
 
-        // Verificar stock antes de proceder
         const productosParaVerificar = newSale.value.productos.map(p => ({
           id_zapato: parseInt(p.id_zapato),
           cantidad: parseInt(p.cantidad)
@@ -1208,5 +1208,17 @@ const eliminarProducto = (index) => {
   border-radius: 4px;
   cursor: pointer;
   margin-top: 10px;
+}
+
+.facturas-section {
+  width: 100%;
+  margin-top: 40px;
+  padding: 0 15px;
+}
+
+@media (min-width: 768px) {
+  .facturas-section {
+    padding: 0;
+  }
 }
 </style>
