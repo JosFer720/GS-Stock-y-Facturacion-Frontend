@@ -13,6 +13,8 @@ const ventasRoutes = require('./routes/ventas');
 const inventoryRoutes = require('./routes/inventory');
 const salesRoutes = require('./routes/sales');
 const facturasRouter = require('./routes/facturas');
+const clientesRoutes = require('./routes/clientes');
+
 const { Pool } = require('pg');
 
 const app = express();
@@ -39,6 +41,7 @@ app.use('/api', ventasRoutes);
 app.use('/api', inventoryRoutes);
 app.use('/api', salesRoutes);
 app.use('/api', facturasRouter);
+app.use('/api', clientesRoutes);
 
 
 app.get('/health', async (req, res) => {
