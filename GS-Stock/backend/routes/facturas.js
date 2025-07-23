@@ -12,16 +12,27 @@ const pool = new Pool({
 });
 
 router.get('/facturas', auth, async (req, res) => {
-  const { cliente } = req.query;
+  const { fecha, cliente } = req.query;
 
   let query = `
-    SELECT f.*, p.id_cliente, c.nombre AS nombre_cliente, c.apellido AS apellido_cliente
+    SELECT 
+      f.*, 
+      p.id_cliente, 
+      p.fecha as fecha_pedido,
+      c.nombre AS nombre_cliente, 
+      c.apellido AS apellido_cliente
     FROM facturas f
     JOIN pedidos p ON f.id_pedido = p.id
     JOIN clientes c ON p.id_cliente = c.id
     WHERE 1=1
   `;
   const params = [];
+
+  // Filtro por fecha usando la fecha del pedido
+  if (fecha) {
+    params.push(fecha);
+    query += ` AND DATE(p.fecha) = DATE($${params.length})`;
+  }
 
   // Filtro por cliente
   if (cliente) {

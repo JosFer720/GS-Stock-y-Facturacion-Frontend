@@ -4,6 +4,12 @@
 
     <div class="filters">
       <input 
+        type="date" 
+        v-model="filtroFecha"
+        @change="cargarFacturas"
+        placeholder="dd/mm/aaaa"
+      >
+      <input 
         type="text" 
         v-model="filtroCliente" 
         @input="debounceSearch"
@@ -31,6 +37,7 @@
           <th>ID</th>
           <th>Pedido</th>
           <th>Cliente</th>
+          <th>Fecha</th>
           <th>Subtotal</th>
           <th>Impuestos</th>
           <th>Total</th>
@@ -42,9 +49,10 @@
           <td>{{ factura.id || factura.Id }}</td>
           <td>{{ factura.id_pedido || factura.Id_Pedido }}</td>
           <td>{{ factura.nombre_cliente }} {{ factura.apellido_cliente }}</td>
-          <td>${{ formatMonto(factura.subtotal || factura.Subtotal) }}</td>
-          <td>${{ formatMonto(factura.impuestos || factura.Impuestos) }}</td>
-          <td>${{ formatMonto(factura.total || factura.Total) }}</td>
+          <td>{{ formatDate(factura.fecha_pedido) }}</td>
+          <td>${{ formatCurrency(factura.subtotal || factura.Subtotal) }}</td>
+          <td>${{ formatCurrency(factura.impuestos || factura.Impuestos) }}</td>
+          <td class="total-cell">${{ formatCurrency(factura.total || factura.Total) }}</td>
           <td>
             <span :class="getEstadoClass(factura.estado || factura.Estado)">
               {{ factura.estado || factura.Estado }}
@@ -52,14 +60,15 @@
           </td>
         </tr>
         <tr v-if="facturas.length === 0 && !loading">
-          <td colspan="7" class="no-data">No se encontraron facturas</td>
+          <td colspan="8" class="no-data">No se encontraron facturas</td>
         </tr>
       </tbody>
     </table>
 
-    <div class="info-filtros" v-if="filtroCliente && !loading">
+    <div class="info-filtros" v-if="(filtroFecha || filtroCliente) && !loading">
       <small>
         Mostrando {{ facturas.length }} facturas
+        <span v-if="filtroFecha"> del {{ formatDate(filtroFecha) }}</span>
         <span v-if="filtroCliente"> con cliente "{{ filtroCliente }}"</span>
       </small>
     </div>
@@ -72,6 +81,7 @@ export default {
   data() {
     return {
       facturas: [],
+      filtroFecha: '',
       filtroCliente: '',
       loading: false,
       error: null,
@@ -79,8 +89,18 @@ export default {
     };
   },
   methods: {
-    formatMonto(monto) {
-      return parseFloat(monto || 0).toFixed(2);
+    formatDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    },
+    formatCurrency(amount) {
+      if (!amount) return '0.00';
+      return parseFloat(amount).toFixed(2);
     },
     getEstadoClass(estado) {
       const estadoLower = estado?.toLowerCase();
@@ -109,6 +129,7 @@ export default {
       
       try {
         const params = new URLSearchParams();
+        if (this.filtroFecha) params.append('fecha', this.filtroFecha);
         if (this.filtroCliente.trim()) params.append('cliente', this.filtroCliente.trim());
 
         const token = localStorage.getItem('jwtToken');
@@ -136,6 +157,7 @@ export default {
       }
     },
     resetearFiltros() {
+      this.filtroFecha = '';
       this.filtroCliente = '';
       this.cargarFacturas();
     }
@@ -178,8 +200,18 @@ th {
   color: #333;
 }
 
+tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
 tbody tr:hover {
   background-color: #f8f9fa;
+}
+
+.total-cell {
+  font-weight: bold;
+  color: #2e7d32;
 }
 
 .filters {
@@ -190,11 +222,15 @@ tbody tr:hover {
   align-items: center;
 }
 
-.filters input {
+.filters input[type="date"],
+.filters input[type="text"] {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+}
+
+.filters input[type="text"] {
   flex: 1;
   max-width: 300px;
 }
@@ -242,6 +278,7 @@ tbody tr:hover {
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
+  display: inline-block;
 }
 
 .estado-pendiente {
@@ -250,6 +287,7 @@ tbody tr:hover {
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
+  display: inline-block;
 }
 
 .estado-cancelada {
@@ -258,6 +296,7 @@ tbody tr:hover {
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
+  display: inline-block;
 }
 
 .info-filtros {
@@ -271,9 +310,11 @@ tbody tr:hover {
     flex-direction: column;
   }
   
-  .filters input,
+  .filters input[type="date"],
+  .filters input[type="text"],
   .filters button {
     width: 100%;
+    max-width: none;
   }
   
   table {
@@ -282,6 +323,16 @@ tbody tr:hover {
   
   th, td {
     padding: 8px;
+  }
+}
+
+@media (max-width: 576px) {
+  table {
+    font-size: 12px;
+  }
+  
+  th, td {
+    padding: 6px 3px;
   }
 }
 </style>
