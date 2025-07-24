@@ -12,6 +12,93 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
+
+
+const formatClientResponse = (clientData) => {
+  const clientMap = new Map();
+  
+  clientData.forEach(row => {
+    if (!clientMap.has(row.id)) {
+      clientMap.set(row.id, {
+        id: row.id,
+        nombre: row.nombre,
+        apellido: row.apellido,
+        empresa: row.empresa,
+        direcciones: [],
+        telefonos: []
+      });
+    }
+    
+    const client = clientMap.get(row.id);
+    
+    if (row.direccion_id && !client.direcciones.some(d => d.id === row.direccion_id)) {
+      client.direcciones.push({
+        id: row.direccion_id,
+        direccion: row.direccion
+      });
+    }
+    
+    if (row.telefono_id && !client.telefonos.some(t => t.id === row.telefono_id)) {
+      client.telefonos.push({
+        id: row.telefono_id,
+        telefono: row.telefono
+      });
+    }
+  });
+  
+  return Array.from(clientMap.values());
+};
+
+
+async function getFullClientData(clientId) {
+  const result = await pool.query(`
+    SELECT 
+      c.id,
+      c.nombre,
+      c.apellido,
+      c.empresa,
+      d.id as direccion_id,
+      d.direccion,
+      t.id as telefono_id,
+      t.telefono
+    FROM clientes c
+    LEFT JOIN cliente_direcciones cd ON c.id = cd.id_cliente
+    LEFT JOIN direcciones d ON cd.id_direccion = d.id
+    LEFT JOIN cliente_telefonos ct ON c.id = ct.id_cliente
+    LEFT JOIN telefonos t ON ct.id_telefono = t.id
+    WHERE c.id = $1
+  `, [clientId]);
+  
+  if (result.rows.length === 0) return null;
+  
+  const clienteData = {
+    id: result.rows[0].id,
+    nombre: result.rows[0].nombre,
+    apellido: result.rows[0].apellido,
+    empresa: result.rows[0].empresa,
+    direcciones: [],
+    telefonos: []
+  };
+  
+  result.rows.forEach(row => {
+    if (row.direccion_id && !clienteData.direcciones.some(d => d.id === row.direccion_id)) {
+      clienteData.direcciones.push({
+        id: row.direccion_id,
+        direccion: row.direccion
+      });
+    }
+    
+    if (row.telefono_id && !clienteData.telefonos.some(t => t.id === row.telefono_id)) {
+      clienteData.telefonos.push({
+        id: row.telefono_id,
+        telefono: row.telefono
+      });
+    }
+  });
+  
+  return clienteData;
+}
+
 // Endpoint para obtener todos los clientes con sus direcciones y teléfonos 
 router.get('/clientes', auth, async (req, res) => {
   try {
@@ -21,7 +108,9 @@ router.get('/clientes', auth, async (req, res) => {
         c.nombre,
         c.apellido,
         c.empresa,
+        d.id as direccion_id,
         d.direccion,
+        t.id as telefono_id,
         t.telefono
       FROM clientes c
       LEFT JOIN cliente_direcciones cd ON c.id = cd.id_cliente
@@ -31,44 +120,12 @@ router.get('/clientes', auth, async (req, res) => {
       ORDER BY c.id
     `);
     
-    if (result.rows.length === 0) {
-      return res.status(200).json({ message: 'No hay clientes registrados', data: [] });
-    }
-    
-    // Agrupar los datos para evitar duplicados por múltiples direcciones/teléfonos
-    const clientesMap = new Map();
-    
-    result.rows.forEach(row => {
-      const clienteId = row.id;
-      
-      if (!clientesMap.has(clienteId)) {
-        clientesMap.set(clienteId, {
-          id: row.id,
-          nombre: row.nombre,
-          apellido: row.apellido,
-          empresa: row.empresa,
-          direcciones: [],
-          telefonos: []
-        });
-      }
-      
-      const cliente = clientesMap.get(clienteId);
-      
-      if (row.direccion && !cliente.direcciones.includes(row.direccion)) {
-        cliente.direcciones.push(row.direccion);
-      }
-      
-      if (row.telefono && !cliente.telefonos.includes(row.telefono)) {
-        cliente.telefonos.push(row.telefono);
-      }
-    });
-    
-    const clientes = Array.from(clientesMap.values());
+    const clients = formatClientResponse(result.rows);
     
     res.status(200).json({
       message: 'Clientes obtenidos correctamente',
-      count: clientes.length,
-      data: clientes
+      count: clients.length,
+      data: clients
     });
   } catch (err) {
     console.error('Error al obtener clientes:', err);
@@ -281,79 +338,84 @@ router.put('/clientes/:id', auth, async (req, res) => {
       [nombre, apellido, empresa || null, id]
     );
     
-    // Si se proporcionan direcciones, actualizarlas
-    if (direcciones && Array.isArray(direcciones)) {
-      // Eliminar direcciones existentes
-      await client.query(
-        'DELETE FROM cliente_direcciones WHERE id_cliente = $1',
-        [id]
-      );
-      
-      // Insertar nuevas direcciones
-      for (const direccion of direcciones) {
-        if (direccion.trim()) {
-          const direccionResult = await client.query(
-            'INSERT INTO direcciones (direccion) VALUES ($1) RETURNING *',
-            [direccion.trim()]
-          );
-          
-          await client.query(
-            'INSERT INTO cliente_direcciones (id_cliente, id_direccion) VALUES ($1, $2)',
-            [id, direccionResult.rows[0].id]
-          );
-        }
+    // Manejar direcciones
+    const currentDirecciones = await client.query(
+      'SELECT d.id, d.direccion FROM direcciones d JOIN cliente_direcciones cd ON d.id = cd.id_direccion WHERE cd.id_cliente = $1',
+      [id]
+    );
+    
+    // Actualizar direcciones existentes o agregar nuevas
+    for (const direccion of direcciones) {
+      if (direccion.id) {
+        // Actualizar dirección existente
+        await client.query(
+          'UPDATE direcciones SET direccion = $1 WHERE id = $2',
+          [direccion.direccion.trim(), direccion.id]
+        );
+      } else if (direccion.direccion?.trim()) {
+        // Insertar nueva dirección
+        const direccionResult = await client.query(
+          'INSERT INTO direcciones (direccion) VALUES ($1) RETURNING *',
+          [direccion.direccion.trim()]
+        );
+        
+        await client.query(
+          'INSERT INTO cliente_direcciones (id_cliente, id_direccion) VALUES ($1, $2)',
+          [id, direccionResult.rows[0].id]
+        );
       }
     }
     
-    // Si se proporcionan teléfonos, actualizarlos
-    if (telefonos && Array.isArray(telefonos)) {
-      // Eliminar teléfonos existentes
-      await client.query(
-        'DELETE FROM cliente_telefonos WHERE id_cliente = $1',
-        [id]
-      );
-      
-      // Limpiar referencia en tabla clientes
-      await client.query(
-        'UPDATE clientes SET id_cliente_telefono = NULL WHERE id = $1',
-        [id]
-      );
-      
-      // Insertar nuevos teléfonos
-      let primerTelefonoRelacionId = null;
-      for (const telefono of telefonos) {
-        if (telefono.trim()) {
-          const telefonoResult = await client.query(
-            'INSERT INTO telefonos (telefono) VALUES ($1) RETURNING *',
-            [telefono.trim()]
-          );
-          
-          const clienteTelefonoResult = await client.query(
-            'INSERT INTO cliente_telefonos (id_cliente, id_telefono) VALUES ($1, $2) RETURNING *',
-            [id, telefonoResult.rows[0].id]
-          );
-          
-          // Guardar el ID de la primera relación para actualizar la referencia
-          if (!primerTelefonoRelacionId) {
-            primerTelefonoRelacionId = clienteTelefonoResult.rows[0].id;
-          }
-        }
+    // Eliminar direcciones que ya no están en la lista
+    const direccionesActualesIds = direcciones.filter(d => d.id).map(d => d.id);
+    for (const dir of currentDirecciones.rows) {
+      if (!direccionesActualesIds.includes(dir.id)) {
+        await client.query('DELETE FROM cliente_direcciones WHERE id_cliente = $1 AND id_direccion = $2', [id, dir.id]);
+        await client.query('DELETE FROM direcciones WHERE id = $1', [dir.id]);
       }
-      
-      // Actualizar referencia con el primer teléfono
-      if (primerTelefonoRelacionId) {
+    }
+    
+    // Manejar teléfonos (similar a direcciones)
+    const currentTelefonos = await client.query(
+      'SELECT t.id, t.telefono FROM telefonos t JOIN cliente_telefonos ct ON t.id = ct.id_telefono WHERE ct.id_cliente = $1',
+      [id]
+    );
+    
+    for (const telefono of telefonos) {
+      if (telefono.id) {
         await client.query(
-          'UPDATE clientes SET id_cliente_telefono = $1 WHERE id = $2',
-          [primerTelefonoRelacionId, id]
+          'UPDATE telefonos SET telefono = $1 WHERE id = $2',
+          [telefono.telefono.trim(), telefono.id]
         );
+      } else if (telefono.telefono?.trim()) {
+        const telefonoResult = await client.query(
+          'INSERT INTO telefonos (telefono) VALUES ($1) RETURNING *',
+          [telefono.telefono.trim()]
+        );
+        
+        await client.query(
+          'INSERT INTO cliente_telefonos (id_cliente, id_telefono) VALUES ($1, $2)',
+          [id, telefonoResult.rows[0].id]
+        );
+      }
+    }
+    
+    const telefonosActualesIds = telefonos.filter(t => t.id).map(t => t.id);
+    for (const tel of currentTelefonos.rows) {
+      if (!telefonosActualesIds.includes(tel.id)) {
+        await client.query('DELETE FROM cliente_telefonos WHERE id_cliente = $1 AND id_telefono = $2', [id, tel.id]);
+        await client.query('DELETE FROM telefonos WHERE id = $1', [tel.id]);
       }
     }
     
     await client.query('COMMIT');
     
+    // Obtener el cliente actualizado
+    const updatedClient = await getFullClientData(id);
+    
     res.status(200).json({
       message: 'Cliente actualizado correctamente',
-      data: clienteResult.rows[0]
+      data: updatedClient
     });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -367,6 +429,7 @@ router.put('/clientes/:id', auth, async (req, res) => {
   }
 });
 
+// Eliminar un cliente 
 // Eliminar un cliente 
 router.delete('/clientes/:id', auth, async (req, res) => {
   const client = await pool.connect();
@@ -386,11 +449,17 @@ router.delete('/clientes/:id', auth, async (req, res) => {
     
     await client.query('BEGIN');
     
-    // Eliminar relaciones cliente-direcciones
-    await client.query('DELETE FROM cliente_direcciones WHERE id_cliente = $1', [id]);
+    // Eliminar relaciones de direcciones (solo de la tabla de relación)
+    await client.query(
+      'DELETE FROM cliente_direcciones WHERE id_cliente = $1',
+      [id]
+    );
     
-    // Eliminar relaciones cliente-teléfonos
-    await client.query('DELETE FROM cliente_telefonos WHERE id_cliente = $1', [id]);
+    // Eliminar relaciones de teléfonos (solo de la tabla de relación)
+    await client.query(
+      'DELETE FROM cliente_telefonos WHERE id_cliente = $1',
+      [id]
+    );
     
     // Eliminar el cliente
     await client.query('DELETE FROM clientes WHERE id = $1', [id]);
@@ -404,19 +473,14 @@ router.delete('/clientes/:id', auth, async (req, res) => {
     await client.query('ROLLBACK');
     console.error('Error al eliminar cliente:', err);
     
-    // Manejar errores de clave foránea
-    if (err.code === '23503') {
-      res.status(400).json({ 
-        error: 'No se puede eliminar el cliente porque tiene registros relacionados (pedidos, cuentas por cobrar, etc.)'
-      });
-    } else {
-      res.status(500).json({ error: 'Error en el servidor' });
-    }
+    res.status(500).json({ 
+      error: 'Error en el servidor',
+      details: err.message 
+    });
   } finally {
     client.release();
   }
 });
-
 // Endpoint para buscar clientes por nombre o empresa 
 router.get('/clientes/buscar/:termino', auth, async (req, res) => {
   try {
