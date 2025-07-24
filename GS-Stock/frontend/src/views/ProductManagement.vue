@@ -129,8 +129,7 @@
           <div class="form-group">
             <label for="edit-estado">Estado:</label>
             <select id="edit-estado" v-model="selectedProduct.estado" required>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo</option>
+              <option value="disponible">Disponible</option>
               <option value="agotado">Agotado</option>
             </select>
           </div>
@@ -183,7 +182,7 @@ export default {
       id_usuarios: '',
       estado: 'activo'
     });
-    
+
     const searchQuery = ref({ id: '' });
 
     const showMessage = (title, message, type = 'info') => {
@@ -202,13 +201,12 @@ export default {
         cantidad: '',
         id_zapatos: '',
         id_usuarios: '',
-        estado: 'activo'
+        estado: 'Disponible'
       };
       showCreateModal.value = true;
     };
 
     const searchProduct = () => {
-      // endpointColocarDespues para buscar por ID
       console.log("Buscar producto con ID:", searchQuery.value.id);
     };
 
@@ -227,10 +225,10 @@ export default {
     const fetchInventarios = async () => {
       const token = checkAuth();
       if (!token) return;
-      
+
       loading.value = true;
       error.value = null;
-      
+
       try {
         const response = await fetch('http://localhost:3000/api/inventarios', {
           method: 'GET',
@@ -238,15 +236,15 @@ export default {
             'Authorization': `Bearer ${token}`
           }
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al cargar los inventarios');
         }
-        
+
         const data = await response.json();
         console.log('Datos recibidos:', data);
-        
+
         products.value = data.data.map(item => ({
           id: item.id ?? null,
           cantidad: item.cantidad ?? 0,
@@ -266,7 +264,7 @@ export default {
     const createProduct = async () => {
       const token = checkAuth();
       if (!token) return;
-      
+
       try {
         const response = await fetch('http://localhost:3000/api/inventarios', {
           method: 'POST',
@@ -276,15 +274,15 @@ export default {
           },
           body: JSON.stringify(newProduct.value)
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al crear el inventario');
         }
-        
+
         const data = await response.json();
         console.log("Inventario creado:", data);
-        
+
         showCreateModal.value = false;
         showMessage('Éxito', 'Inventario creado correctamente', 'success');
         fetchInventarios();
@@ -304,7 +302,7 @@ export default {
     const updateProduct = async () => {
       const token = checkAuth();
       if (!token) return;
-      
+
       try {
         const response = await fetch(`http://localhost:3000/api/inventarios/${selectedProduct.value.id}`, {
           method: 'PUT',
@@ -319,15 +317,15 @@ export default {
             estado: selectedProduct.value.estado
           })
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al actualizar el inventario');
         }
-        
+
         const data = await response.json();
         console.log("Inventario actualizado:", data);
-        
+
         showEditModal.value = false;
         showMessage('Éxito', 'Inventario actualizado correctamente', 'success');
         fetchInventarios();
@@ -341,7 +339,7 @@ export default {
         showMessage('Error', 'No hay ningún inventario seleccionado para eliminar', 'error');
         return;
       }
-      
+
       const idToDelete = prompt(`Ingrese el ID del producto que desea eliminar (ID seleccionado: ${selectedProduct.value.id})`);
       if (idToDelete && idToDelete === selectedProduct.value.id.toString()) {
         deleteProduct();
@@ -353,7 +351,7 @@ export default {
     const deleteProduct = async () => {
       const token = checkAuth();
       if (!token) return;
-      
+
       try {
         const response = await fetch(`http://localhost:3000/api/inventarios/${selectedProduct.value.id}`, {
           method: 'DELETE',
@@ -361,12 +359,12 @@ export default {
             'Authorization': `Bearer ${token}`
           }
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al eliminar el inventario');
         }
-        
+
         selectedProduct.value = null;
         showMessage('Éxito', 'Inventario eliminado correctamente', 'success');
         fetchInventarios();
