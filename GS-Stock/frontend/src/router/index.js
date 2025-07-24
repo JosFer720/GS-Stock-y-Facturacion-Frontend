@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import SalesManagment from '@/views/SalesManagment.vue';
+import ClientsView from '../views/ClientsView.vue'
+
 
 const routes = [
   {
@@ -42,7 +44,12 @@ const routes = [
   path: '/ventas',
   name: 'Ventas',
   component: () => import('../views/SalesManagment.vue')
-}
+  },
+  {
+    path: '/clientes',
+    name: 'Clientes',
+    component: () => import('../views/ClientsView.vue')
+  }
 ]
 
 const router = createRouter({
