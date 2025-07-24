@@ -11,6 +11,7 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
+// GET /api/facturas?=2025-07-22&cliente=Juan
 router.get('/facturas', auth, async (req, res) => {
   const { fecha, cliente } = req.query;
 
@@ -26,15 +27,16 @@ router.get('/facturas', auth, async (req, res) => {
     JOIN clientes c ON p.id_cliente = c.id
     WHERE 1=1
   `;
+  
   const params = [];
 
-  // Filtro por fecha usando la fecha del pedido
   if (fecha) {
     params.push(fecha);
     query += ` AND DATE(p.fecha) = DATE($${params.length})`;
+    
+    console.log('Filtrando por fecha:', fecha);
   }
 
-  // Filtro por cliente
   if (cliente) {
     const palabras = cliente.trim().toLowerCase().split(/\s+/);
     
@@ -54,7 +56,7 @@ router.get('/facturas', auth, async (req, res) => {
     }
   }
 
-  query += ` ORDER BY f.id DESC`;
+  query += ` ORDER BY p.fecha DESC, f.id DESC`;
 
   try {
     console.log('Query:', query);
