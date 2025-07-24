@@ -429,8 +429,7 @@ router.put('/clientes/:id', auth, async (req, res) => {
   }
 });
 
-// Eliminar un cliente 
-// Eliminar un cliente 
+// Eliminar un cliente (versión corregida)
 router.delete('/clientes/:id', auth, async (req, res) => {
   const client = await pool.connect();
   
@@ -446,41 +445,107 @@ router.delete('/clientes/:id', auth, async (req, res) => {
     if (checkResult.rows.length === 0) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
+
+    // Verificar si el cliente tiene pedidos asociados
+    const pedidosResult = await client.query(
+      'SELECT COUNT(*) as count FROM pedidos WHERE id_cliente = $1',
+      [id]
+    );
+
+    if (parseInt(pedidosResult.rows[0].count) > 0) {
+      return res.status(400).json({ 
+        error: 'No se puede eliminar el cliente porque tiene pedidos asociados',
+        details: `El cliente tiene ${pedidosResult.rows[0].count} pedidos registrados`
+      });
+    }
     
     await client.query('BEGIN');
     
-    // Eliminar relaciones de direcciones (solo de la tabla de relación)
+    
+    await client.query(
+      'UPDATE clientes SET id_cliente_telefono = NULL WHERE id = $1',
+      [id]
+    );
+    
+    
+    const direccionesResult = await client.query(
+      'SELECT id_direccion FROM cliente_direcciones WHERE id_cliente = $1',
+      [id]
+    );
+    
+   
+    const telefonosResult = await client.query(
+      'SELECT id_telefono FROM cliente_telefonos WHERE id_cliente = $1',
+      [id]
+    );
+    
+    
     await client.query(
       'DELETE FROM cliente_direcciones WHERE id_cliente = $1',
       [id]
     );
     
-    // Eliminar relaciones de teléfonos (solo de la tabla de relación)
+    
     await client.query(
       'DELETE FROM cliente_telefonos WHERE id_cliente = $1',
       [id]
     );
     
-    // Eliminar el cliente
-    await client.query('DELETE FROM clientes WHERE id = $1', [id]);
+   
+    for (const direccion of direccionesResult.rows) {
+      await client.query(
+        'DELETE FROM direcciones WHERE id = $1',
+        [direccion.id_direccion]
+      );
+    }
+    
+ 
+    for (const telefono of telefonosResult.rows) {
+      await client.query(
+        'DELETE FROM telefonos WHERE id = $1',
+        [telefono.id_telefono]
+      );
+    }
+    
+   
+    const deleteResult = await client.query(
+      'DELETE FROM clientes WHERE id = $1 RETURNING *',
+      [id]
+    );
     
     await client.query('COMMIT');
     
     res.status(200).json({
-      message: 'Cliente eliminado correctamente'
+      message: 'Cliente eliminado correctamente',
+      data: {
+        clienteEliminado: deleteResult.rows[0],
+        direccionesEliminadas: direccionesResult.rows.length,
+        telefonosEliminados: telefonosResult.rows.length
+      }
     });
+    
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Error al eliminar cliente:', err);
     
-    res.status(500).json({ 
-      error: 'Error en el servidor',
-      details: err.message 
-    });
+    // Manejo de errores específicos
+    if (err.code === '23503') { 
+      res.status(400).json({ 
+        error: 'No se puede eliminar el cliente porque está referenciado en otras tablas',
+        details: 'El cliente tiene registros asociados que impiden su eliminación'
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Error en el servidor',
+        details: err.message 
+      });
+    }
   } finally {
     client.release();
   }
 });
+
+
 // Endpoint para buscar clientes por nombre o empresa 
 router.get('/clientes/buscar/:termino', auth, async (req, res) => {
   try {
