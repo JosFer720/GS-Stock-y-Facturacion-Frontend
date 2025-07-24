@@ -1,14 +1,13 @@
 FROM node:lts-alpine
 
-RUN apk add --no-cache g++ make postgresql-dev curl
+RUN apk add --no-cache g++ make python3 postgresql-dev curl
 
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install --production && \
-    npm install bcryptjs jsonwebtoken@latest dotenv cors pg nodemailer socket.io && \
-    npm install --save-dev jest supertest
+# Instalar todas las dependencias de una sola vez
+RUN npm install --include=dev
 
 COPY . .
 

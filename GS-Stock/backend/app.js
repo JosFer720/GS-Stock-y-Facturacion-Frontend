@@ -14,6 +14,8 @@ const inventoryRoutes = require('./routes/inventory');
 const salesRoutes = require('./routes/sales');
 const facturasRouter = require('./routes/facturas');
 const clientesRoutes = require('./routes/clientes');
+const sugerenciasFacturacionRoutes = require('./routes/sugerenciasFacturacion');
+const crearFacturaRoutes = require('./routes/crearFactura');
 
 const { Pool } = require('pg');
 
@@ -42,6 +44,8 @@ app.use('/api', inventoryRoutes);
 app.use('/api', salesRoutes);
 app.use('/api', facturasRouter);
 app.use('/api', clientesRoutes);
+app.use('/api', sugerenciasFacturacionRoutes);
+app.use('/api', crearFacturaRoutes);
 
 
 app.get('/health', async (req, res) => {
