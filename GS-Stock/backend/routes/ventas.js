@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const auth = require('../middleware/auth'); // Añadido: Importar middleware de autenticación
+const auth = require('../middleware/auth'); 
 
-// Configuración de la conexión a PostgreSQL
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
   host: process.env.DB_HOST || 'postgres',
@@ -12,8 +11,8 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Endpoint para obtener todas las ventas (protegido)
-router.get('/ventas', auth, async (req, res) => { // Añadido: middleware auth
+// Endpoint para obtener todas las ventas 
+router.get('/ventas', auth, async (req, res) => { 
   try {
     const query = `
       SELECT 
@@ -83,8 +82,8 @@ router.get('/ventas', auth, async (req, res) => { // Añadido: middleware auth
   }
 });
 
-// Endpoint para obtener una venta específica por ID de pedido (protegido)
-router.get('/ventas/:id', auth, async (req, res) => { // Añadido: middleware auth
+// Endpoint para obtener una venta específica por ID de pedido 
+router.get('/ventas/:id', auth, async (req, res) => { 
   try {
     const { id } = req.params;
     
@@ -117,7 +116,6 @@ router.get('/ventas/:id', auth, async (req, res) => { // Añadido: middleware au
       return res.status(404).json({ error: 'Venta no encontrada' });
     }
     
-    // Estructurar la respuesta
     const venta = {
       pedido_id: result.rows[0].pedido_id,
       cliente: result.rows[0].cliente,
@@ -181,7 +179,6 @@ router.get('/clientes/buscar-empresa/:empresa', auth, async (req, res) => {
 });
 
 // Endpoint para crear nueva venta
-// Endpoint para crear nueva venta
 router.post('/ventas', auth, async (req, res) => {
   const client = await pool.connect();
   
@@ -191,15 +188,14 @@ router.post('/ventas', auth, async (req, res) => {
       empresa_cliente, 
       id_vendedor,
       id_metodo_pago,
+      id_estado_pedido = 1, // Por defecto "en bodega" (ID 1)
       productos, 
       subtotal,
       total
     } = req.body;
 
-    // Iniciar transacción
     await client.query('BEGIN');
 
-    // Si viene empresa_cliente, buscar el cliente
     let clienteId = id_cliente;
     if (empresa_cliente && !id_cliente) {
       const clienteQuery = `
@@ -217,71 +213,80 @@ router.post('/ventas', auth, async (req, res) => {
       clienteId = clienteResult.rows[0].id;
     }
 
-    // Validar que existan los registros referenciados
     const validaciones = await Promise.all([
       client.query('SELECT Id FROM Clientes WHERE Id = $1', [clienteId]),
       client.query('SELECT Id FROM Vendedores WHERE Id = $1', [id_vendedor]),
-      client.query('SELECT Id FROM Metodos_De_Pago WHERE Id = $1', [id_metodo_pago])
+      client.query('SELECT Id FROM Metodos_De_Pago WHERE Id = $1', [id_metodo_pago]),
+      client.query('SELECT Id FROM Estados_Pedidos WHERE Id = $1', [id_estado_pedido])
     ]);
 
     if (validaciones[0].rows.length === 0) throw new Error('Cliente no encontrado');
     if (validaciones[1].rows.length === 0) throw new Error('Vendedor no encontrado');
     if (validaciones[2].rows.length === 0) throw new Error('Método de pago no encontrado');
+    if (validaciones[3].rows.length === 0) throw new Error('Estado de pedido no encontrado');
 
-    // Crear el pedido
     const pedidoQuery = `
-      INSERT INTO Pedidos (Id_Cliente, Id_Vendedor, Id_Metodo_De_Pago, Subtotal, Total)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO Pedidos (Id_Cliente, Id_Vendedor, Id_Metodo_De_Pago, Id_Estado_Pedido, Subtotal, Total)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING Id
     `;
     
     const pedidoResult = await client.query(pedidoQuery, [
-      clienteId, id_vendedor, id_metodo_pago, subtotal, total
+      clienteId, id_vendedor, id_metodo_pago, id_estado_pedido, subtotal, total
     ]);
     
     const pedidoId = pedidoResult.rows[0].id;
 
-    // Insertar detalles del pedido
     for (const producto of productos) {
-      // Validar que existe el zapato
       const zapatoQuery = await client.query('SELECT Id FROM Zapatos WHERE Id = $1', [producto.id_zapato]);
       if (zapatoQuery.rows.length === 0) {
         throw new Error(`Zapato con ID ${producto.id_zapato} no encontrado`);
       }
 
-      // Insertar detalle
-      const detalleQuery = `
+      await client.query(`
         INSERT INTO Detalle_Pedidos (Id_Pedido, Id_Zapato, Cantidad)
         VALUES ($1, $2, $3)
-      `;
-      await client.query(detalleQuery, [pedidoId, producto.id_zapato, producto.cantidad]);
+      `, [pedidoId, producto.id_zapato, producto.cantidad]);
 
-      // Descontar stock en Zapatos_Tallas (asumiendo que usamos la primera talla disponible)
-      const updateStockQuery = `
-        UPDATE Zapatos_Tallas
-        SET Stock = Stock - $1
-        WHERE Id_Zapato = $2 AND Stock >= $1
-        RETURNING Id
-      `;
-      
-      const updateResult = await client.query(updateStockQuery, [producto.cantidad, producto.id_zapato]);
-      
-      if (updateResult.rows.length === 0) {
-        throw new Error(`No se pudo actualizar stock para el producto ID ${producto.id_zapato}`);
+      let cantidadRestante = producto.cantidad;
+
+      // Verificar stock disponible en inventarios
+      const inventarios = await client.query(`
+        SELECT Id, Cantidad FROM Inventarios
+        WHERE Id_Zapatos = $1 AND Cantidad > 0 AND UPPER(Estado) = 'DISPONIBLE'
+        ORDER BY Fecha_De_Ingreso ASC
+      `, [producto.id_zapato]);
+
+      if (inventarios.rows.length === 0) {
+        throw new Error(`No hay inventario disponible para el zapato ID ${producto.id_zapato}`);
       }
 
-      // Actualizar la tabla Inventarios
-      const updateInventarioQuery = `
-        UPDATE Inventarios
-        SET Cantidad = Cantidad - $1
-        WHERE Id_Zapatos = $2 AND Cantidad >= $1
-        RETURNING Id
-      `;
+      // Calcular stock total disponible
+      const stockTotal = inventarios.rows.reduce((sum, inv) => sum + parseInt(inv.cantidad), 0);
       
-      const inventarioResult = await client.query(updateInventarioQuery, [producto.cantidad, producto.id_zapato]);
-      
-      if (inventarioResult.rows.length === 0) {
-        throw new Error(`No se pudo actualizar inventario para el producto ID ${producto.id_zapato}`);
+      if (stockTotal < cantidadRestante) {
+        throw new Error(`Stock insuficiente para el zapato ID ${producto.id_zapato}. Disponible: ${stockTotal}, Requerido: ${cantidadRestante}`);
+      }
+
+      // Restar del inventario usando FIFO
+      for (const inv of inventarios.rows) {
+        if (cantidadRestante <= 0) break;
+
+        const restar = Math.min(cantidadRestante, inv.cantidad);
+
+        const nuevaCantidad = inv.cantidad - restar;
+        
+        await client.query(`
+          UPDATE Inventarios
+          SET Cantidad = $1
+          WHERE Id = $2
+        `, [nuevaCantidad, inv.id]);
+
+        cantidadRestante -= restar;
+      }
+
+      if (cantidadRestante > 0) {
+        throw new Error(`Error al actualizar inventario para el producto ID ${producto.id_zapato}`);
       }
     }
 
@@ -304,8 +309,6 @@ router.post('/ventas', auth, async (req, res) => {
   }
 });
 
-
-// Obtener lista de vendedores
 router.get('/vendedores', auth, async (req, res) => {
   try {
     const query = `
@@ -329,7 +332,6 @@ router.get('/vendedores', auth, async (req, res) => {
   }
 });
 
-// Obtener métodos de pago
 router.get('/metodos-pago', auth, async (req, res) => {
   try {
     const query = 'SELECT Id, Tipo FROM Metodos_De_Pago ORDER BY Tipo';
@@ -347,8 +349,72 @@ router.get('/metodos-pago', auth, async (req, res) => {
   }
 });
 
-// Verificar stock antes de vender
-// Verificar stock antes de vender
+// Endpoint para actualizar estado de pedido
+router.put('/ventas/:id/estado', auth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    // Validar que el estado exista
+    const estadoQuery = await client.query(
+      'SELECT Id FROM Estados_Pedidos WHERE Estado = $1', 
+      [estado]
+    );
+    
+    if (estadoQuery.rows.length === 0) {
+      return res.status(400).json({ error: 'Estado de pedido no válido' });
+    }
+
+    // Actualizar el estado
+    const updateQuery = `
+      UPDATE Pedidos
+      SET Id_Estado_Pedido = $1
+      WHERE Id = $2
+      RETURNING *
+    `;
+    
+    const result = await client.query(updateQuery, [estadoQuery.rows[0].id, id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+    
+    res.status(200).json({
+      message: 'Estado de pedido actualizado correctamente',
+      data: result.rows[0]
+    });
+    
+  } catch (err) {
+    console.error('Error al actualizar estado de pedido:', err);
+    res.status(500).json({ 
+      error: 'Error al actualizar estado de pedido',
+      details: err.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// Nuevo endpoint para obtener estados de pedidos
+router.get('/estados-pedidos', auth, async (req, res) => {
+  try {
+    const query = 'SELECT Id, Estado FROM Estados_Pedidos ORDER BY Id';
+    const result = await pool.query(query);
+    res.status(200).json({
+      message: 'Estados de pedidos obtenidos correctamente',
+      data: result.rows
+    });
+  } catch (err) {
+    console.error('Error al obtener estados de pedidos:', err);
+    res.status(500).json({ 
+      error: 'Error al consultar la base de datos',
+      details: err.message
+    });
+  }
+});
+
 router.post('/inventario/verificar-stock', auth, async (req, res) => {
   const client = await pool.connect();
   
@@ -357,32 +423,21 @@ router.post('/inventario/verificar-stock', auth, async (req, res) => {
     
     await client.query('BEGIN');
     
-    // Verificar stock para cada producto
     for (const producto of productos) {
-      // Verificar en Zapatos_Tallas
-      const tallasQuery = `
-        SELECT SUM(Stock) as stock_disponible
-        FROM Zapatos_Tallas
-        WHERE Id_Zapato = $1
-      `;
-      
-      const tallasResult = await client.query(tallasQuery, [producto.id_zapato]);
-      const stockTallas = parseInt(tallasResult.rows[0].stock_disponible) || 0;
-      
-      // Verificar en Inventarios
+      // Verificar stock en inventarios con estado disponible
       const inventarioQuery = `
         SELECT SUM(Cantidad) as stock_inventario
         FROM Inventarios
-        WHERE Id_Zapatos = $1
+        WHERE Id_Zapatos = $1 AND UPPER(Estado) = 'DISPONIBLE'
       `;
       
       const inventarioResult = await client.query(inventarioQuery, [producto.id_zapato]);
       const stockInventario = parseInt(inventarioResult.rows[0].stock_inventario) || 0;
       
-      const stockTotal = stockTallas + stockInventario;
+      console.log(`Zapato ID ${producto.id_zapato}: Stock disponible=${stockInventario}, Requerido=${producto.cantidad}`);
       
-      if (stockTotal < producto.cantidad) {
-        throw new Error(`No hay suficiente stock para el producto ID ${producto.id_zapato}. Stock disponible: ${stockTotal}`);
+      if (stockInventario < producto.cantidad) {
+        throw new Error(`Stock insuficiente para el zapato ID ${producto.id_zapato}. Disponible: ${stockInventario}, Requerido: ${producto.cantidad}`);
       }
     }
     

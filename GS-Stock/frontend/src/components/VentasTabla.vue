@@ -11,9 +11,9 @@
             <th>Cliente</th>
             <th>Vendedor</th>
             <th>Fecha</th>
-            
             <th>Método Pago</th>
             <th>Productos</th>
+            <th>Estado</th>
             <th>Subtotal</th>
             <th>Total</th>
           </tr>
@@ -29,7 +29,6 @@
             <td>{{ sale.cliente }}</td>
             <td>{{ sale.vendedor }}</td>
             <td>{{ formatDate(sale.fecha) }}</td>
-            
             <td>{{ sale.metodo_pago }}</td>
             <td>
               <div class="products-list">
@@ -41,6 +40,22 @@
                   {{ product.zapato }} ({{ product.cantidad }})
                 </div>
               </div>
+            </td>
+            <td>
+              <select 
+                v-model="sale.estado_pedido"
+                @change="updateOrderStatus(sale)"
+                class="status-select"
+                :class="getStatusClass(sale.estado_pedido)"
+              >
+                <option 
+                  v-for="estado in estadosPedidos" 
+                  :key="estado.id" 
+                  :value="estado.estado"
+                >
+                  {{ estado.estado }}
+                </option>
+              </select>
             </td>
             <td>${{ formatCurrency(sale.subtotal) }}</td>
             <td class="total-cell">${{ formatCurrency(sale.total) }}</td>
@@ -61,15 +76,31 @@ export default {
       type: Array,
       required: true,
       default: () => []
+    },
+    estadosPedidos: {
+      type: Array,
+      required: true,
+      default: () => []
     }
   },
-  emits: ['sale-selected'],
+  emits: ['sale-selected', 'status-updated'],
   setup(props, { emit }) {
     const selectedSale = ref(null);
 
     const selectSale = (sale) => {
       selectedSale.value = sale;
       emit('sale-selected', sale);
+    };
+
+    const updateOrderStatus = async (sale) => {
+      try {
+        emit('status-updated', {
+          pedido_id: sale.pedido_id,
+          nuevo_estado: sale.estado_pedido
+        });
+      } catch (error) {
+        console.error('Error al actualizar estado:', error);
+      }
     };
 
     const formatDate = (dateString) => {
@@ -89,14 +120,16 @@ export default {
 
     const getStatusClass = (status) => {
       switch (status?.toLowerCase()) {
-        case 'completado':
         case 'entregado':
           return 'status-completed';
+        case 'en bodega':
         case 'pendiente':
           return 'status-pending';
         case 'cancelado':
           return 'status-cancelled';
         case 'procesando':
+        case 'empacado':
+        case 'en ruta':
           return 'status-processing';
         default:
           return 'status-default';
@@ -106,6 +139,7 @@ export default {
     return {
       selectedSale,
       selectSale,
+      updateOrderStatus,
       formatDate,
       formatCurrency,
       getStatusClass
@@ -274,5 +308,40 @@ export default {
   .products-list {
     max-width: 120px;
   }
+}
+
+.status-select {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  background-color: white;
+}
+
+.status-completed {
+  background-color: #4caf50;
+  color: white;
+}
+
+.status-pending {
+  background-color: #ff9800;
+  color: white;
+}
+
+.status-cancelled {
+  background-color: #f44336;
+  color: white;
+}
+
+.status-processing {
+  background-color: #2196f3;
+  color: white;
+}
+
+.status-default {
+  background-color: #9e9e9e;
+  color: white;
 }
 </style>
