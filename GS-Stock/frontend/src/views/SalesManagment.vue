@@ -59,7 +59,7 @@
       />
 
       <div class="facturas-section">
-      <historial-facturas />
+        <historial-facturas />
       </div>
     </div>
 
@@ -100,6 +100,36 @@
           </div>
 
           <div class="form-group">
+            <label for="nit">NIT:</label>
+            <input 
+              type="text" 
+              id="nit" 
+              v-model="newSale.nit" 
+              placeholder="NIT del cliente"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="direccion_facturacion">Dirección de Facturación:</label>
+            <input 
+              type="text" 
+              id="direccion_facturacion" 
+              v-model="newSale.direccion_facturacion" 
+              placeholder="Dirección completa"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="telefono_cliente">Teléfono:</label>
+            <input 
+              type="text" 
+              id="telefono_cliente" 
+              v-model="newSale.telefono_cliente" 
+              placeholder="Teléfono del cliente"
+            >
+          </div>
+
+          <div class="form-group">
             <label for="id_vendedor">Vendedor:</label>
             <select 
               id="id_vendedor" 
@@ -134,19 +164,21 @@
               :key="index"
               class="producto-item"
             >
-              <input 
-                type="number" 
+              <input
+                type="number"
                 placeholder="ID Zapato"
-                v-model="producto.id_zapato" 
+                v-model.number="producto.id_zapato"
                 required
                 min="1"
+                class="producto-id-input"
               >
               <input 
                 type="number" 
                 placeholder="Cantidad"
-                v-model="producto.cantidad" 
+                v-model.number="producto.cantidad" 
                 required
                 min="1"
+                class="cantidad-input"
               >
               <button 
                 type="button" 
@@ -161,8 +193,6 @@
               + Agregar Producto
             </button>
           </div>
-
-          <!-- Nueva sección de Estado del Pedido -->
           <div class="form-group">
             <label for="id_estado_pedido">Estado del Pedido:</label>
             <select 
@@ -177,28 +207,30 @@
             </select>
           </div>
 
-          <div class="form-group">
-            <label for="subtotal">Subtotal:</label>
-            <input 
-              type="number" 
-              id="subtotal" 
-              v-model="newSale.subtotal" 
-              required
-              min="0"
-              step="0.01"
-            >
-          </div>
+          <div class="totales-section">
+            <div class="form-group">
+              <label for="subtotal">Subtotal:</label>
+              <input 
+                type="number" 
+                id="subtotal" 
+                v-model="newSale.subtotal"
+                required
+                min="0"
+                step="0.01"
+              >
+            </div>
 
-          <div class="form-group">
-            <label for="total">Total:</label>
-            <input 
-              type="number" 
-              id="total" 
-              v-model="newSale.total" 
-              required
-              min="0"
-              step="0.01"
-            >
+            <div class="form-group">
+              <label for="total">Total:</label>
+              <input 
+                type="number" 
+                id="total" 
+                v-model="newSale.total"
+                required
+                min="0"
+                step="0.01"
+              >
+            </div>
           </div>
 
           <button type="submit" class="submit-button" :disabled="!newSale.id_cliente">
@@ -278,7 +310,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import VentasTabla from '@/components/VentasTabla.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
@@ -312,6 +344,7 @@ export default {
     const vendedores = ref([]);
     const metodosPago = ref([]);
     const estadosPedidos = ref([]); 
+    const productosDisponibles = ref([]);
     
     const filters = ref({
       date: '',
@@ -326,8 +359,11 @@ export default {
       id_metodo_pago: '',
       id_estado_pedido: '', 
       productos: [{ id_zapato: '', cantidad: '' }],
-      subtotal: '',
-      total: ''
+      subtotal: 0, 
+      total: 0,    
+      nit: '', 
+      direccion_facturacion: '', 
+      telefono_cliente: ''
     });
 
     const clienteEncontrado = ref(null);
@@ -360,6 +396,8 @@ export default {
     const fetchVendedores = async () => {
       try {
         const token = checkAuth();
+        if (!token) return;
+        
         const response = await fetch('http://localhost:3000/api/vendedores', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -376,6 +414,8 @@ export default {
     const fetchMetodosPago = async () => {
       try {
         const token = checkAuth();
+        if (!token) return;
+        
         const response = await fetch('http://localhost:3000/api/metodos-pago', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -392,6 +432,8 @@ export default {
     const fetchEstadosPedidos = async () => {
       try {
         const token = checkAuth();
+        if (!token) return;
+        
         const response = await fetch('http://localhost:3000/api/estados-pedidos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -411,10 +453,13 @@ export default {
         showMessage('Error', err.message, 'error');
       }
     };
-    
+
+    // AÑADIDA: Función para verificar stock (de la versión 2)
     const verificarStock = async (productos) => {
       try {
         const token = checkAuth();
+        if (!token) return;
+        
         const response = await fetch('http://localhost:3000/api/inventario/verificar-stock', {
           method: 'POST',
           headers: {
@@ -445,7 +490,9 @@ export default {
       
       try {
         const token = checkAuth();
-        const response = await fetch(`http://localhost:3000/api/clientes/buscar-empresa/${encodeURIComponent(newSale.value.empresa_cliente)}`, {
+        if (!token) return;
+        
+        const response = await fetch(`http://localhost:3000/api/buscar-cliente-empresa/${encodeURIComponent(newSale.value.empresa_cliente)}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -454,8 +501,12 @@ export default {
         }
 
         const data = await response.json();
-        if (data.data.length > 0) {
+        if (data.success && data.data.length > 0) {
           clienteEncontrado.value = data.data[0];
+          // Auto-llenar campos adicionales
+          newSale.value.nit = clienteEncontrado.value.nit || '';
+          newSale.value.direccion_facturacion = clienteEncontrado.value.direccion || '';
+          newSale.value.telefono_cliente = clienteEncontrado.value.telefono || '';
           mostrarConfirmacionCliente.value = true;
         } else {
           showMessage('Error', 'No se encontraron clientes para esta empresa', 'error');
@@ -477,6 +528,9 @@ export default {
       clienteEncontrado.value = null;
       mostrarConfirmacionCliente.value = false;
       newSale.value.empresa_cliente = '';
+      newSale.value.nit = '';
+      newSale.value.direccion_facturacion = '';
+      newSale.value.telefono_cliente = '';
     };
 
     const agregarProducto = () => {
@@ -498,6 +552,9 @@ export default {
         id_estado_pedido: estadosPedidos.value.length > 0 ? estadosPedidos.value[0].id : '', 
         productos: [{ id_zapato: '', cantidad: '' }],
         subtotal: '',
+        nit: '', 
+        direccion_facturacion: '', 
+        telefono_cliente: '', 
         total: ''
       };
       clienteEncontrado.value = null;
@@ -505,47 +562,121 @@ export default {
       showAddSaleModal.value = true;
     };
 
+    // FUNCIÓN COMBINADA: Verifica stock Y genera factura
     const addSale = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
 
+        // Validación mejorada
+        if (!newSale.value.id_cliente || !newSale.value.nit || 
+            !newSale.value.direccion_facturacion || !newSale.value.telefono_cliente) {
+          showMessage('Error', 'Complete todos los campos del cliente', 'error');
+          return;
+        }
+
+        // Validar productos
+        for (let i = 0; i < newSale.value.productos.length; i++) {
+          const producto = newSale.value.productos[i];
+          if (!producto.id_zapato || !producto.cantidad) {
+            showMessage('Error', `Complete el producto ${i + 1}`, 'error');
+            return;
+          }
+          
+          if (isNaN(parseInt(producto.id_zapato)) || isNaN(parseInt(producto.cantidad))) {
+            showMessage('Error', `El producto ${i + 1} tiene valores inválidos`, 'error');
+            return;
+          }
+        }
+
+        // Validar montos
+        if (!newSale.value.subtotal || !newSale.value.total) {
+          showMessage('Error', 'Complete los montos (subtotal y total)', 'error');
+          return;
+        }
+
+        const subtotalNum = parseFloat(newSale.value.subtotal);
+        const totalNum = parseFloat(newSale.value.total);
+        
+        if (isNaN(subtotalNum) || isNaN(totalNum) || subtotalNum < 0 || totalNum < 0) {
+          showMessage('Error', 'Los montos deben ser números válidos y positivos', 'error');
+          return;
+        }
+
+        // Preparar productos para verificar stock
         const productosParaVerificar = newSale.value.productos.map(p => ({
           id_zapato: parseInt(p.id_zapato),
           cantidad: parseInt(p.cantidad)
         }));
-        
+
+        // PASO 1: Verificar stock antes de proceder
+        console.log('Verificando stock para productos:', productosParaVerificar);
         await verificarStock(productosParaVerificar);
-        
-        const ventaData = {
-          id_cliente: newSale.value.id_cliente,
-          empresa_cliente: newSale.value.empresa_cliente,
-          id_vendedor: parseInt(newSale.value.id_vendedor),
+        console.log('Stock verificado correctamente');
+
+        // PASO 2: Preparar datos para la factura
+        const facturaData = {
+          id_cliente: parseInt(newSale.value.id_cliente),
           id_metodo_pago: parseInt(newSale.value.id_metodo_pago),
-          id_estado_pedido: parseInt(newSale.value.id_estado_pedido), 
-          productos: productosParaVerificar,
-          subtotal: parseFloat(newSale.value.subtotal),
-          total: parseFloat(newSale.value.total)
+          nit: newSale.value.nit.trim(),
+          items: productosParaVerificar,
+          subtotal: subtotalNum,
+          total: totalNum,
+          direccion_facturacion: newSale.value.direccion_facturacion.trim(),
+          telefono_cliente: newSale.value.telefono_cliente.trim(),
+          id_usuario: parseInt(newSale.value.id_vendedor)
         };
 
-        const response = await fetch('http://localhost:3000/api/ventas', {
+        console.log('Datos de factura a enviar:', facturaData);
+
+        // PASO 3: Crear factura (esto también debería descontar automáticamente el stock)
+        const response = await fetch('http://localhost:3000/api/crear-factura', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(ventaData)
+          body: JSON.stringify(facturaData)
         });
+
+        console.log('Respuesta del servidor:', response.status, response.statusText);
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.details || 'Error al crear la venta');
+          console.error('Error del servidor:', errorData);
+          throw new Error(errorData.details || errorData.error || 'Error al crear la factura');
         }
 
-        showMessage('Éxito', 'Venta creada correctamente', 'success');
+        // Verificar que la respuesta es un PDF
+        const contentType = response.headers.get('content-type');
+        console.log('Tipo de contenido:', contentType);
+        
+        if (!contentType || !contentType.includes('application/pdf')) {
+          throw new Error('La respuesta no es un PDF válido');
+        }
+
+        // Manejar la respuesta PDF
+        const blob = await response.blob();
+        console.log('Tamaño del PDF:', blob.size);
+        
+        if (blob.size === 0) {
+          throw new Error('El PDF generado está vacío');
+        }
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `factura_${new Date().getTime()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        showMessage('Éxito', 'Venta registrada, inventario actualizado y factura generada correctamente', 'success');
         showAddSaleModal.value = false;
         fetchSales();
       } catch (err) {
+        console.error('Error completo:', err);
         showMessage('Error', err.message, 'error');
       }
     };
@@ -758,9 +889,6 @@ export default {
       vendedores,
       metodosPago,
       estadosPedidos,
-      fetchVendedores,
-      fetchMetodosPago,
-      fetchEstadosPedidos,
       verificarStock
     };
   }
@@ -768,6 +896,45 @@ export default {
 </script>
 
 <style scoped>
+/* Agregar nuevos estilos */
+.producto-id-input,
+.cantidad-input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.readonly-input {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Ajustar espaciado entre campos */
+.totales-section {
+  display: flex;
+  gap: 15px;
+}
+
+.totales-section .form-group {
+  flex: 1;
+}
+
+/* Media query para dispositivos móviles */
+@media (max-width: 576px) {
+  .producto-item {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .producto-id-input,
+  .cantidad-input {
+    width: 100%;
+  }
+}
+
 .sales-management-container {
   width: 100%;
   box-sizing: border-box;
@@ -1079,6 +1246,11 @@ export default {
   box-sizing: border-box;
 }
 
+.form-group input[readonly] {
+  background-color: #f8f9fa;
+  color: #6c757d;
+}
+
 .submit-button {
   padding: 12px 16px;
   border: none;
@@ -1218,8 +1390,20 @@ export default {
   align-items: center;
 }
 
-.producto-item input {
+.producto-select {
+  flex: 2;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.cantidad-input {
   flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
 .remove-product-button {
@@ -1234,6 +1418,7 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 14px;
+  flex-shrink: 0;
 }
 
 .remove-product-button:hover {
@@ -1253,6 +1438,14 @@ export default {
 
 .add-product-button:hover {
   background-color: #45a049;
+}
+
+.totales-section {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  margin: 15px 0;
 }
 
 /* Media Queries - Tablet */
@@ -1298,6 +1491,10 @@ export default {
   .filter-button {
     min-width: 100px;
   }
+
+  .producto-item {
+    flex-wrap: nowrap;
+  }
 }
 
 /* Media Queries - Desktop */
@@ -1324,10 +1521,6 @@ export default {
   
   .detail-row strong {
     min-width: 150px;
-  }
-  
-  .producto-item {
-    flex-wrap: nowrap;
   }
   
   .modal-content {

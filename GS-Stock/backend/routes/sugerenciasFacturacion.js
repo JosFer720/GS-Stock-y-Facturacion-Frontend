@@ -14,37 +14,120 @@ const pool = new Pool({
 // Obtener datos para autollenado del formulario
 router.get('/sugerencias-facturacion', auth, async (req, res) => {
   try {
-    // Obtener clientes con sus direcciones
+    // Obtener clientes con empresa y teléfono principal
     const clientesQuery = `
-      SELECT c.id, c.nombre, c.apellido, c.empresa, d.direccion 
+      SELECT DISTINCT
+        c.id, 
+        c.nombre, 
+        c.apellido, 
+        c.empresa,
+        COALESCE(
+          (SELECT t.telefono 
+           FROM cliente_telefonos ct 
+           JOIN telefonos t ON ct.id_telefono = t.id 
+           WHERE ct.id_cliente = c.id 
+           LIMIT 1), 
+          'Sin teléfono'
+        ) AS telefono_principal,
+        COALESCE(
+          (SELECT array_agg(d.direccion) 
+           FROM cliente_direcciones cd 
+           JOIN direcciones d ON cd.id_direccion = d.id 
+           WHERE cd.id_cliente = c.id), 
+          ARRAY[]::text[]
+        ) AS direcciones
       FROM clientes c
-      LEFT JOIN cliente_direcciones cd ON c.id = cd.id_cliente
-      LEFT JOIN direcciones d ON cd.id_direccion = d.id
+      ORDER BY c.empresa, c.nombre
     `;
+
     const clientesResult = await pool.query(clientesQuery);
 
     // Obtener métodos de pago
-    const metodosPagoQuery = 'SELECT id, tipo FROM metodos_de_pago';
+    const metodosPagoQuery = 'SELECT id, tipo FROM metodos_de_pago ORDER BY tipo';
     const metodosResult = await pool.query(metodosPagoQuery);
 
-    // Obtener productos disponibles
+    // Obtener productos disponibles con precios
     const productosQuery = `
-      SELECT z.id, z.nombre, z.codigo, t.talla_eu, t.talla_us, zt.stock
+      SELECT 
+        z.id, 
+        z.nombre, 
+        z.codigo, 
+        z.precio_venta,
+        t.talla_eu, 
+        t.talla_us, 
+        zt.stock,
+        CONCAT(z.nombre, ' - Talla EU: ', t.talla_eu, ' (Stock: ', zt.stock, ')') as descripcion_completa
       FROM zapatos z
       JOIN zapatos_tallas zt ON z.id = zt.id_zapato
       JOIN tallas t ON zt.id_talla = t.id
       WHERE zt.stock > 0
+      ORDER BY z.nombre, t.talla_eu
     `;
     const productosResult = await pool.query(productosQuery);
 
     res.json({
-      clientes: clientesResult.rows,
-      metodosPago: metodosResult.rows,
-      productos: productosResult.rows
+      success: true,
+      data: {
+        clientes: clientesResult.rows,
+        metodosPago: metodosResult.rows,
+        productos: productosResult.rows
+      }
     });
   } catch (error) {
     console.error('Error al obtener sugerencias:', error);
-    res.status(500).json({ error: 'Error al obtener datos para autollenado' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al obtener datos para autollenado',
+      details: error.message 
+    });
+  }
+});
+
+// Buscar cliente por empresa (endpoint adicional para búsqueda específica)
+router.get('/buscar-cliente-empresa/:empresa', auth, async (req, res) => {
+  const { empresa } = req.params;
+  
+  try {
+    const query = `
+      SELECT 
+        c.id,
+        c.nombre,
+        c.apellido,
+        c.empresa,
+        COALESCE(
+          (SELECT t.telefono 
+           FROM cliente_telefonos ct 
+           JOIN telefonos t ON ct.id_telefono = t.id 
+           WHERE ct.id_cliente = c.id 
+           LIMIT 1), 
+          'Sin teléfono'
+        ) AS telefono,
+        COALESCE(
+          (SELECT d.direccion 
+           FROM cliente_direcciones cd 
+           JOIN direcciones d ON cd.id_direccion = d.id 
+           WHERE cd.id_cliente = c.id 
+           LIMIT 1), 
+          'Sin dirección'
+        ) AS direccion
+      FROM clientes c
+      WHERE LOWER(c.empresa) LIKE LOWER($1)
+      ORDER BY c.nombre
+    `;
+    
+    const result = await pool.query(query, [`%${empresa}%`]);
+    
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Error al buscar cliente por empresa:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al buscar cliente',
+      details: error.message 
+    });
   }
 });
 
