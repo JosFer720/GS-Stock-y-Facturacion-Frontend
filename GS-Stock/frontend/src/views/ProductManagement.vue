@@ -59,6 +59,18 @@
             >
           </div>
           <div class="form-group">
+          <label for="codigo">Código del Zapato:</label>
+            <input 
+              type="text" 
+              id="codigo" 
+              v-model="newProduct.codigo" 
+              required 
+              pattern="^[A-Za-z0-9]+$"
+              title="Solo se permiten letras y números, sin espacios ni caracteres especiales"
+            >
+          </div>
+
+          <div class="form-group">
             <label for="id_zapatos">ID de Zapatos:</label>
             <input 
               type="number" 
@@ -177,6 +189,7 @@ export default {
     const messageType = ref('info');
 
     const newProduct = ref({
+      codigo: '',
       cantidad: '',
       id_zapatos: '',
       id_usuarios: '',
@@ -266,6 +279,15 @@ export default {
       if (!token) return;
 
       try {
+        if (!/^[A-Za-z0-9]+$/.test(newProduct.value.codigo)) {
+          showMessage(
+            'Error',
+            'El código debe ser alfanumérico (sin espacios ni símbolos)',
+            'error'
+          );
+          return;
+        }
+
         const response = await fetch('http://localhost:3000/api/inventarios', {
           method: 'POST',
           headers: {
@@ -281,7 +303,7 @@ export default {
         }
 
         const data = await response.json();
-        console.log("Inventario creado:", data);
+        console.log('Inventario creado:', data);
 
         showCreateModal.value = false;
         showMessage('Éxito', 'Inventario creado correctamente', 'success');
@@ -290,6 +312,7 @@ export default {
         showMessage('Error', err.message, 'error');
       }
     };
+
 
     const confirmEdit = () => {
       if (!selectedProduct.value) {
