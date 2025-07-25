@@ -12,28 +12,105 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-
 // Crear nueva factura y generar PDF
 router.post('/crear-factura', auth, async (req, res) => {
-  const { 
-    id_cliente, 
-    id_metodo_pago, 
-    nit, 
-    items, 
-    subtotal, 
-    total,
-    id_usuario 
-  } = req.body;
+// Reemplaza la validación básica actual con esta versión mejorada
+const { 
+  id_cliente, 
+  id_metodo_pago, 
+  nit, 
+  items, 
+  subtotal, 
+  direccion_facturacion,
+  telefono_cliente,
+  total,
+  id_usuario 
+} = req.body;
 
-  // Validación básica
-  if (!id_cliente || !id_metodo_pago || !items || !subtotal || !total || !id_usuario) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+// Validación básica mejorada
+console.log('Datos recibidos:', {
+  id_cliente,
+  id_metodo_pago,
+  nit,
+  items,
+  subtotal,
+  direccion_facturacion,
+  telefono_cliente,
+  total,
+  id_usuario
+});
+
+if (!id_cliente || !id_metodo_pago || !items || !Array.isArray(items) || items.length === 0) {
+  console.error('Error de validación: campos obligatorios faltantes');
+  return res.status(400).json({ 
+    success: false,
+    error: 'Faltan campos obligatorios o items inválidos',
+    received: {
+      id_cliente: !!id_cliente,
+      id_metodo_pago: !!id_metodo_pago,
+      items: items ? items.length : 0
+    }
+  });
+}
+
+if (!subtotal || !total || !id_usuario) {
+  console.error('Error de validación: montos o usuario faltantes');
+  return res.status(400).json({ 
+    success: false,
+    error: 'Faltan montos o usuario',
+    received: {
+      subtotal: !!subtotal,
+      total: !!total,
+      id_usuario: !!id_usuario
+    }
+  });
+}
+
+// Validar que cada item tenga los campos necesarios
+for (let i = 0; i < items.length; i++) {
+  const item = items[i];
+  if (!item.id_zapato || !item.cantidad) {
+    console.error(`Error en item ${i}:`, item);
+    return res.status(400).json({
+      success: false,
+      error: `Item ${i + 1} incompleto: falta id_zapato o cantidad`,
+      item_error: item
+    });
   }
+  
+  // Convertir a números si vienen como strings
+  items[i].id_zapato = parseInt(item.id_zapato);
+  items[i].cantidad = parseInt(item.cantidad);
+  
+  if (isNaN(items[i].id_zapato) || isNaN(items[i].cantidad)) {
+    return res.status(400).json({
+      success: false,
+      error: `Item ${i + 1} tiene valores no numéricos`,
+      item_error: item
+    });
+  }
+}
 
   try {
     await pool.query('BEGIN');
 
-    // 1. Crear pedido
+    // 1. Obtener datos del cliente
+    const clienteQuery = `
+      SELECT nombre, apellido, empresa
+      FROM clientes 
+      WHERE id = $1
+    `;
+    const clienteResult = await pool.query(clienteQuery, [id_cliente]);
+    
+    if (clienteResult.rows.length === 0) {
+      throw new Error('Cliente no encontrado');
+    }
+    
+    const cliente = clienteResult.rows[0];
+
+
+
+    // 3. Crear pedido
     const pedidoQuery = `
       INSERT INTO pedidos (
         id_cliente, 
@@ -49,30 +126,36 @@ router.post('/crear-factura', auth, async (req, res) => {
     `;
     const pedidoResult = await pool.query(pedidoQuery, [
       id_cliente,
-      id_usuario, // id_vendedor = usuario autenticado
+      id_usuario,
       id_metodo_pago,
       subtotal,
       total
     ]);
     const id_pedido = pedidoResult.rows[0].id;
 
-    // 2. Agregar items al pedido
+    // 4. Agregar items al pedido y actualizar inventario
     for (const item of items) {
+      // Insertar detalle del pedido
       await pool.query(`
         INSERT INTO detalle_pedidos (cantidad, id_zapato, id_pedido)
         VALUES ($1, $2, $3);
       `, [item.cantidad, item.id_zapato, id_pedido]);
 
       // Actualizar inventario
-      await pool.query(`
+      const updateResult = await pool.query(`
         UPDATE zapatos_tallas
         SET stock = stock - $1
-        WHERE id_zapato = $2;
+        WHERE id_zapato = $2
+        RETURNING stock;
       `, [item.cantidad, item.id_zapato]);
+
+      if (updateResult.rows.length === 0) {
+        throw new Error(`No se pudo actualizar el inventario para el producto ${item.id_zapato}`);
+      }
     }
 
-    // 3. Crear factura
-    const impuestos = total - subtotal;
+    // 5. Crear factura
+    const impuestos = parseFloat(total) - parseFloat(subtotal);
     const facturaQuery = `
       INSERT INTO facturas (
         id_pedido, 
@@ -93,9 +176,67 @@ router.post('/crear-factura', auth, async (req, res) => {
     ]);
     const factura = facturaResult.rows[0];
 
-    // 4. Generar PDF
-    const pdfBuffer = await generarPDF(factura, items, nit);
-    
+    // 6. Obtener detalles de productos para el PDF
+    const itemsConDetalles = [];
+    for (const item of items) {
+      console.log(`Buscando producto con ID: ${item.id_zapato}`);
+      
+      const productoQuery = `
+        SELECT z.nombre, z.codigo, z.precio_venta
+        FROM zapatos z
+        WHERE z.id = $1
+      `;
+      
+      try {
+        const productoResult = await pool.query(productoQuery, [item.id_zapato]);
+        
+        if (productoResult.rows.length === 0) {
+          console.error(`Producto con ID ${item.id_zapato} no encontrado`);
+          // En lugar de fallar, usar valores por defecto
+          itemsConDetalles.push({
+            ...item,
+            nombre: `Producto ID: ${item.id_zapato}`,
+            codigo: `COD-${item.id_zapato}`,
+            precio_unitario: 0 // Será calculado desde subtotal/total
+          });
+        } else {
+          const producto = productoResult.rows[0];
+          console.log(`Producto encontrado:`, producto);
+          
+          itemsConDetalles.push({
+            ...item,
+            nombre: producto.nombre || `Producto ${item.id_zapato}`,
+            codigo: producto.codigo || `COD-${item.id_zapato}`,
+            precio_unitario: producto.precio_venta || 0
+          });
+        }
+      } catch (queryError) {
+        console.error(`Error en consulta de producto ${item.id_zapato}:`, queryError);
+        // Usar valores por defecto en caso de error
+        itemsConDetalles.push({
+          ...item,
+          nombre: `Producto ID: ${item.id_zapato}`,
+          codigo: `COD-${item.id_zapato}`,
+          precio_unitario: 0
+        });
+      }
+    }
+
+    console.log('Items con detalles preparados:', itemsConDetalles);
+
+    // 7. Generar PDF usando los items con detalles
+    const pdfBuffer = await generarPDF(
+      factura, 
+      itemsConDetalles,  // Usar los items con detalles
+      {
+        nombre: `${cliente.nombre} ${cliente.apellido}`,
+        empresa: cliente.empresa || '',
+        nit: nit || 'CF',
+        direccion: direccion_facturacion || 'Sin dirección',
+        telefono: telefono_cliente || 'Sin teléfono'
+      }
+    );
+
     await pool.query('COMMIT');
 
     // Enviar respuesta con PDF
@@ -106,40 +247,142 @@ router.post('/crear-factura', auth, async (req, res) => {
   } catch (error) {
     await pool.query('ROLLBACK');
     console.error('Error al crear factura:', error);
-    res.status(500).json({ error: 'Error al crear la factura' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al crear la factura',
+      details: error.message 
+    });
   }
 });
 
-// Función para generar PDF
-async function generarPDF(factura, items, nit) {
+// Función mejorada para generar PDF
+// Reemplaza la función generarPDF completa con esta versión:
+async function generarPDF(factura, items, clienteData) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument();
+    console.log('Iniciando generación de PDF con:', {
+      factura: factura.id,
+      items: items.length,
+      cliente: clienteData.nombre
+    });
+    
+    const doc = new PDFDocument({ margin: 50 });
     const buffers = [];
     
     doc.on('data', buffers.push.bind(buffers));
-    doc.on('end', () => resolve(Buffer.concat(buffers)));
-    
-    // Encabezado
-    doc.fontSize(20).text('FACTURA', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).text(`Número: FAC-${factura.id}`);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`);
-    doc.text(`NIT: ${nit || 'CF'}`);
-    doc.moveDown();
-    
-    // Detalle de productos
-    doc.fontSize(14).text('Detalle de Productos:');
-    items.forEach(item => {
-      doc.text(`${item.nombre} - ${item.cantidad} x $${item.precio_unitario} = $${item.total}`);
+    doc.on('end', () => {
+      const pdfBuffer = Buffer.concat(buffers);
+      console.log('PDF generado, tamaño:', pdfBuffer.length);
+      resolve(pdfBuffer);
     });
-    doc.moveDown();
+    doc.on('error', (error) => {
+      console.error('Error generando PDF:', error);
+      reject(error);
+    });
     
-    // Totales
-    doc.fontSize(14).text(`Subtotal: $${factura.subtotal}`);
-    doc.text(`Impuestos: $${factura.impuestos}`);
-    doc.text(`Total: $${factura.total}`, { underline: true });
-    
-    doc.end();
+    try {
+      // Encabezado - Información de la empresa
+      doc.fontSize(18).font('Helvetica-Bold').text('IMPORTADORA GENSER S.A.', { align: 'center' });
+      doc.fontSize(10).font('Helvetica').text('Guatemala, Guatemala', { align: 'center' });
+      doc.text('Gracias por tu confianza', { align: 'center' });
+      doc.moveDown(2);
+      
+      // Información de la factura
+      const fecha = new Date(factura.fecha_emision).toLocaleDateString('es-ES');
+      doc.fontSize(12).font('Helvetica-Bold').text(`FACTURA N°: FAC-${factura.id}`, { align: 'right' });
+      doc.fontSize(10).font('Helvetica').text(`Fecha: ${fecha}`, { align: 'right' });
+      doc.moveDown(2);
+      
+      // Datos del cliente
+      doc.fontSize(12).font('Helvetica-Bold').text('FACTURAR A:');
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Cliente: ${clienteData.nombre}`);
+      if (clienteData.empresa) {
+        doc.text(`Empresa: ${clienteData.empresa}`);
+      }
+      doc.text(`NIT: ${clienteData.nit}`);
+      doc.text(`Dirección: ${clienteData.direccion}`);
+      doc.text(`Teléfono: ${clienteData.telefono}`);
+      doc.moveDown(2);
+      
+      // Tabla de productos
+      const tableTop = doc.y;
+      doc.fontSize(10).font('Helvetica-Bold');
+      
+      // Encabezados de tabla
+      doc.text('Cant.', 50, tableTop);
+      doc.text('Descripción', 100, tableTop);
+      doc.text('Precio Unit.', 350, tableTop);
+      doc.text('Total', 450, tableTop);
+      
+      // Línea separadora
+      doc.moveTo(50, tableTop + 15).lineTo(520, tableTop + 15).stroke();
+      
+      let yPos = tableTop + 25;
+      doc.font('Helvetica');
+      
+      // Calcular precio unitario basado en subtotal si no hay precios
+      const subtotalNum = parseFloat(factura.subtotal);
+      const totalCantidad = items.reduce((sum, item) => sum + item.cantidad, 0);
+      const precioPromedio = totalCantidad > 0 ? subtotalNum / totalCantidad : 0;
+      
+      // Items de productos
+      items.forEach((item, index) => {
+        // Si no hay precio unitario, usar el promedio o calcular proporcionalmente
+        let precio = item.precio_unitario || 0;
+        if (precio === 0 && subtotalNum > 0) {
+          precio = precioPromedio;
+        }
+        
+        const total_item = item.cantidad * precio;
+        
+        console.log(`Item ${index + 1}:`, {
+          cantidad: item.cantidad,
+          nombre: item.nombre,
+          precio,
+          total: total_item
+        });
+        
+        doc.text(item.cantidad.toString(), 50, yPos);
+        doc.text(`${item.codigo || 'COD'} - ${item.nombre || 'Producto'}`, 100, yPos, { width: 240 });
+        doc.text(`Q${precio.toFixed(2)}`, 350, yPos);
+        doc.text(`Q${total_item.toFixed(2)}`, 450, yPos);
+        
+        yPos += 20;
+        
+        // Verificar si necesitamos una nueva página
+        if (yPos > doc.page.height - 150) {
+          doc.addPage();
+          yPos = 50;
+        }
+      });
+      
+      // Línea separadora antes de totales
+      yPos += 10;
+      doc.moveTo(350, yPos).lineTo(520, yPos).stroke();
+      yPos += 15;
+      
+      // Totales
+      const subtotalValue = parseFloat(factura.subtotal) || 0;
+      const impuestosValue = parseFloat(factura.impuestos) || 0;
+      const totalValue = parseFloat(factura.total) || 0;
+      
+      doc.text(`Subtotal: Q${subtotalValue.toFixed(2)}`, 350, yPos);
+      yPos += 15;
+      doc.text(`Impuestos: Q${impuestosValue.toFixed(2)}`, 350, yPos);
+      yPos += 15;
+      doc.font('Helvetica-Bold').text(`TOTAL: Q${totalValue.toFixed(2)}`, 350, yPos);
+      
+      // Pie de página
+      const pageBottom = doc.page.height - 100;
+      doc.moveTo(50, pageBottom).lineTo(520, pageBottom).stroke();
+      doc.fontSize(8).font('Helvetica').text('Gracias por su compra', { align: 'center' }, pageBottom + 20);
+      
+      console.log('Finalizando documento PDF...');
+      doc.end();
+    } catch (error) {
+      console.error('Error en generación PDF:', error);
+      reject(error);
+    }
   });
 }
 
