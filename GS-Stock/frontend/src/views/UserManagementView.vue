@@ -67,7 +67,13 @@
           </div>
           <div class="form-group">
             <label for="email">Email:</label>
-            <input type="email" id="email" v-model="newUser.email">
+            <input 
+              type="email" 
+              id="email" 
+              v-model="newUser.email"
+              required
+              placeholder="ejemplo@gmail.com"
+            >
           </div>
           <div class="form-group">
             <label for="rol">Rol (ID):</label>
@@ -106,7 +112,13 @@
           </div>
           <div class="form-group">
             <label for="edit-email">Email:</label>
-            <input type="email" id="edit-email" v-model="editingUser.email">
+            <input 
+              type="email" 
+              id="edit-email" 
+              v-model="editingUser.email"
+              required
+              placeholder="luis@gmail.com"
+            >
           </div>
           <div class="form-group">
             <label for="edit-rol">Rol (ID):</label>
@@ -250,14 +262,18 @@ export default {
         
         const data = await response.json();
         
+        // MANTENER LOS DATOS ORIGINALES - NO CONVERTIR estado a string
         users.value = data.data.map(user => ({
           id: user.id,
           nombre: user.nombre,
           apellido: user.apellido,
-          email: user.email,
+          email: user.email, // ← Mantener email original
           id_roles: user.id_roles,
-          estado: user.estado ? 'Activo' : 'Inactivo'
+          estado: user.estado, // ← Mantener boolean original
+          estadoTexto: user.estado ? 'Activo' : 'Inactivo' // ← Agregar campo para mostrar
         }));
+        
+        console.log('Usuarios cargados:', users.value); // ← Para debug
       } catch (err) {
         error.value = `Error: ${err.message}`;
         console.error('Error al obtener usuarios:', err);
@@ -308,15 +324,31 @@ export default {
         apellido: selectedUser.value.apellido,
         email: selectedUser.value.email,
         id_roles: selectedUser.value.id_roles,
-        estado: selectedUser.value.estado === 'Activo'
+        estado: selectedUser.value.estado // ← Usar boolean original, no string
       };
       
+      console.log('Editando usuario:', editingUser.value); // ← Para debug
       showEditModal.value = true;
     };
 
     const createUser = async () => {
       const token = checkAuth();
       if (!token) return;
+      
+      // Limpiar espacios en blanco
+      const userToCreate = {
+        ...newUser.value,
+        nombre: newUser.value.nombre.trim(),
+        apellido: newUser.value.apellido.trim(),
+        email: newUser.value.email.trim().toLowerCase()
+      };
+      
+      // Validar formulario
+      const validation = validateUserForm(userToCreate, false);
+      if (!validation.valid) {
+        showMessage('Error de Validación', validation.message, 'error');
+        return;
+      }
       
       try {
         const response = await fetch('http://localhost:3000/api/usuarios', {
@@ -325,12 +357,21 @@ export default {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(newUser.value)
+          body: JSON.stringify(userToCreate)
         });
         
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al crear el usuario');
+          
+          // Manejar errores específicos del servidor
+          if (response.status === 409 || errorData.message?.includes('email')) {
+            showMessage('Error', 'Ya existe un usuario con este email', 'error');
+          } else if (response.status === 400) {
+            showMessage('Error', 'Datos inválidos: ' + (errorData.message || 'Verifique los campos'), 'error');
+          } else {
+            showMessage('Error', errorData.message || 'Error al crear el usuario', 'error');
+          }
+          return;
         }
         
         const data = await response.json();
@@ -338,15 +379,42 @@ export default {
         
         showCreateModal.value = false;
         showMessage('Éxito', 'Usuario creado correctamente', 'success');
+        
+        // Limpiar formulario
+        newUser.value = {
+          nombre: '',
+          apellido: '',
+          email: '',
+          id_roles: 2,
+          estado: true
+        };
+        
         fetchUsers();
       } catch (err) {
-        showMessage('Error', err.message, 'error');
+        console.error('Error en createUser:', err);
+        showMessage('Error', 'Error de conexión. Intente nuevamente.', 'error');
       }
     };
+
 
     const updateUser = async () => {
       const token = checkAuth();
       if (!token) return;
+      
+      // Limpiar espacios en blanco
+      const userToUpdate = {
+        ...editingUser.value,
+        nombre: editingUser.value.nombre.trim(),
+        apellido: editingUser.value.apellido.trim(),
+        email: editingUser.value.email.trim().toLowerCase()
+      };
+      
+      // Validar formulario (incluyendo verificación de email duplicado)
+      const validation = validateUserForm(userToUpdate, true, editingUser.value.id);
+      if (!validation.valid) {
+        showMessage('Error de Validación', validation.message, 'error');
+        return;
+      }
       
       try {
         const response = await fetch(`http://localhost:3000/api/usuarios/${editingUser.value.id}`, {
@@ -356,17 +424,26 @@ export default {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            nombre: editingUser.value.nombre,
-            apellido: editingUser.value.apellido,
-            email: editingUser.value.email,
-            id_roles: editingUser.value.id_roles,
-            estado: editingUser.value.estado
+            nombre: userToUpdate.nombre,
+            apellido: userToUpdate.apellido,
+            email: userToUpdate.email,
+            id_roles: userToUpdate.id_roles,
+            estado: userToUpdate.estado
           })
         });
         
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al actualizar el usuario');
+          
+          // Manejar errores específicos
+          if (response.status === 409 || errorData.message?.includes('email')) {
+            showMessage('Error', 'Ya existe un usuario con este email', 'error');
+          } else if (response.status === 400) {
+            showMessage('Error', 'Datos inválidos: ' + (errorData.message || 'Verifique los campos'), 'error');
+          } else {
+            showMessage('Error', errorData.message || 'Error al actualizar el usuario', 'error');
+          }
+          return;
         }
         
         const data = await response.json();
@@ -376,7 +453,8 @@ export default {
         showMessage('Éxito', 'Usuario actualizado correctamente', 'success');
         fetchUsers();
       } catch (err) {
-        showMessage('Error', err.message, 'error');
+        console.error('Error en updateUser:', err);
+        showMessage('Error', 'Error de conexión. Intente nuevamente.', 'error');
       }
     };
 
@@ -387,6 +465,63 @@ export default {
       }
       
       showDeleteModal.value = true;
+    };
+
+    // Función de validación 
+    const validateUserForm = (user, isEditing = false, currentUserId = null) => {
+      console.log('Validando usuario:', user); // ← Para debug
+      console.log('Usuarios existentes:', users.value); // ← Para debug
+      
+      // Validar campos obligatorios
+      if (!user.nombre?.trim() || !user.apellido?.trim() || !user.email?.trim()) {
+        return { valid: false, message: 'Todos los campos son obligatorios' };
+      }
+      
+      // Validar longitud mínima
+      if (user.nombre.trim().length < 2) {
+        return { valid: false, message: 'El nombre debe tener al menos 2 caracteres' };
+      }
+      
+      if (user.apellido.trim().length < 2) {
+        return { valid: false, message: 'El apellido debe tener al menos 2 caracteres' };
+      }
+      
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(user.email.trim())) {
+        return { valid: false, message: 'El formato del email no es válido' };
+      }
+      
+      // Validar email duplicado - LÓGICA CORREGIDA
+      const emailToCheck = user.email.trim().toLowerCase();
+      const emailExists = users.value.some(existingUser => {
+        const existingEmail = existingUser.email.toLowerCase();
+        const isSameEmail = existingEmail === emailToCheck;
+        
+        // Si estamos editando, excluir el usuario actual de la verificación
+        if (isEditing && currentUserId) {
+          const isDifferentUser = existingUser.id !== currentUserId;
+          const result = isSameEmail && isDifferentUser;
+          console.log(`Comparando: ${existingEmail} vs ${emailToCheck}, ID: ${existingUser.id} vs ${currentUserId}, resultado: ${result}`);
+          return result;
+        } else {
+          // Si estamos creando, cualquier coincidencia es duplicado
+          console.log(`Creando - Comparando: ${existingEmail} vs ${emailToCheck}, resultado: ${isSameEmail}`);
+          return isSameEmail;
+        }
+      });
+      
+      if (emailExists) {
+        return { valid: false, message: 'Ya existe un usuario con este email' };
+      }
+      
+      // Validar rol
+      const validRoles = [1, 2, 3, 4];
+      if (!validRoles.includes(parseInt(user.id_roles))) {
+        return { valid: false, message: 'Debe seleccionar un rol válido' };
+      }
+      
+      return { valid: true };
     };
 
     const deleteUser = async () => {
@@ -461,6 +596,7 @@ export default {
       openCreateUserModal,
       openEditUserModal,
       createUser,
+
       updateUser,
       confirmDeleteUser,
       deleteUser
@@ -470,11 +606,22 @@ export default {
 </script>
 
 <style scoped>
-/* Estilos permanecen exactamente iguales */
+
 .user-management-container {
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
+}
+
+.input-error {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5;
+}
+
+.error-text {
+  color: #dc3545;
+  font-size: 14px;
+  margin-top: 5px;
 }
 
 .content-section {
