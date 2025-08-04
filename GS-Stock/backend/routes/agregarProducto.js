@@ -29,6 +29,13 @@ router.post('/productos', auth, async (req, res) => {
       });
     }
     
+
+    if (!/^[A-Za-z0-9]+$/.test(codigo)) {
+      return res.status(400).json({ 
+        error: 'El código debe ser alfanumérico (solo letras y números, sin espacios ni símbolos)' 
+      });
+    }
+    
     // Validar que tallas sea un array
     if (!Array.isArray(tallas) || tallas.length === 0) {
       return res.status(400).json({ 
