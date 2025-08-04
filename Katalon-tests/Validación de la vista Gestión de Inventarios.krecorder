@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type" />
+<title>Validación de la vista Gestión de Inventarios</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3" data-tags="">CW1</td></tr>
+</thead>
+<tbody>
+<tr><td>open</td><td>http://localhost:5173/inventario<datalist><option>http://localhost:5173/inventario</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>xpath=//div[@id='app']/div/div/div[4]/div/table/tbody/tr/td[2]<datalist><option>xpath=//div[@id='app']/div/div/div[4]/div/table/tbody/tr/td[2]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Acciones'])[1]/following::td[2]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Estado'])[1]/following::td[2]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Disponible'])[1]/preceding::td[3]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Seleccionar'])[1]/preceding::td[4]</option><option>xpath=//*/text()[normalize-space(.)='150']/parent::*</option><option>xpath=//td[2]</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>xpath=//div[@id='app']/div/div/div[4]/div/table/tbody/tr/td[6]/button<datalist><option>xpath=//div[@id='app']/div/div/div[4]/div/table/tbody/tr/td[6]/button</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Disponible'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Acciones'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Disponible'])[2]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Seleccionar'])[2]/preceding::button[1]</option><option>xpath=//*/text()[normalize-space(.)='Seleccionar']/parent::*</option><option>xpath=//td[6]/button</option><option>css=button.select-btn</option></datalist></td><td></td></tr>
+</tbody></table>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3" data-tags="">CW2</td></tr>
+</thead>
+<tbody>
+<tr><td>open</td><td>http://localhost:5173/inventario<datalist><option>http://localhost:5173/inventario</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>xpath=//div[@id='app']/div/div/div[4]/div/table/tbody/tr/td[6]/button<datalist><option>xpath=//div[@id='app']/div/div/div[4]/div/table/tbody/tr/td[6]/button</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Disponible'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Acciones'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Disponible'])[2]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Seleccionar'])[2]/preceding::button[1]</option><option>xpath=//*/text()[normalize-space(.)='Seleccionar']/parent::*</option><option>xpath=//td[6]/button</option><option>css=button.select-btn</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>xpath=//div[@id='app']/div/div/div[2]/button[2]<datalist><option>xpath=//div[@id='app']/div/div/div[2]/button[2]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Agregar al Inventario'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Gestión de Inventarios'])[1]/following::button[2]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Eliminar Inventario'])[1]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Lista de inventarios'])[1]/preceding::button[2]</option><option>xpath=//*/text()[normalize-space(.)='Editar Inventario']/parent::*</option><option>xpath=//button[2]</option><option>css=button.action-button.edit-button</option></datalist></td><td></td></tr>
+</tbody></table>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3" data-tags="">CW3</td></tr>
+</thead>
+<tbody>
+<tr><td>open</td><td>http://localhost:5173/inventario<datalist><option>http://localhost:5173/inventario</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>xpath=//div[@id='app']/div/div/div[3]/input<datalist><option>xpath=//div[@id='app']/div/div/div[3]/input</option><option>xpath=//input</option><option>css=input</option></datalist></td><td></td></tr>
+<tr><td>type</td><td>xpath=//div[@id='app']/div/div/div[3]/input<datalist><option>xpath=//div[@id='app']/div/div/div[3]/input</option><option>xpath=//input</option><option>css=input</option></datalist></td><td>87</td></tr>
+<tr><td>sendKeys</td><td>xpath=//div[@id='app']/div/div/div[3]/input<datalist><option>xpath=//div[@id='app']/div/div/div[3]/input</option><option>xpath=//input</option><option>css=input</option></datalist></td><td>${KEY_ENTER}</td></tr>
+</tbody></table>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3" data-tags="">CW4</td></tr>
+</thead>
+<tbody>
+<tr><td>open</td><td>http://localhost:5173/dashboard<datalist><option>http://localhost:5173/dashboard</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>xpath=//div[@id='app']/div/header/nav/ul<datalist><option>xpath=//div[@id='app']/div/header/nav/ul</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='☰'])[1]/following::ul[1]</option><option>xpath=//ul</option><option>css=ul</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>link=Inventario<datalist><option>link=Inventario</option><option>xpath=//a[contains(text(),'Inventario')]</option><option>xpath=//div[@id='app']/div/header/nav/ul/li[2]/a</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Dashboard'])[1]/following::a[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='☰'])[1]/following::a[2]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Gestión Usuarios'])[1]/preceding::a[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Rendimiento'])[1]/preceding::a[2]</option><option>xpath=//*/text()[normalize-space(.)='Inventario']/parent::*</option><option>xpath=//a[contains(@href, '/inventario')]</option><option>xpath=//li[2]/a</option></datalist></td><td></td></tr>
+<tr><td>open</td><td>http://localhost:5173/inventario<datalist><option>http://localhost:5173/inventario</option></datalist></td><td></td></tr>
+</tbody></table>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type" />
+<title>Validación de formulario de inicio de sesión</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3" data-tags="">CW1</td></tr>
+</thead>
+<tbody>
+<tr><td>open</td><td>http://localhost:5173/<datalist><option>http://localhost:5173/</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>id=contrasena<datalist><option>id=contrasena</option><option>xpath=//input[@id='contrasena']</option><option>xpath=//div[@id='app']/div/form/div[2]/input</option><option>xpath=//div[2]/input</option><option>css=#contrasena</option></datalist></td><td></td></tr>
+<tr><td>type</td><td>id=contrasena<datalist><option>id=contrasena</option><option>xpath=//input[@id='contrasena']</option><option>xpath=//div[@id='app']/div/form/div[2]/input</option><option>xpath=//div[2]/input</option><option>css=#contrasena</option></datalist></td><td>admin123</td></tr>
+<tr><td>click</td><td>xpath=//button[@type='submit']<datalist><option>xpath=//button[@type='submit']</option><option>xpath=//div[@id='app']/div/form/button</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Contraseña:'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Usuario:'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Katalon Recorder is recording ...'])[1]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Stop'])[1]/preceding::button[1]</option><option>xpath=//*/text()[normalize-space(.)='Ingresar']/parent::*</option><option>xpath=//button</option><option>css=button[type="submit"]</option></datalist></td><td></td></tr>
+</tbody></table>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3" data-tags="">CW2</td></tr>
+</thead>
+<tbody>
+<tr><td>open</td><td>http://localhost:5173/<datalist><option>http://localhost:5173/</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>id=usuario<datalist><option>id=usuario</option><option>xpath=//input[@id='usuario']</option><option>xpath=//div[@id='app']/div/form/div/input</option><option>xpath=//input</option><option>css=#usuario</option></datalist></td><td></td></tr>
+<tr><td>type</td><td>id=usuario<datalist><option>id=usuario</option><option>xpath=//input[@id='usuario']</option><option>xpath=//div[@id='app']/div/form/div/input</option><option>xpath=//input</option><option>css=#usuario</option></datalist></td><td>carlos_admin</td></tr>
+<tr><td>type</td><td>id=contrasena<datalist><option>id=contrasena</option><option>xpath=//input[@id='contrasena']</option><option>xpath=//div[@id='app']/div/form/div[2]/input</option><option>xpath=//div[2]/input</option><option>css=#contrasena</option></datalist></td><td>adqwei1</td></tr>
+<tr><td>click</td><td>xpath=//button[@type='submit']<datalist><option>xpath=//button[@type='submit']</option><option>xpath=//div[@id='app']/div/form/button</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Contraseña:'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Usuario:'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Katalon Recorder is recording ...'])[1]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Stop'])[1]/preceding::button[1]</option><option>xpath=//*/text()[normalize-space(.)='Ingresar']/parent::*</option><option>xpath=//button</option><option>css=button[type="submit"]</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>xpath=//div[@id='app']/div/div[3]/div/div[3]/button<datalist><option>xpath=//div[@id='app']/div/div[3]/div/div[3]/button</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='×'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Error'])[1]/following::button[2]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Katalon Recorder is recording ...'])[1]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Stop'])[1]/preceding::button[1]</option><option>xpath=//*/text()[normalize-space(.)='Aceptar']/parent::*</option><option>xpath=//div[3]/button</option><option>css=button.confirm-button</option></datalist></td><td></td></tr>
+</tbody></table>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3" data-tags="">CW3</td></tr>
+</thead>
+<tbody>
+<tr><td>open</td><td>http://localhost:5173/<datalist><option>http://localhost:5173/</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>id=usuario<datalist><option>id=usuario</option><option>xpath=//input[@id='usuario']</option><option>xpath=//div[@id='app']/div/form/div/input</option><option>xpath=//input</option><option>css=#usuario</option></datalist></td><td></td></tr>
+<tr><td>type</td><td>id=usuario<datalist><option>id=usuario</option><option>xpath=//input[@id='usuario']</option><option>xpath=//div[@id='app']/div/form/div/input</option><option>xpath=//input</option><option>css=#usuario</option></datalist></td><td>carlos_admin</td></tr>
+<tr><td>click</td><td>id=contrasena<datalist><option>id=contrasena</option><option>xpath=//input[@id='contrasena']</option><option>xpath=//div[@id='app']/div/form/div[2]/input</option><option>xpath=//div[2]/input</option><option>css=#contrasena</option></datalist></td><td></td></tr>
+<tr><td>type</td><td>id=contrasena<datalist><option>id=contrasena</option><option>xpath=//input[@id='contrasena']</option><option>xpath=//div[@id='app']/div/form/div[2]/input</option><option>xpath=//div[2]/input</option><option>css=#contrasena</option></datalist></td><td>admin123</td></tr>
+<tr><td>sendKeys</td><td>id=contrasena<datalist><option>id=contrasena</option><option>xpath=//input[@id='contrasena']</option><option>xpath=//div[@id='app']/div/form/div[2]/input</option><option>xpath=//div[2]/input</option><option>css=#contrasena</option></datalist></td><td>${KEY_ENTER}</td></tr>
+<tr><td>click</td><td>xpath=//div[@id='app']/div/div[3]/div/div[3]/button<datalist><option>xpath=//div[@id='app']/div/div[3]/div/div[3]/button</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='×'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Éxito'])[1]/following::button[2]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Katalon Recorder is recording ...'])[1]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Stop'])[1]/preceding::button[1]</option><option>xpath=//*/text()[normalize-space(.)='Aceptar']/parent::*</option><option>xpath=//div[3]/button</option><option>css=button.confirm-button</option></datalist></td><td></td></tr>
+</tbody></table>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3" data-tags="">CW4</td></tr>
+</thead>
+<tbody>
+<tr><td>open</td><td>http://localhost:5173/<datalist><option>http://localhost:5173/</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>id=usuario<datalist><option>id=usuario</option><option>xpath=//input[@id='usuario']</option><option>xpath=//div[@id='app']/div/form/div/input</option><option>xpath=//input</option><option>css=#usuario</option></datalist></td><td></td></tr>
+<tr><td>type</td><td>id=usuario<datalist><option>id=usuario</option><option>xpath=//input[@id='usuario']</option><option>xpath=//div[@id='app']/div/form/div/input</option><option>xpath=//input</option><option>css=#usuario</option></datalist></td><td>carlos_admin</td></tr>
+<tr><td>click</td><td>xpath=//button[@type='submit']<datalist><option>xpath=//button[@type='submit']</option><option>xpath=//div[@id='app']/div/form/button</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Contraseña:'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Usuario:'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Katalon Recorder is recording ...'])[1]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Stop'])[1]/preceding::button[1]</option><option>xpath=//*/text()[normalize-space(.)='Ingresar']/parent::*</option><option>xpath=//button</option><option>css=button[type="submit"]</option></datalist></td><td></td></tr>
+<tr><td>click</td><td>xpath=//button[@type='submit']<datalist><option>xpath=//button[@type='submit']</option><option>xpath=//div[@id='app']/div/form/button</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Contraseña:'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Usuario:'])[1]/following::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Katalon Recorder is recording ...'])[1]/preceding::button[1]</option><option>xpath=(.//*[normalize-space(text()) and normalize-space(.)='Stop'])[1]/preceding::button[1]</option><option>xpath=//*/text()[normalize-space(.)='Ingresar']/parent::*</option><option>xpath=//button</option><option>css=button[type="submit"]</option></datalist></td><td></td></tr>
+</tbody></table>
+</body>
+</html>
