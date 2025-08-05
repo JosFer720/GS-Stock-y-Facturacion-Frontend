@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const auth = require('../middleware/auth'); // Middleware de autenticación
+const auth = require('../middleware/auth');
 
-// Configuración de la conexión a postgres
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
   host: process.env.DB_HOST || 'postgres',
@@ -100,7 +99,7 @@ async function getFullClientData(clientId) {
 }
 
 // Endpoint para obtener todos los clientes con sus direcciones y teléfonos 
-router.get('/clientes', auth, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -137,7 +136,7 @@ router.get('/clientes', auth, async (req, res) => {
 });
 
 // Endpoint para obtener un cliente específico por ID 
-router.get('/clientes/:id', auth, async (req, res) => {
+router.get('//:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -200,13 +199,12 @@ router.get('/clientes/:id', auth, async (req, res) => {
 });
 
 // Crear un nuevo cliente con direcciones y teléfonos 
-router.post('/clientes', auth, async (req, res) => {
+router.post('/', auth, async (req, res) => {
   const client = await pool.connect();
   
   try {
     const { nombre, apellido, empresa, direcciones, telefonos } = req.body;
     
-    // Validación básica
     if (!nombre || !apellido) {
       return res.status(400).json({ 
         error: 'Los campos nombre y apellido son obligatorios' 
@@ -274,7 +272,7 @@ router.post('/clientes', auth, async (req, res) => {
         telefonosInsertados.push(telefonoResult.rows[0]);
         
         // Actualizar la referencia en la tabla clientes 
-        if (telefonosInsertados.length === 1) { // Solo para el primer teléfono
+        if (telefonosInsertados.length === 1) { 
           await client.query(
             'UPDATE clientes SET id_cliente_telefono = $1 WHERE id = $2',
             [clienteTelefonoResult.rows[0].id, clienteId]
@@ -306,7 +304,7 @@ router.post('/clientes', auth, async (req, res) => {
 });
 
 // Actualizar un cliente existente 
-router.put('/clientes/:id', auth, async (req, res) => {
+router.put('//:id', auth, async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -430,7 +428,7 @@ router.put('/clientes/:id', auth, async (req, res) => {
 });
 
 // Eliminar un cliente (versión corregida)
-router.delete('/clientes/:id', auth, async (req, res) => {
+router.delete('//:id', auth, async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -547,7 +545,7 @@ router.delete('/clientes/:id', auth, async (req, res) => {
 
 
 // Endpoint para buscar clientes por nombre o empresa 
-router.get('/clientes/buscar/:termino', auth, async (req, res) => {
+router.get('//buscar/:termino', auth, async (req, res) => {
   try {
     const { termino } = req.params;
     
@@ -577,7 +575,7 @@ router.get('/clientes/buscar/:termino', auth, async (req, res) => {
 });
 
 // Endpoint para obtener solo direcciones de un cliente 
-router.get('/clientes/:id/direcciones', auth, async (req, res) => {
+router.get('//:id/direcciones', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -599,7 +597,7 @@ router.get('/clientes/:id/direcciones', auth, async (req, res) => {
 });
 
 // Endpoint para obtener solo teléfonos de un cliente 
-router.get('/clientes/:id/telefonos', auth, async (req, res) => {
+router.get('//:id/telefonos', auth, async (req, res) => {
   try {
     const { id } = req.params;
     

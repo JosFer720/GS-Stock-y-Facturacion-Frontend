@@ -12,7 +12,7 @@ const pool = new Pool({
 });
 
 // Obtener todos los usuarios
-router.get('/usuarios', auth, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, id_roles, nombre, apellido, email, estado FROM usuarios');
     
@@ -35,7 +35,7 @@ router.get('/usuarios', auth, async (req, res) => {
 });
 
 // Crear un nuevo usuario
-router.post('/usuarios', auth, async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const { nombre, apellido, email, id_roles, estado } = req.body;
     
@@ -63,7 +63,7 @@ router.post('/usuarios', auth, async (req, res) => {
 });
 
 // Actualizar un usuario
-router.put('/usuarios/:id', auth, async (req, res) => {
+router.put('//:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, apellido, email, id_roles, estado } = req.body;
@@ -91,7 +91,7 @@ router.put('/usuarios/:id', auth, async (req, res) => {
 });
 
 // Desactivar un usuario (marcar como inactivo)
-router.put('/usuarios/:id/deactivate', auth, async (req, res) => {
+router.put('//:id/deactivate', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -118,7 +118,7 @@ router.put('/usuarios/:id/deactivate', auth, async (req, res) => {
 });
 
 // Eliminar un usuario (eliminación física)
-router.delete('/usuarios/:id', auth, async (req, res) => {
+router.delete('//:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -145,7 +145,7 @@ router.delete('/usuarios/:id', auth, async (req, res) => {
 });
 
 // Obtener un usuario específico por ID
-router.get('/usuarios/:id', auth, async (req, res) => {
+router.get('//:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -169,7 +169,7 @@ router.get('/usuarios/:id', auth, async (req, res) => {
 });
 
 // Obtener usuarios por estado
-router.get('/usuarios/estado/:estado', auth, async (req, res) => {
+router.get('//estado/:estado', auth, async (req, res) => {
   try {
     const estado = req.params.estado === 'true';
     
@@ -190,7 +190,7 @@ router.get('/usuarios/estado/:estado', auth, async (req, res) => {
 });
 
 // Obtener usuarios por rol
-router.get('/usuarios/rol/:id_rol', auth, async (req, res) => {
+router.get('//rol/:id_rol', auth, async (req, res) => {
   try {
     const { id_rol } = req.params;
     

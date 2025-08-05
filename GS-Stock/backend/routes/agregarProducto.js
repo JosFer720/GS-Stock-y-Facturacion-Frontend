@@ -1,10 +1,8 @@
-// routes/agregarProducto.js
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const auth = require('../middleware/auth'); // Middleware de autenticación
+const auth = require('../middleware/auth'); 
 
-// Configuración de la conexión a PostgreSQL usando las variables del docker-compose
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
   host: process.env.DB_HOST || 'postgres',
@@ -13,37 +11,38 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Endpoint para agregar un nuevo producto
 router.post('/productos', auth, async (req, res) => {
   const client = await pool.connect();
   
   try {
     await client.query('BEGIN');
     
-    const { codigo, nombre, id_tipo_de_zapato, tallas, estado } = req.body;
+    const { codigo, nombre, id_tipo_de_zapato, precio_par, tallas, estado } = req.body;
     
-    // Validación de campos requeridos
-    if (!codigo || !nombre || !id_tipo_de_zapato || !tallas || !estado) {
+    if (!codigo || !nombre || !id_tipo_de_zapato || precio_par === undefined || !tallas || !estado) {
       return res.status(400).json({ 
-        error: 'Se requieren los campos: codigo, nombre, id_tipo_de_zapato, tallas y estado' 
+        error: 'Se requieren los campos: codigo, nombre, id_tipo_de_zapato, precio_par, tallas y estado' 
       });
     }
     
-
     if (!/^[A-Za-z0-9]+$/.test(codigo)) {
       return res.status(400).json({ 
         error: 'El código debe ser alfanumérico (solo letras y números, sin espacios ni símbolos)' 
       });
     }
     
-    // Validar que tallas sea un array
+    if (typeof precio_par !== 'number' || precio_par < 0) {
+      return res.status(400).json({ 
+        error: 'El precio por par debe ser un número mayor o igual a 0' 
+      });
+    }
+    
     if (!Array.isArray(tallas) || tallas.length === 0) {
       return res.status(400).json({ 
         error: 'Se requiere un array de tallas con su stock correspondiente' 
       });
     }
     
-    // Verificar que cada talla tenga id_talla y stock
     const tallaValida = tallas.every(item => 
       item.id_talla && 
       typeof item.stock === 'number' && 
@@ -56,7 +55,6 @@ router.post('/productos', auth, async (req, res) => {
       });
     }
     
-    // Verificar si el código ya existe
     const codigoExistente = await client.query(
       'SELECT id FROM Zapatos WHERE codigo = $1',
       [codigo]
@@ -67,15 +65,13 @@ router.post('/productos', auth, async (req, res) => {
       return res.status(400).json({ error: 'El código de producto ya existe' });
     }
     
-    // Insertar el zapato
     const zapatoResult = await client.query(
-      'INSERT INTO Zapatos (codigo, nombre, id_tipo_de_zapato) VALUES ($1, $2, $3) RETURNING id',
-      [codigo, nombre, id_tipo_de_zapato]
+      'INSERT INTO Zapatos (codigo, nombre, id_tipo_de_zapato, precio_par) VALUES ($1, $2, $3, $4) RETURNING id',
+      [codigo, nombre, id_tipo_de_zapato, precio_par]
     );
     
     const zapatoId = zapatoResult.rows[0].id;
     
-    // Insertar las tallas con su stock
     for (const tallaItem of tallas) {
       await client.query(
         'INSERT INTO Zapatos_Tallas (id_zapato, id_talla, stock) VALUES ($1, $2, $3)',
@@ -83,10 +79,8 @@ router.post('/productos', auth, async (req, res) => {
       );
     }
     
-    // Calcular la cantidad total de stock
     const cantidadTotal = tallas.reduce((total, item) => total + item.stock, 0);
     
-    // Registrar en inventario
     await client.query(
       'INSERT INTO Inventarios (cantidad, id_zapatos, id_usuarios, estado) VALUES ($1, $2, $3, $4)',
       [cantidadTotal, zapatoId, req.usuario?.id || 1, estado]
@@ -101,7 +95,13 @@ router.post('/productos', auth, async (req, res) => {
         codigo,
         nombre,
         id_tipo_de_zapato,
-        cantidad: cantidadTotal,
+        precio_par: parseFloat(precio_par),
+        cantidad_total: cantidadTotal,
+        tallas_agregadas: tallas.length,
+        tallas: tallas.map(t => ({
+          id_talla: t.id_talla,
+          stock: t.stock
+        })),
         estado
       }
     });

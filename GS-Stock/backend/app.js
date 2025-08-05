@@ -11,10 +11,13 @@ const modificarProductoRoutes = require('./routes/modificarProducto');
 const mostrarUsuariosRoutes = require('./routes/usuarios');
 const ventasRoutes = require('./routes/ventas');
 const inventoryRoutes = require('./routes/inventory');
-const facturasRouter = require('./routes/facturas');
+const facturasRoutes = require('./routes/facturas');
 const clientesRoutes = require('./routes/clientes');
 const sugerenciasFacturacionRoutes = require('./routes/sugerenciasFacturacion');
 const crearFacturaRoutes = require('./routes/crearFactura');
+const tallasRoutes = require('./routes/tallas');
+const tiposCalzadoRoutes = require('./routes/tiposCalzado');
+
 const { Pool } = require('pg');
 
 const app = express();
@@ -29,21 +32,21 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api', pruebaRoutes);
-app.use('/api', agregarProductoRoutes);
-app.use('/api', eliminarProductoRoutes);
-app.use('/api', modificarProductoRoutes);
-app.use('/api', mostrarUsuariosRoutes);
-app.use('/api', ventasRoutes);
-app.use('/api', inventoryRoutes);
-app.use('/api', facturasRouter);
-app.use('/api', clientesRoutes);
-app.use('/api', sugerenciasFacturacionRoutes);
-app.use('/api', crearFacturaRoutes);
-
+app.use('/api/prueba', pruebaRoutes);
+app.use('/api/agregarProducto', agregarProductoRoutes);
+app.use('/api/eliminarProducto', eliminarProductoRoutes);
+app.use('/api/modificarProducto', modificarProductoRoutes);
+app.use('/api/usuarios', mostrarUsuariosRoutes);
+app.use('/api/ventas', ventasRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/facturas', facturasRoutes);
+app.use('/api/clientes', clientesRoutes);
+app.use('/api/sugerenciasFacturacion', sugerenciasFacturacionRoutes);
+app.use('/api/crearFactura', crearFacturaRoutes);
+app.use('/api/tallas', tallasRoutes);
+app.use('/api/tipos-calzados', tiposCalzadoRoutes);
 
 app.get('/health', async (req, res) => {
   try {

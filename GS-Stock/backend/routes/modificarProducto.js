@@ -1,4 +1,3 @@
-// routes/modificarProducto.js
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
@@ -21,12 +20,17 @@ router.put('/productos/:id', auth, async (req, res) => {
     await client.query('BEGIN');
     
     const { id } = req.params;
-    const { codigo, nombre, id_tipo_de_zapato, tallas, estado } = req.body;
+    const { codigo, nombre, id_tipo_de_zapato, precio_par, tallas, estado } = req.body;
     
-    // Validación de campos requeridos
-    if (!codigo || !nombre || !id_tipo_de_zapato || !tallas || !estado) {
+    if (!codigo || !nombre || !id_tipo_de_zapato || precio_par === undefined || !tallas || !estado) {
       return res.status(400).json({ 
-        error: 'Se requieren los campos: codigo, nombre, id_tipo_de_zapato, tallas y estado' 
+        error: 'Se requieren los campos: codigo, nombre, id_tipo_de_zapato, precio_par, tallas y estado' 
+      });
+    }
+    
+    if (typeof precio_par !== 'number' || precio_par < 0) {
+      return res.status(400).json({ 
+        error: 'El precio por par debe ser un número mayor o igual a 0' 
       });
     }
     
@@ -61,7 +65,7 @@ router.put('/productos/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
     
-    // Verificar si el nuevo código ya existe (solo si se está cambiando)
+    // Verificar si el nuevo código ya existe
     if (codigo !== productoExistente.rows[0].codigo) {
       const codigoExistente = await client.query(
         'SELECT id FROM Zapatos WHERE codigo = $1 AND id != $2',
@@ -74,13 +78,11 @@ router.put('/productos/:id', auth, async (req, res) => {
       }
     }
     
-    // Actualizar el zapato
     await client.query(
-      'UPDATE Zapatos SET codigo = $1, nombre = $2, id_tipo_de_zapato = $3 WHERE id = $4',
-      [codigo, nombre, id_tipo_de_zapato, id]
+      'UPDATE Zapatos SET codigo = $1, nombre = $2, id_tipo_de_zapato = $3, precio_par = $4 WHERE id = $5',
+      [codigo, nombre, id_tipo_de_zapato, precio_par, id]
     );
     
-    // Eliminar las tallas actuales para reemplazarlas
     await client.query(
       'DELETE FROM Zapatos_Tallas WHERE id_zapato = $1',
       [id]
@@ -126,7 +128,13 @@ router.put('/productos/:id', auth, async (req, res) => {
         codigo,
         nombre,
         id_tipo_de_zapato,
-        cantidad: cantidadTotal,
+        precio_par: parseFloat(precio_par),
+        cantidad_total: cantidadTotal,
+        tallas_actualizadas: tallas.length,
+        tallas: tallas.map(t => ({
+          id_talla: t.id_talla,
+          stock: t.stock
+        })),
         estado
       }
     });
@@ -135,6 +143,70 @@ router.put('/productos/:id', auth, async (req, res) => {
     console.error('Error al modificar producto:', error);
     res.status(500).json({ 
       error: 'Error al modificar el producto',
+      details: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
+router.patch('/productos/:id/precio', auth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    const { id } = req.params;
+    const { precio_par } = req.body;
+    
+    // Validación de campos requeridos
+    if (precio_par === undefined) {
+      return res.status(400).json({ 
+        error: 'Se requiere el campo precio_par' 
+      });
+    }
+    
+    // Validación de precio
+    if (typeof precio_par !== 'number' || precio_par < 0) {
+      return res.status(400).json({ 
+        error: 'El precio por par debe ser un número mayor o igual a 0' 
+      });
+    }
+    
+    // Verificar si el producto existe
+    const productoExistente = await client.query(
+      'SELECT id, precio_par FROM Zapatos WHERE id = $1',
+      [id]
+    );
+    
+    if (productoExistente.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    
+    const precioAnterior = productoExistente.rows[0].precio_par;
+    
+    // Actualizar solo el precio
+    await client.query(
+      'UPDATE Zapatos SET precio_par = $1 WHERE id = $2',
+      [precio_par, id]
+    );
+    
+    await client.query('COMMIT');
+    
+    res.status(200).json({
+      mensaje: `Precio del producto actualizado exitosamente`,
+      data: {
+        id: parseInt(id),
+        precio_anterior: parseFloat(precioAnterior || 0),
+        precio_nuevo: parseFloat(precio_par)
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error al actualizar precio del producto:', error);
+    res.status(500).json({ 
+      error: 'Error al actualizar precio del producto',
       details: error.message
     });
   } finally {
@@ -194,8 +266,10 @@ router.patch('/productos/:id/estado', auth, async (req, res) => {
     
     res.status(200).json({
       mensaje: `Estado del producto actualizado a '${estado}' exitosamente`,
-      id: parseInt(id),
-      estado
+      data: {
+        id: parseInt(id),
+        estado
+      }
     });
   } catch (error) {
     await client.query('ROLLBACK');

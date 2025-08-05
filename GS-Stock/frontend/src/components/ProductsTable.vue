@@ -5,21 +5,44 @@
       <table class="products-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Cantidad</th>
-            <th>ID Zapatos</th>
-            <th>Fecha Ingreso</th>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>Precio por Par</th>
+            <th>Stock Total</th>
+            <th>Tallas Disponibles</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="product in paginatedProducts" :key="product.id">
-            <td>{{ product.id || '-' }}</td>
-            <td>{{ product.cantidad || '0' }}</td>
-            <td>{{ product.id_zapatos || '-' }}</td>
-            <td>{{ formatDate(product.fecha_ingreso) }}</td>
-            <td>{{ product.estado || 'Desconocido' }}</td>
+            <td>{{ product.codigo || '-' }}</td>
+            <td>{{ product.nombre || '-' }}</td>
+            <td>{{ product.tipo_zapato?.nombre || '-' }}</td>
+            <td class="precio">Q{{ formatPrice(product.precio_par) }}</td>
+            <td class="stock-cell">
+              <span :class="getStockClass(product.resumen_stock.stock_total)">
+                {{ product.resumen_stock.stock_total }}
+              </span>
+            </td>
+            <td class="tallas-summary">
+              <div class="tallas-info">
+                <span class="tallas-count">{{ product.resumen_stock.tallas_con_stock }} tallas</span>
+                <button 
+                  @click.stop="showTallasModal(product)" 
+                  class="ver-tallas-btn"
+                  :disabled="!product.tallas_disponibles?.length"
+                >
+                  Ver Detalles
+                </button>
+              </div>
+            </td>
+            <td>
+              <span :class="getStatusClass(product.inventario_general.estado)">
+                {{ product.inventario_general.estado }}
+              </span>
+            </td>
             <td>
               <button @click.stop="$emit('product-selected', product)" class="select-btn">
                 Seleccionar
@@ -34,26 +57,49 @@
     <div class="card-view">
       <div v-for="product in paginatedProducts" :key="product.id" class="product-card">
         <div class="card-content">
-          <div class="card-row">
-            <strong>ID:</strong>
-            <span>{{ product.id || '-' }}</span>
+          <div class="card-header">
+            <h3>{{ product.nombre }}</h3>
+            <span class="codigo">{{ product.codigo }}</span>
           </div>
+          
           <div class="card-row">
-            <strong>Cantidad:</strong>
-            <span>{{ product.cantidad || '0' }}</span>
+            <strong>Tipo:</strong>
+            <span>{{ product.tipo_zapato?.nombre || '-' }}</span>
           </div>
+          
           <div class="card-row">
-            <strong>ID Zapatos:</strong>
-            <span>{{ product.id_zapatos || '-' }}</span>
+            <strong>Precio por Par:</strong>
+            <span class="precio">Q{{ formatPrice(product.precio_par) }}</span>
           </div>
+          
           <div class="card-row">
-            <strong>Fecha Ingreso:</strong>
-            <span>{{ formatDate(product.fecha_ingreso) }}</span>
+            <strong>Stock Total:</strong>
+            <span :class="getStockClass(product.resumen_stock.stock_total)">
+              {{ product.resumen_stock.stock_total }}
+            </span>
           </div>
+          
+          <div class="card-row">
+            <strong>Tallas:</strong>
+            <div class="tallas-mobile">
+              <span class="tallas-count">{{ product.resumen_stock.tallas_con_stock }} disponibles</span>
+              <button 
+                @click.stop="showTallasModal(product)" 
+                class="ver-tallas-btn small"
+                :disabled="!product.tallas_disponibles?.length"
+              >
+                Ver Detalles
+              </button>
+            </div>
+          </div>
+          
           <div class="card-row">
             <strong>Estado:</strong>
-            <span>{{ product.estado || 'Desconocido' }}</span>
+            <span :class="getStatusClass(product.inventario_general.estado)">
+              {{ product.inventario_general.estado }}
+            </span>
           </div>
+          
           <button @click.stop="$emit('product-selected', product)" class="select-btn">
             Seleccionar
           </button>
@@ -63,22 +109,77 @@
 
     <!-- Paginación -->
     <div class="pagination">
-      <!-- ... (mantén tu código de paginación existente) ... -->
+      <button 
+        @click="previousPage" 
+        :disabled="currentPage === 1"
+        class="pagination-nav"
+      >
+        ‹
+      </button>
+      
+      <div class="page-numbers">
+        <button
+          v-for="pageNum in displayedPageNumbers"
+          :key="pageNum"
+          @click="currentPage = pageNum"
+          :class="{ active: currentPage === pageNum }"
+        >
+          {{ pageNum }}
+        </button>
+      </div>
+      
+      <button 
+        @click="nextPage" 
+        :disabled="currentPage === totalPages"
+        class="pagination-nav"
+      >
+        ›
+      </button>
     </div>
+
+    <TallasModal 
+      :show="showModal"
+      :tallas="selectedProductTallas"
+      @close="closeModal"
+    />
   </div>
 </template>
 
-
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
+import TallasModal from './TallasModal.vue';
+
+const formatPrice = (price) => {
+  if (!price && price !== 0) return '0.00';
+  return parseFloat(price).toFixed(2);
+};
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
   try {
     const date = new Date(dateString);
-    return date.toLocaleString(); // Formato local simple
+    return date.toLocaleString();
   } catch {
     return dateString;
+  }
+};
+
+const getStockClass = (stock) => {
+  if (stock <= 0) return 'stock-agotado';
+  if (stock <= 10) return 'stock-bajo';
+  return 'stock-normal';
+};
+
+const getStatusClass = (estado) => {
+  switch (estado?.toLowerCase()) {
+    case 'disponible':
+      return 'status-disponible';
+    case 'agotado':
+      return 'status-agotado';
+    case 'sin registrar':
+      return 'status-sin-registrar';
+    default:
+      return 'status-default';
   }
 };
 
@@ -86,24 +187,43 @@ const props = defineProps({
   products: {
     type: Array,
     required: true,
-    default: () => [] // Valor por defecto array vacío
+    default: () => []
   }
 });
 
-
-
-
 const emit = defineEmits(['product-selected']);
+
 const selectedProductId = ref(null);
 const currentPage = ref(1);
 const isMobile = ref(false);
-const perPage = ref(20);
+const perPage = ref(15);
+
+const showModal = ref(false);
+const selectedProductTallas = ref([]);
+
+const showTallasModal = (product) => {
+  if (!product.tallas_disponibles?.length) return;
+  
+  selectedProductTallas.value = product.tallas_disponibles.map(talla => ({
+    id_talla: talla.talla_id,
+    numero: talla.talla_eu,
+    talla_us: talla.talla_us,
+    stock: talla.stock,
+    precio_par: product.precio_par 
+  }));
+  
+  showModal.value = true;
+};
+
+const closeModal = () => {
+  showModal.value = false;
+  selectedProductTallas.value = [];
+};
 
 // Comprobar el tamaño de la pantalla
 const checkScreenSize = () => {
   isMobile.value = window.innerWidth < 768;
-  // En móviles mostrar menos productos por página
-  perPage.value = isMobile.value ? 10 : 20;
+  perPage.value = isMobile.value ? 10 : 15;
 };
 
 onMounted(() => {
@@ -111,6 +231,7 @@ onMounted(() => {
   window.addEventListener('resize', checkScreenSize);
 });
 
+// Computed properties para paginación
 const paginatedProducts = computed(() => {
   const start = (currentPage.value - 1) * perPage.value;
   return props.products.slice(start, start + perPage.value);
@@ -120,7 +241,6 @@ const totalPages = computed(() => {
   return Math.ceil(props.products.length / perPage.value);
 });
 
-// Crear un array con los números de página para mostrar
 const displayedPageNumbers = computed(() => {
   const maxVisibleButtons = isMobile.value ? 3 : 5;
   
@@ -131,7 +251,6 @@ const displayedPageNumbers = computed(() => {
   let start = Math.max(1, currentPage.value - Math.floor(maxVisibleButtons / 2));
   const end = Math.min(totalPages.value, start + maxVisibleButtons - 1);
   
-  // Ajustar el inicio si estamos al final
   if (end === totalPages.value) {
     start = Math.max(1, totalPages.value - maxVisibleButtons + 1);
   }
@@ -139,6 +258,7 @@ const displayedPageNumbers = computed(() => {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i);
 });
 
+// Funciones de navegación
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
@@ -158,7 +278,6 @@ const selectProduct = (product) => {
 
 watch(currentPage, () => {
   selectedProductId.value = null;
-  // Scroll hacia arriba al cambiar de página
   window.scrollTo({
     top: 0,
     behavior: 'smooth'
@@ -172,7 +291,6 @@ watch(currentPage, () => {
   box-sizing: border-box;
 }
 
-/* Card view (default para móviles) */
 .card-view {
   display: block;
   width: 100%;
@@ -181,7 +299,7 @@ watch(currentPage, () => {
 .product-card {
   border: 1px solid #ddd;
   border-radius: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
   padding: 15px;
   cursor: pointer;
   transition: transform 0.1s, background-color 0.2s;
@@ -192,24 +310,50 @@ watch(currentPage, () => {
   background-color: #f8f8f8;
 }
 
-.product-card:active {
-  transform: scale(0.99);
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
 }
 
-.product-card.selected {
-  background-color: #e6f2ff;
-  border-color: #0066cc;
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  flex: 1;
+}
+
+.codigo {
+  background-color: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #666;
+  margin-left: 10px;
 }
 
 .card-row {
   margin-bottom: 10px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
 }
 
 .card-row strong {
   margin-right: 5px;
+  min-width: 80px;
+}
+
+.tallas-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
 }
 
 /* Tabla (oculta en móviles) */
@@ -238,14 +382,52 @@ watch(currentPage, () => {
   background-color: #f8f8f8;
   position: sticky;
   top: 0;
+  font-weight: bold;
 }
 
 .products-table tr:hover {
   background-color: #f1f1f1;
 }
 
-.products-table tr.selected {
-  background-color: #e6f2ff;
+.tallas-summary {
+  text-align: center;
+}
+
+.tallas-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.tallas-count {
+  font-size: 12px;
+  color: #666;
+}
+
+.ver-tallas-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ver-tallas-btn:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.ver-tallas-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.ver-tallas-btn.small {
+  font-size: 11px;
+  padding: 3px 6px;
 }
 
 .select-btn {
@@ -259,7 +441,6 @@ watch(currentPage, () => {
   width: 100%;
   margin-top: 8px;
   text-align: center;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
   transition: background-color 0.2s, transform 0.1s;
 }
 
@@ -267,11 +448,49 @@ watch(currentPage, () => {
   background-color: #45a049;
 }
 
-.select-btn:active {
-  transform: scale(0.97);
+.precio {
+  font-weight: bold;
+  color: #2e7d32;
 }
 
-/* Estilo paginación */
+.stock-cell {
+  text-align: center;
+}
+
+.stock-normal {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.stock-bajo {
+  color: #f57c00;
+  font-weight: bold;
+}
+
+.stock-agotado {
+  color: #d32f2f;
+  font-weight: bold;
+}
+
+.status-disponible {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.status-agotado {
+  color: #d32f2f;
+  font-weight: bold;
+}
+
+.status-sin-registrar {
+  color: #666;
+  font-style: italic;
+}
+
+.status-default {
+  color: #333;
+}
+
 .pagination {
   margin-top: 20px;
   margin-bottom: 20px;
@@ -299,15 +518,11 @@ watch(currentPage, () => {
   margin-bottom: 5px;
   border-radius: 4px;
   min-width: 40px;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: background-color 0.2s;
 }
 
-.pagination button:hover {
+.pagination button:hover:not(:disabled) {
   background-color: #f0f0f0;
-}
-
-.pagination button:active {
-  transform: scale(0.97);
 }
 
 .pagination button.active {
@@ -324,21 +539,6 @@ watch(currentPage, () => {
 .pagination-nav {
   font-weight: bold;
   font-size: 18px;
-}
-
-@media (min-width: 576px) {
-  .pagination {
-    margin-top: 20px;
-  }
-  
-  .pagination button {
-    min-width: 44px;
-  }
-  
-  .select-btn {
-    width: auto;
-    padding: 8px 16px;
-  }
 }
 
 @media (min-width: 768px) {
@@ -369,15 +569,15 @@ watch(currentPage, () => {
     flex-direction: column;
     align-items: flex-start;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .product-card,
-  .select-btn,
-  .pagination button {
-    transition: none;
-    transform: none;
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .codigo {
+    margin-left: 0;
+    margin-top: 5px;
   }
 }
-
 </style>
