@@ -183,8 +183,8 @@
           </div>
 
           <div class="form-group">
-            <label for="id_metodo_pago">Método de Pago:</label>
-            <select id="id_metodo_pago" v-model="newSale.id_metodo_pago" required>
+            <label for="id_metodo_de_pago">Método de Pago:</label>
+            <select id="id_metodo_de_pago" v-model="newSale.id_metodo_de_pago" required>
               <option value="">Seleccione un método</option>
               <option v-for="metodo in metodosPago" :key="metodo.id" :value="metodo.id">
                 {{ metodo.tipo }} - {{ metodo.detalle }}
@@ -432,7 +432,7 @@ export default {
     const newSale = ref({
       id_cliente: '',
       id_vendedor: '',
-      id_metodo_pago: '',
+      id_metodo_de_pago: '',
       productos: [{ 
         id_zapato: '', 
         tallas: [{ 
@@ -545,7 +545,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/clientes/clientes', {
+        const response = await fetch('http://localhost:3000/api/clientes', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -750,7 +750,7 @@ export default {
       console.log('=== DEBUG VALIDACIÓN ===');
       console.log('Cliente ID:', newSale.value.id_cliente);
       console.log('Vendedor ID:', newSale.value.id_vendedor);  
-      console.log('Método Pago ID:', newSale.value.id_metodo_pago);
+      console.log('Método Pago ID:', newSale.value.id_metodo_de_pago);
       console.log('Productos:', newSale.value.productos);
       
       // Validar datos básicos
@@ -764,7 +764,7 @@ export default {
         return false;
       }
       
-      if (!newSale.value.id_metodo_pago) {
+      if (!newSale.value.id_metodo_de_pago) {
         console.log('❌ Falta método de pago');
         return false;
       }
@@ -834,7 +834,7 @@ export default {
       newSale.value = {
         id_cliente: '',
         id_vendedor: '',
-        id_metodo_pago: '',
+        id_metodo_de_pago: '',
         productos: [{ 
           id_zapato: '', 
           tallas: [{ 
@@ -900,7 +900,7 @@ export default {
         const pedidoData = {
           id_cliente: parseInt(newSale.value.id_cliente),
           id_vendedor: parseInt(newSale.value.id_vendedor),
-          id_metodo_pago: parseInt(newSale.value.id_metodo_pago),
+          id_metodo_de_pago: parseInt(newSale.value.id_metodo_de_pago),
           productos: productosParaEnviar
         };
 
@@ -1159,7 +1159,7 @@ export default {
       resetFilters,
       handleSaleSelection,
       handleStatusUpdate,
-      gregarProducto,
+      agregarProducto,
       eliminarProducto,
       getTallasDisponiblesParaProducto,
       getMaxStockForTalla,
