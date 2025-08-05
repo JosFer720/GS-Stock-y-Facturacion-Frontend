@@ -12,17 +12,22 @@
           Crear Usuario
         </button>
         <button 
-          class="action-button edit-button" 
-          @click="openEditUserModal"
-          :disabled="!selectedUser">
-          Editar Usuario
-        </button>
-        <button 
+          v-if="!deleteMode" 
           class="action-button delete-button" 
-          @click="confirmDeleteUser"
-          :disabled="!selectedUser">
-          {{ deleteAction === 'delete' ? 'Eliminar' : 'Desactivar' }} Usuario
+          @click="enterDeleteMode">
+          Desactivar Usuario
         </button>
+        <div v-if="deleteMode" class="delete-mode-actions">
+          <button 
+            class="action-button delete-button" 
+            @click="confirmBulkDeactivate" 
+            :disabled="selectedUsers.length === 0">
+            Desactivar Seleccionados ({{ selectedUsers.length }})
+          </button>
+          <button class="action-button cancel-button" @click="cancelDeleteMode">
+            Cancelar
+          </button>
+        </div>
       </div>
       
       <div class="search-section">
@@ -43,12 +48,139 @@
         {{ error }}
       </div>
 
-      <users-table 
-        v-if="!loading && !error"
-        :users="filteredUsers"
-        :roles="roles"
-        @user-selected="handleUserSelection"
-      />
+      <!-- Tabla integrada directamente -->
+      <div v-if="!loading && !error" class="users-table-container">
+        <!-- Vista de tabla -->
+        <div class="table-responsive">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th v-if="deleteMode">
+                  <input 
+                    type="checkbox" 
+                    @change="toggleSelectAll"
+                    :checked="areAllSelected"
+                  >
+                </th>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Email</th>
+                <th>ID Rol</th>
+                <th>Estado</th>
+                <th v-if="!deleteMode">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="user in paginatedUsers" :key="user.id">
+                <td v-if="deleteMode">
+                  <input 
+                    type="checkbox" 
+                    :value="user.id"
+                    :checked="selectedUsers.includes(user.id)"
+                    @change="toggleUserSelection(user.id)"
+                  >
+                </td>
+                <td>{{ user.id }}</td>
+                <td>{{ user.nombre }}</td>
+                <td>{{ user.apellido }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.id_roles }}</td>
+                <td :class="{ 'active': user.estado, 'inactive': !user.estado }">
+                  {{ user.estadoTexto }}
+                </td>
+                <td v-if="!deleteMode" class="actions-cell">
+                  <button @click.stop="editUser(user)" class="edit-btn-small">
+                    Editar
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="paginatedUsers.length === 0">
+                <td :colspan="deleteMode ? 8 : 7" class="empty-table">
+                  No hay usuarios disponibles
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Vista de tarjetas para móviles -->
+        <div class="card-view">
+          <div v-for="user in paginatedUsers" :key="user.id" class="user-card">
+            <div class="card-content">
+              <div class="card-header">
+                <div class="card-title-section">
+                  <input 
+                    v-if="deleteMode" 
+                    type="checkbox" 
+                    :value="user.id"
+                    :checked="selectedUsers.includes(user.id)"
+                    @change="toggleUserSelection(user.id)"
+                    class="mobile-checkbox"
+                  >
+                  <div>
+                    <h3>{{ user.nombre }} {{ user.apellido }}</h3>
+                    <span class="user-id">ID: {{ user.id }}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="card-row">
+                <strong>Email:</strong>
+                <span>{{ user.email }}</span>
+              </div>
+              
+              <div class="card-row">
+                <strong>Rol:</strong>
+                <span>{{ user.id_roles }}</span>
+              </div>
+              
+              <div class="card-row">
+                <strong>Estado:</strong>
+                <span :class="{ 'active': user.estado, 'inactive': !user.estado }">
+                  {{ user.estadoTexto }}
+                </span>
+              </div>
+              
+              <div v-if="!deleteMode" class="card-actions">
+                <button @click.stop="editUser(user)" class="edit-btn">
+                  Editar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paginación -->
+        <div class="pagination">
+          <button 
+            @click="previousPage" 
+            :disabled="currentPage === 1"
+            class="pagination-nav"
+          >
+            ‹
+          </button>
+          
+          <div class="page-numbers">
+            <button
+              v-for="pageNum in displayedPageNumbers"
+              :key="pageNum"
+              @click="currentPage = pageNum"
+              :class="{ active: currentPage === pageNum }"
+            >
+              {{ pageNum }}
+            </button>
+          </div>
+          
+          <button 
+            @click="nextPage" 
+            :disabled="currentPage === totalPages"
+            class="pagination-nav"
+          >
+            ›
+          </button>
+        </div>
+      </div>
     </div>
     
     <!-- Modal para crear usuario -->
@@ -141,20 +273,20 @@
       </div>
     </div>
     
-    <!-- Modal para confirmar eliminación/desactivación -->
+    <!-- Modal para confirmar desactivación -->
     <div v-if="showDeleteModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showDeleteModal = false">&times;</span>
-        <h2>{{ deleteAction === 'delete' ? 'Eliminar' : 'Desactivar' }} Usuario</h2>
-        <p>¿Está seguro que desea {{ deleteAction === 'delete' ? 'eliminar' : 'desactivar' }} al usuario {{ selectedUser ? selectedUser.nombre + ' ' + selectedUser.apellido : '' }}?</p>
-        <div class="form-group">
-          <label>
-            <input type="checkbox" v-model="deleteCompletely"> Eliminar completamente (en lugar de desactivar)
-          </label>
-        </div>
+        <h2>Desactivar Usuario{{ selectedUsers.length > 1 ? 's' : '' }}</h2>
+        <p v-if="selectedUsers.length <= 1">
+          ¿Está seguro que desea desactivar al usuario {{ selectedUser ? selectedUser.nombre + ' ' + selectedUser.apellido : '' }}?
+        </p>
+        <p v-else>
+          ¿Está seguro que desea desactivar {{ selectedUsers.length }} usuarios seleccionados?
+        </p>
         <div class="modal-actions">
           <button @click="showDeleteModal = false" class="btn-cancel">Cancelar</button>
-          <button @click="deleteUser" class="btn-delete">{{ deleteAction === 'delete' ? 'Eliminar' : 'Desactivar' }}</button>
+          <button @click="deactivateUsers" class="btn-delete">Desactivar</button>
         </div>
       </div>
     </div>
@@ -172,14 +304,12 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import UsersTable from '@/components/UsersTable.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
 
 export default {
   name: 'UserManagementView',
   components: {
-    UsersTable,
     HeaderComponent,
     ModalMessage
   },
@@ -199,6 +329,11 @@ export default {
     const deleteCompletely = ref(false);
     const deleteAction = computed(() => deleteCompletely.value ? 'delete' : 'deactivate');
     const searchQuery = ref('');
+    const deleteMode = ref(false);
+    const selectedUsers = ref([]);
+    const currentPage = ref(1);
+    const perPage = ref(15);
+    const isMobile = ref(false);
 
     const newUser = ref({
       nombre: '',
@@ -216,6 +351,162 @@ export default {
       id_roles: null,
       estado: true
     });
+
+    const paginatedUsers = computed(() => {
+      const start = (currentPage.value - 1) * perPage.value;
+      return filteredUsers.value.slice(start, start + perPage.value);
+    });
+
+    const totalPages = computed(() => {
+      return Math.ceil(filteredUsers.value.length / perPage.value);
+    });
+
+    const displayedPageNumbers = computed(() => {
+      const maxVisibleButtons = isMobile.value ? 3 : 5;
+      if (totalPages.value <= maxVisibleButtons) {
+        return Array.from({ length: totalPages.value }, (_, i) => i + 1);
+      }
+      let start = Math.max(1, currentPage.value - Math.floor(maxVisibleButtons / 2));
+      const end = Math.min(totalPages.value, start + maxVisibleButtons - 1);
+      if (end === totalPages.value) {
+        start = Math.max(1, totalPages.value - maxVisibleButtons + 1);
+      }
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    });
+
+    const areAllSelected = computed(() => {
+      return paginatedUsers.value.length > 0 && 
+             paginatedUsers.value.every(user => selectedUsers.value.includes(user.id));
+    });
+
+    const previousPage = () => {
+      if (currentPage.value > 1) {
+        currentPage.value--;
+      }
+    };
+
+    const nextPage = () => {
+      if (currentPage.value < totalPages.value) {
+        currentPage.value++;
+      }
+    };
+
+    const toggleUserSelection = (userId) => {
+      const index = selectedUsers.value.indexOf(userId);
+      if (index > -1) {
+        selectedUsers.value.splice(index, 1);
+      } else {
+        selectedUsers.value.push(userId);
+      }
+    };
+
+    const toggleSelectAll = () => {
+      if (areAllSelected.value) {
+        const currentPageIds = paginatedUsers.value.map(u => u.id);
+        selectedUsers.value = selectedUsers.value.filter(id => !currentPageIds.includes(id));
+      } else {
+        const currentPageIds = paginatedUsers.value.map(u => u.id);
+        currentPageIds.forEach(id => {
+          if (!selectedUsers.value.includes(id)) {
+            selectedUsers.value.push(id);
+          }
+        });
+      }
+    };
+
+    const enterDeleteMode = () => {
+      deleteMode.value = true;
+      selectedUsers.value = [];
+    };
+
+    const cancelDeleteMode = () => {
+      deleteMode.value = false;
+      selectedUsers.value = [];
+    };
+
+  const confirmBulkDeactivate = () => {
+    if (selectedUsers.value.length === 0) {
+      showMessage('Error', 'No hay usuarios seleccionados para desactivar', 'error');
+      return;
+    }
+
+    showDeleteModal.value = true;
+  };
+
+  const deactivateUsers = async () => {
+    const token = checkAuth();
+    if (!token) return;
+
+    try {
+      const deactivateResults = [];
+      const usersToProcess = selectedUsers.value.length > 0 ? selectedUsers.value : [selectedUser.value.id];
+      
+      for (const userId of usersToProcess) {
+        try {
+          const response = await fetch(`http://localhost:3000/api/usuarios/${userId}/deactivate`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            deactivateResults.push({
+              id: userId,
+              success: true,
+              message: data.mensaje || 'Desactivado correctamente'
+            });
+          } else {
+            const user = users.value.find(u => u.id === userId);
+            deactivateResults.push({
+              id: userId,
+              success: false,
+              message: data.error || 'Error desconocido',
+              userName: user ? `${user.nombre} ${user.apellido}` : `ID: ${userId}`
+            });
+          }
+        } catch (err) {
+          const user = users.value.find(u => u.id === userId);
+          deactivateResults.push({
+            id: userId,
+            success: false,
+            message: 'Error de conexión',
+            userName: user ? `${user.nombre} ${user.apellido}` : `ID: ${userId}`
+          });
+        }
+      }
+
+      const successful = deactivateResults.filter(r => r.success);
+      const failed = deactivateResults.filter(r => !r.success);
+
+      if (successful.length > 0 && failed.length === 0) {
+        showMessage('Éxito', `${successful.length} usuario(s) desactivado(s) correctamente`, 'success');
+      } else if (successful.length > 0 && failed.length > 0) {
+        const failedNames = failed.map(f => `• ${f.userName}: ${f.message}`).join('\n');
+        showMessage(
+          'Parcialmente completado', 
+          `${successful.length} usuario(s) desactivado(s) correctamente.\n\nNo se pudieron desactivar ${failed.length} usuario(s):\n${failedNames}`, 
+          'warning'
+        );
+      } else {
+        const failedNames = failed.map(f => `• ${f.userName}: ${f.message}`).join('\n');
+        showMessage(
+          'Error', 
+          `No se pudo desactivar ningún usuario:\n${failedNames}`, 
+          'error'
+        );
+      }
+
+      showDeleteModal.value = false;
+      selectedUser.value = null;
+      cancelDeleteMode();
+      fetchUsers();
+    } catch (err) {
+      showMessage('Error', 'Error general al desactivar los usuarios', 'error');
+    }
+  };
 
     const checkAuth = () => {
       const token = localStorage.getItem('jwtToken');
@@ -262,18 +553,17 @@ export default {
         
         const data = await response.json();
         
-        // MANTENER LOS DATOS ORIGINALES - NO CONVERTIR estado a string
         users.value = data.data.map(user => ({
           id: user.id,
           nombre: user.nombre,
           apellido: user.apellido,
-          email: user.email, // ← Mantener email original
+          email: user.email, 
           id_roles: user.id_roles,
-          estado: user.estado, // ← Mantener boolean original
-          estadoTexto: user.estado ? 'Activo' : 'Inactivo' // ← Agregar campo para mostrar
+          estado: user.estado, 
+          estadoTexto: user.estado ? 'Activo' : 'Inactivo' 
         }));
         
-        console.log('Usuarios cargados:', users.value); // ← Para debug
+        console.log('Usuarios cargados:', users.value);
       } catch (err) {
         error.value = `Error: ${err.message}`;
         console.error('Error al obtener usuarios:', err);
@@ -284,6 +574,7 @@ export default {
 
     const searchUser = () => {
       console.log("Buscando usuario:", searchQuery.value);
+      currentPage.value = 1;
     };
 
     const filteredUsers = computed(() => {
@@ -299,6 +590,11 @@ export default {
 
     const handleUserSelection = (user) => {
       selectedUser.value = { ...user };
+    };
+
+    const editUser = (user) => {
+      selectedUser.value = { ...user };
+      openEditUserModal();
     };
 
     const openCreateUserModal = () => {
@@ -324,10 +620,10 @@ export default {
         apellido: selectedUser.value.apellido,
         email: selectedUser.value.email,
         id_roles: selectedUser.value.id_roles,
-        estado: selectedUser.value.estado // ← Usar boolean original, no string
+        estado: selectedUser.value.estado
       };
       
-      console.log('Editando usuario:', editingUser.value); // ← Para debug
+      console.log('Editando usuario:', editingUser.value); 
       showEditModal.value = true;
     };
 
@@ -335,7 +631,6 @@ export default {
       const token = checkAuth();
       if (!token) return;
       
-      // Limpiar espacios en blanco
       const userToCreate = {
         ...newUser.value,
         nombre: newUser.value.nombre.trim(),
@@ -343,7 +638,6 @@ export default {
         email: newUser.value.email.trim().toLowerCase()
       };
       
-      // Validar formulario
       const validation = validateUserForm(userToCreate, false);
       if (!validation.valid) {
         showMessage('Error de Validación', validation.message, 'error');
@@ -363,7 +657,6 @@ export default {
         if (!response.ok) {
           const errorData = await response.json();
           
-          // Manejar errores específicos del servidor
           if (response.status === 409 || errorData.message?.includes('email')) {
             showMessage('Error', 'Ya existe un usuario con este email', 'error');
           } else if (response.status === 400) {
@@ -380,7 +673,6 @@ export default {
         showCreateModal.value = false;
         showMessage('Éxito', 'Usuario creado correctamente', 'success');
         
-        // Limpiar formulario
         newUser.value = {
           nombre: '',
           apellido: '',
@@ -396,12 +688,10 @@ export default {
       }
     };
 
-
     const updateUser = async () => {
       const token = checkAuth();
       if (!token) return;
       
-      // Limpiar espacios en blanco
       const userToUpdate = {
         ...editingUser.value,
         nombre: editingUser.value.nombre.trim(),
@@ -409,7 +699,6 @@ export default {
         email: editingUser.value.email.trim().toLowerCase()
       };
       
-      // Validar formulario (incluyendo verificación de email duplicado)
       const validation = validateUserForm(userToUpdate, true, editingUser.value.id);
       if (!validation.valid) {
         showMessage('Error de Validación', validation.message, 'error');
@@ -435,7 +724,6 @@ export default {
         if (!response.ok) {
           const errorData = await response.json();
           
-          // Manejar errores específicos
           if (response.status === 409 || errorData.message?.includes('email')) {
             showMessage('Error', 'Ya existe un usuario con este email', 'error');
           } else if (response.status === 400) {
@@ -458,7 +746,11 @@ export default {
       }
     };
 
-    const confirmDeleteUser = () => {
+    const confirmDeleteUser = (user = null) => {
+      if (user) {
+        selectedUser.value = { ...user };
+      }
+      
       if (!selectedUser.value) {
         showMessage('Error', 'No hay ningún usuario seleccionado para eliminar', 'error');
         return;
@@ -467,17 +759,14 @@ export default {
       showDeleteModal.value = true;
     };
 
-    // Función de validación 
     const validateUserForm = (user, isEditing = false, currentUserId = null) => {
-      console.log('Validando usuario:', user); // ← Para debug
-      console.log('Usuarios existentes:', users.value); // ← Para debug
+      console.log('Validando usuario:', user); 
+      console.log('Usuarios existentes:', users.value); 
       
-      // Validar campos obligatorios
       if (!user.nombre?.trim() || !user.apellido?.trim() || !user.email?.trim()) {
         return { valid: false, message: 'Todos los campos son obligatorios' };
       }
       
-      // Validar longitud mínima
       if (user.nombre.trim().length < 2) {
         return { valid: false, message: 'El nombre debe tener al menos 2 caracteres' };
       }
@@ -486,26 +775,22 @@ export default {
         return { valid: false, message: 'El apellido debe tener al menos 2 caracteres' };
       }
       
-      // Validar formato de email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(user.email.trim())) {
         return { valid: false, message: 'El formato del email no es válido' };
       }
       
-      // Validar email duplicado - LÓGICA CORREGIDA
       const emailToCheck = user.email.trim().toLowerCase();
       const emailExists = users.value.some(existingUser => {
         const existingEmail = existingUser.email.toLowerCase();
         const isSameEmail = existingEmail === emailToCheck;
         
-        // Si estamos editando, excluir el usuario actual de la verificación
         if (isEditing && currentUserId) {
           const isDifferentUser = existingUser.id !== currentUserId;
           const result = isSameEmail && isDifferentUser;
           console.log(`Comparando: ${existingEmail} vs ${emailToCheck}, ID: ${existingUser.id} vs ${currentUserId}, resultado: ${result}`);
           return result;
         } else {
-          // Si estamos creando, cualquier coincidencia es duplicado
           console.log(`Creando - Comparando: ${existingEmail} vs ${emailToCheck}, resultado: ${isSameEmail}`);
           return isSameEmail;
         }
@@ -515,7 +800,6 @@ export default {
         return { valid: false, message: 'Ya existe un usuario con este email' };
       }
       
-      // Validar rol
       const validRoles = [1, 2, 3, 4];
       if (!validRoles.includes(parseInt(user.id_roles))) {
         return { valid: false, message: 'Debe seleccionar un rol válido' };
@@ -530,7 +814,6 @@ export default {
       
       try {
         if (deleteCompletely.value) {
-          // Eliminar completamente
           const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}`, {
             method: 'DELETE',
             headers: {
@@ -543,7 +826,6 @@ export default {
             throw new Error(errorData.error || 'Error al eliminar el usuario');
           }
         } else {
-          // Desactivar (actualizar estado a false)
           const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}/deactivate`, {
             method: 'PUT',
             headers: {
@@ -566,8 +848,15 @@ export default {
       }
     };
 
+    const checkScreenSize = () => {
+      isMobile.value = window.innerWidth < 768;
+      perPage.value = isMobile.value ? 10 : 15;
+    };
+
     onMounted(() => {
       fetchUsers();
+      checkScreenSize();
+      window.addEventListener('resize', checkScreenSize);
     });
 
     return {
@@ -582,24 +871,35 @@ export default {
       messageTitle,
       messageContent,
       messageType,
-      deleteCompletely,
-      deleteAction,
       newUser,
       editingUser,
       searchQuery,
+      deleteMode,
+      selectedUsers,
+      currentPage,
+      paginatedUsers,
+      totalPages,
+      displayedPageNumbers,
+      areAllSelected,
       filteredUsers,
       showMessage,
       hideMessage,
       fetchUsers,
       searchUser,
       handleUserSelection,
+      editUser,
       openCreateUserModal,
       openEditUserModal,
       createUser,
-
       updateUser,
-      confirmDeleteUser,
-      deleteUser
+      confirmBulkDeactivate,
+      deactivateUsers, 
+      enterDeleteMode,
+      cancelDeleteMode,
+      toggleUserSelection,
+      toggleSelectAll,
+      previousPage,
+      nextPage
     };
   }
 };
@@ -849,7 +1149,6 @@ export default {
   width: 100%;
 }
 
-/* Media Queries - Tablet */
 @media (min-width: 576px) {
   .content-section {
     padding: 20px;
@@ -882,7 +1181,6 @@ export default {
   }
 }
 
-/* Media Queries - Desktop */
 @media (min-width: 768px) {
   .content-section {
     max-width: 1200px;
@@ -897,6 +1195,307 @@ export default {
   
   .list-title {
     font-size: 20px;
+  }
+}
+
+.delete-mode-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.cancel-button {
+  border: 1px solid #6c757d;
+  color: #6c757d;
+}
+
+.cancel-button:hover {
+  background-color: #f0f0f0;
+  color: #5a6268;
+  border-color: #5a6268;
+}
+
+.card-title-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.mobile-checkbox {
+  margin-top: 5px;
+  width: auto !important;
+}
+
+.users-table-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.table-responsive {
+  display: none;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+}
+
+.users-table th, .users-table td {
+  border: 1px solid #ddd;
+  padding: 10px 8px;
+  text-align: left;
+}
+
+.users-table th {
+  background-color: #f8f8f8;
+  position: sticky;
+  top: 0;
+  font-weight: bold;
+}
+
+.users-table tr:hover {
+  background-color: #f1f1f1;
+}
+
+.card-view {
+  display: block;
+  width: 100%;
+}
+
+.user-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  padding: 15px;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.user-card:hover {
+  background-color: #f8f8f8;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  flex: 1;
+}
+
+.user-id {
+  background-color: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #666;
+  margin-left: 10px;
+}
+
+.card-row {
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.card-row strong {
+  margin-right: 5px;
+  min-width: 80px;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.edit-btn-small {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.edit-btn-small {
+  background-color: #2196F3;
+  color: white;
+}
+
+.edit-btn-small:hover {
+  background-color: #1976D2;
+}
+
+.card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.edit-btn {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  flex: 1;
+  text-align: center;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.edit-btn {
+  background-color: #2196F3;
+  color: white;
+}
+
+.edit-btn:hover {
+  background-color: #1976D2;
+}
+
+.active {
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.inactive {
+  color: #c62828;
+  font-weight: 500;
+}
+
+.empty-table {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.pagination {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.pagination button {
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  min-width: 40px;
+  transition: background-color 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #f0f0f0;
+}
+
+.pagination button.active {
+  background: #333;
+  color: white;
+  font-weight: bold;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-nav {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+@media (min-width: 576px) {
+  .delete-mode-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .delete-mode-actions .action-button {
+    width: auto;
+    min-width: 150px;
+  }
+}
+
+@media (min-width: 768px) {
+  .table-responsive {
+    display: block;
+  }
+  
+  .card-view {
+    display: none;
+  }
+  
+  .users-table th, .users-table td {
+    text-align: center;
+  }
+  
+  .users-table {
+    font-size: 16px;
+    min-width: 800px;
+  }
+  
+  .actions-cell {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 350px) {
+  .user-card {
+    padding: 10px;
+  }
+  
+  .card-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .user-id {
+    margin-left: 0;
+    margin-top: 5px;
+  }
+  
+  .card-actions {
+    flex-direction: column;
   }
 }
 </style>

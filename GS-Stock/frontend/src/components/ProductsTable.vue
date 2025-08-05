@@ -4,6 +4,13 @@
     <div class="table-responsive">
       <table class="products-table">
         <thead>
+        <th v-if="deleteMode">
+          <input 
+            type="checkbox" 
+            @change="toggleSelectAll"
+            :checked="areAllSelected"
+          >
+        </th>
           <tr>
             <th>Código</th>
             <th>Nombre</th>
@@ -16,6 +23,14 @@
           </tr>
         </thead>
         <tbody>
+        <td v-if="deleteMode">
+          <input 
+            type="checkbox" 
+            :value="product.id"
+            :checked="selectedProducts.includes(product.id)"
+            @change="toggleProductSelection(product.id)"
+          >
+        </td>
           <tr v-for="product in paginatedProducts" :key="product.id">
             <td>{{ product.codigo || '-' }}</td>
             <td>{{ product.nombre || '-' }}</td>
@@ -188,19 +203,45 @@ const props = defineProps({
     type: Array,
     required: true,
     default: () => []
+  },
+  deleteMode: {
+    type: Boolean,
+    default: false
+  },
+  selectedProducts: {
+    type: Array,
+    default: () => []
   }
 });
 
-const emit = defineEmits(['product-selected']);
+const emit = defineEmits(['product-selected', 'products-selection-changed']);
 
-const selectedProductId = ref(null);
-const currentPage = ref(1);
-const isMobile = ref(false);
-const perPage = ref(15);
+const toggleProductSelection = (productId) => {
+  const currentSelected = [...props.selectedProducts];
+  const index = currentSelected.indexOf(productId);
+  
+  if (index > -1) {
+    currentSelected.splice(index, 1);
+  } else {
+    currentSelected.push(productId);
+  }
+  
+  emit('products-selection-changed', currentSelected);
+};
 
-const showModal = ref(false);
-const selectedProductTallas = ref([]);
+const areAllSelected = computed(() => {
+  return props.products.length > 0 && 
+         props.selectedProducts.length === props.products.length;
+});
 
+const toggleSelectAll = () => {
+  if (areAllSelected.value) {
+    emit('products-selection-changed', []);
+  } else {
+    const allIds = props.products.map(p => p.id);
+    emit('products-selection-changed', allIds);
+  }
+};
 const showTallasModal = (product) => {
   if (!product.tallas_disponibles?.length) return;
   
@@ -220,7 +261,6 @@ const closeModal = () => {
   selectedProductTallas.value = [];
 };
 
-// Comprobar el tamaño de la pantalla
 const checkScreenSize = () => {
   isMobile.value = window.innerWidth < 768;
   perPage.value = isMobile.value ? 10 : 15;
@@ -231,7 +271,6 @@ onMounted(() => {
   window.addEventListener('resize', checkScreenSize);
 });
 
-// Computed properties para paginación
 const paginatedProducts = computed(() => {
   const start = (currentPage.value - 1) * perPage.value;
   return props.products.slice(start, start + perPage.value);
@@ -258,7 +297,6 @@ const displayedPageNumbers = computed(() => {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i);
 });
 
-// Funciones de navegación
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
@@ -356,7 +394,6 @@ watch(currentPage, () => {
   align-items: flex-end;
 }
 
-/* Tabla (oculta en móviles) */
 .table-responsive {
   display: none;
   width: 100%;

@@ -9,12 +9,23 @@
         <button class="action-button create-button" @click="openCreateClientModal">
           Agregar Cliente
         </button>
-        <button class="action-button edit-button" @click="confirmEdit" :disabled="!selectedClient">
-          Editar Cliente
-        </button>
-        <button class="action-button delete-button" @click="confirmDelete" :disabled="!selectedClient">
+        <button 
+          v-if="!deleteMode" 
+          class="action-button delete-button" 
+          @click="enterDeleteMode">
           Eliminar Cliente
         </button>
+        <div v-if="deleteMode" class="delete-mode-actions">
+          <button 
+            class="action-button delete-button" 
+            @click="confirmBulkDelete" 
+            :disabled="selectedClients.length === 0">
+            Eliminar Seleccionados ({{ selectedClients.length }})
+          </button>
+          <button class="action-button cancel-button" @click="cancelDeleteMode">
+            Cancelar
+          </button>
+        </div>
       </div>
 
       <div class="search-section">
@@ -35,12 +46,155 @@
         {{ error }}
       </div>
 
-      <clients-table
-       v-if="!loading && !error"
-      :clients="filteredClients"
-       @client-selected="handleClientSelection"
-      :selected-client-id="selectedClient?.id"
-      />
+      <!-- Tabla integrada directamente -->
+      <div v-if="!loading && !error" class="clients-table-container">
+        <!-- Vista de tabla -->
+        <div class="table-responsive">
+          <table class="clients-table">
+            <thead>
+              <tr>
+                <th v-if="deleteMode">
+                  <input 
+                    type="checkbox" 
+                    @change="toggleSelectAll"
+                    :checked="areAllSelected"
+                  >
+                </th>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Empresa</th>
+                <th>Direcciones</th>
+                <th>Teléfonos</th>
+                <th v-if="!deleteMode">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="client in paginatedClients" :key="client.id">
+                <td v-if="deleteMode">
+                  <input 
+                    type="checkbox" 
+                    :value="client.id"
+                    :checked="selectedClients.includes(client.id)"
+                    @change="toggleClientSelection(client.id)"
+                  >
+                </td>
+                <td>{{ client.id || '-' }}</td>
+                <td>{{ client.nombre || '-' }}</td>
+                <td>{{ client.apellido || '-' }}</td>
+                <td>{{ client.empresa || '-' }}</td>
+                <td>
+                  <ul class="list-unstyled">
+                    <li v-for="(direccion, idx) in client.direcciones" :key="'dir-'+idx">
+                      {{ direccion.direccion }}
+                    </li>
+                  </ul>
+                </td>
+                <td>
+                  <ul class="list-unstyled">
+                    <li v-for="(telefono, idx) in client.telefonos" :key="'tel-'+idx">
+                      {{ telefono.telefono }}
+                    </li>
+                  </ul>
+                </td>
+                <td v-if="!deleteMode" class="actions-cell">
+                  <button @click.stop="editClient(client)" class="edit-btn-small">
+                    Editar
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="paginatedClients.length === 0">
+                <td :colspan="deleteMode ? 8 : 7" class="empty-table">
+                  No hay clientes disponibles
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Vista de tarjetas para móviles -->
+        <div class="card-view">
+          <div v-for="client in paginatedClients" :key="client.id" class="client-card">
+            <div class="card-content">
+              <div class="card-header">
+                <div class="card-title-section">
+                  <input 
+                    v-if="deleteMode" 
+                    type="checkbox" 
+                    :value="client.id"
+                    :checked="selectedClients.includes(client.id)"
+                    @change="toggleClientSelection(client.id)"
+                    class="mobile-checkbox"
+                  >
+                  <div>
+                    <h3>{{ client.nombre }} {{ client.apellido }}</h3>
+                    <span class="client-id">ID: {{ client.id }}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="card-row">
+                <strong>Empresa:</strong>
+                <span>{{ client.empresa || '-' }}</span>
+              </div>
+              
+              <div class="card-row">
+                <strong>Direcciones:</strong>
+                <ul>
+                  <li v-for="(direccion, idx) in client.direcciones" :key="'dir-'+idx">
+                    {{ direccion.direccion }}
+                  </li>
+                </ul>
+              </div>
+              
+              <div class="card-row">
+                <strong>Teléfonos:</strong>
+                <ul>
+                  <li v-for="(telefono, idx) in client.telefonos" :key="'tel-'+idx">
+                    {{ telefono.telefono }}
+                  </li>
+                </ul>
+              </div>
+              
+              <div v-if="!deleteMode" class="card-actions">
+                <button @click.stop="editClient(client)" class="edit-btn">
+                  Editar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paginación -->
+        <div class="pagination">
+          <button 
+            @click="previousPage" 
+            :disabled="currentPage === 1"
+            class="pagination-nav"
+          >
+            ‹
+          </button>
+          
+          <div class="page-numbers">
+            <button
+              v-for="pageNum in displayedPageNumbers"
+              :key="pageNum"
+              @click="currentPage = pageNum"
+              :class="{ active: currentPage === pageNum }"
+            >
+              {{ pageNum }}
+            </button>
+          </div>
+          
+          <button 
+            @click="nextPage" 
+            :disabled="currentPage === totalPages"
+            class="pagination-nav"
+          >
+            ›
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Modal para crear cliente -->
@@ -205,6 +359,24 @@
       </div>
     </div>
 
+    <!-- Modal para confirmación de eliminación -->
+    <div v-if="showDeleteModal" class="modal">
+      <div class="modal-content">
+        <span class="close" @click="showDeleteModal = false">&times;</span>
+        <h2>Eliminar Cliente{{ selectedClients.length > 1 ? 's' : '' }}</h2>
+        <p v-if="selectedClients.length <= 1">
+          ¿Está seguro que desea eliminar al cliente {{ selectedClient ? selectedClient.nombre + ' ' + selectedClient.apellido : '' }}?
+        </p>
+        <p v-else>
+          ¿Está seguro que desea eliminar {{ selectedClients.length }} clientes seleccionados?
+        </p>
+        <div class="modal-actions">
+          <button @click="showDeleteModal = false" class="btn-cancel">Cancelar</button>
+          <button @click="deleteClients" class="btn-delete">Eliminar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal para confirmaciones -->
     <modal-message 
       :show="showMessageModal"
@@ -218,7 +390,6 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue';
-import ClientsTable from '@/components/ClientsTable.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
 import { useRouter } from 'vue-router';
@@ -226,7 +397,6 @@ import { useRouter } from 'vue-router';
 export default {
   name: 'ClientsView',
   components: {
-    ClientsTable,
     HeaderComponent,
     ModalMessage
   },
@@ -238,10 +408,16 @@ export default {
     const selectedClient = ref(null);
     const showCreateModal = ref(false);
     const showEditModal = ref(false);
+    const showDeleteModal = ref(false);
     const showMessageModal = ref(false);
     const messageTitle = ref('');
     const messageContent = ref('');
     const messageType = ref('info');
+    const deleteMode = ref(false);
+    const selectedClients = ref([]);
+    const currentPage = ref(1);
+    const perPage = ref(15);
+    const isMobile = ref(false);
 
     const newClient = ref({
       nombre: '',
@@ -253,7 +429,173 @@ export default {
 
     const searchQuery = ref({ nombre: '' });
 
-    const showMessage = (title, message, type = 'info') => {
+    const paginatedClients = computed(() => {
+      const start = (currentPage.value - 1) * perPage.value;
+      return filteredClients.value.slice(start, start + perPage.value);
+    });
+
+    const totalPages = computed(() => {
+      return Math.ceil(filteredClients.value.length / perPage.value);
+    });
+
+    const displayedPageNumbers = computed(() => {
+      const maxVisibleButtons = isMobile.value ? 3 : 5;
+      if (totalPages.value <= maxVisibleButtons) {
+        return Array.from({ length: totalPages.value }, (_, i) => i + 1);
+      }
+      let start = Math.max(1, currentPage.value - Math.floor(maxVisibleButtons / 2));
+      const end = Math.min(totalPages.value, start + maxVisibleButtons - 1);
+      if (end === totalPages.value) {
+        start = Math.max(1, totalPages.value - maxVisibleButtons + 1);
+      }
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    });
+
+    const areAllSelected = computed(() => {
+      return paginatedClients.value.length > 0 && 
+             paginatedClients.value.every(client => selectedClients.value.includes(client.id));
+    });
+
+    const previousPage = () => {
+      if (currentPage.value > 1) {
+        currentPage.value--;
+      }
+    };
+
+    const nextPage = () => {
+      if (currentPage.value < totalPages.value) {
+        currentPage.value++;
+      }
+    };
+
+    const toggleClientSelection = (clientId) => {
+      const index = selectedClients.value.indexOf(clientId);
+      if (index > -1) {
+        selectedClients.value.splice(index, 1);
+      } else {
+        selectedClients.value.push(clientId);
+      }
+    };
+
+    const toggleSelectAll = () => {
+      if (areAllSelected.value) {
+        const currentPageIds = paginatedClients.value.map(c => c.id);
+        selectedClients.value = selectedClients.value.filter(id => !currentPageIds.includes(id));
+      } else {
+        const currentPageIds = paginatedClients.value.map(c => c.id);
+        currentPageIds.forEach(id => {
+          if (!selectedClients.value.includes(id)) {
+            selectedClients.value.push(id);
+          }
+        });
+      }
+    };
+
+    const enterDeleteMode = () => {
+      deleteMode.value = true;
+      selectedClients.value = [];
+    };
+
+    const cancelDeleteMode = () => {
+      deleteMode.value = false;
+      selectedClients.value = [];
+    };
+
+    const confirmBulkDelete = () => {
+      if (selectedClients.value.length === 0) {
+        showMessage('Error', 'No hay clientes seleccionados para eliminar', 'error');
+        return;
+      }
+
+      showDeleteModal.value = true;
+    };
+
+    const deleteClients = async () => {
+      const token = checkAuth();
+      if (!token) return;
+
+      try {
+        const deleteResults = [];
+        const clientsToProcess = selectedClients.value.length > 0 ? selectedClients.value : [selectedClient.value.id];
+        
+        for (const clientId of clientsToProcess) {
+          try {
+            const response = await fetch(`http://localhost:3000/api/clientes/${clientId}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+              deleteResults.push({
+                id: clientId,
+                success: true,
+                message: data.mensaje || 'Eliminado correctamente'
+              });
+            } else {
+              const client = clients.value.find(c => c.id === clientId);
+              deleteResults.push({
+                id: clientId,
+                success: false,
+                message: data.error || 'Error desconocido',
+                clientName: client ? `${client.nombre} ${client.apellido}` : `ID: ${clientId}`
+              });
+            }
+          } catch (err) {
+            const client = clients.value.find(c => c.id === clientId);
+            deleteResults.push({
+              id: clientId,
+              success: false,
+              message: 'Error de conexión',
+              clientName: client ? `${client.nombre} ${client.apellido}` : `ID: ${clientId}`
+            });
+          }
+        }
+
+        const successful = deleteResults.filter(r => r.success);
+        const failed = deleteResults.filter(r => !r.success);
+
+        if (successful.length > 0 && failed.length === 0) {
+          showMessage('Éxito', `${successful.length} cliente(s) eliminado(s) correctamente`, 'success');
+        } else if (successful.length > 0 && failed.length > 0) {
+          const failedNames = failed.map(f => `• ${f.clientName}: ${f.message}`).join('\n');
+          showMessage(
+            'Parcialmente completado', 
+            `${successful.length} cliente(s) eliminado(s) correctamente.\n\nNo se pudieron eliminar ${failed.length} cliente(s):\n${failedNames}`, 
+            'warning'
+          );
+        } else {
+          const failedNames = failed.map(f => `• ${f.clientName}: ${f.message}`).join('\n');
+          showMessage(
+            'Error', 
+            `No se pudo eliminar ningún cliente:\n${failedNames}`, 
+            'error'
+          );
+        }
+
+        showDeleteModal.value = false;
+        selectedClient.value = null;
+        cancelDeleteMode();
+        fetchClients();
+      } catch (err) {
+        showMessage('Error', 'Error general al eliminar los clientes', 'error');
+      }
+    };
+
+    const editClient = (client) => {
+      selectedClient.value = { ...client };
+      confirmEdit();
+    };
+
+    const checkScreenSize = () => {
+      isMobile.value = window.innerWidth < 768;
+      perPage.value = isMobile.value ? 10 : 15;
+    };
+
+        const showMessage = (title, message, type = 'info') => {
       messageTitle.value = title;
       messageContent.value = message;
       messageType.value = type;
@@ -316,47 +658,44 @@ export default {
     };
 
     const searchClient = async () => {
-  if (searchQuery.value.nombre.trim() === '') {
-    fetchClients();
-  } else {
-    const termino = searchQuery.value.nombre.trim();
-    try {
-      // Primero buscar clientes básicos
-      const searchResponse = await fetch(`http://localhost:3000/api/clientes/buscar/${termino}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
-        }
-      });
-      
-      if (!searchResponse.ok) throw new Error('Error en la búsqueda');
-      const searchData = await searchResponse.json();
-      
-      // Para cada cliente encontrado, obtener sus datos completos
-      const clientsWithDetails = await Promise.all(
-        searchData.data.map(async client => {
-          const detailResponse = await fetch(`http://localhost:3000/api/clientes/${client.id}`, {
+      if (searchQuery.value.nombre.trim() === '') {
+        fetchClients();
+      } else {
+        const termino = searchQuery.value.nombre.trim();
+        try {
+          const searchResponse = await fetch(`http://localhost:3000/api/clientes/buscar/${termino}`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
             }
           });
           
-          if (!detailResponse.ok) return client;
-          const detailData = await detailResponse.json();
-          return detailData.data;
-        })
-      );
-      
-      clients.value = clientsWithDetails;
-      loading.value = false;
-    } catch (err) {
-      error.value = `Error: ${err.message}`;
-      loading.value = false;
-    }
-  }
-};
-
+          if (!searchResponse.ok) throw new Error('Error en la búsqueda');
+          const searchData = await searchResponse.json();
+          
+          const clientsWithDetails = await Promise.all(
+            searchData.data.map(async client => {
+              const detailResponse = await fetch(`http://localhost:3000/api/clientes/${client.id}`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                }
+              });
+              
+              if (!detailResponse.ok) return client;
+              const detailData = await detailResponse.json();
+              return detailData.data;
+            })
+          );
+          
+          clients.value = clientsWithDetails;
+          loading.value = false;
+        } catch (err) {
+          error.value = `Error: ${err.message}`;
+          loading.value = false;
+        }
+      }
+    };
 
     const checkAuth = () => {
       const token = localStorage.getItem('jwtToken');
@@ -464,102 +803,67 @@ export default {
       showEditModal.value = true;
     };
 
+    const updateClient = async () => {
+      const token = checkAuth();
+      if (!token) return;
 
+      try {
+        const direccionesValidas = selectedClient.value.direcciones
+          .filter(d => d.direccion?.trim() !== '');
+        
+        const telefonosValidos = selectedClient.value.telefonos
+          .filter(t => t.telefono?.trim() !== '');
+        
+        if (direccionesValidas.length === 0) {
+          throw new Error('Debe proporcionar al menos una dirección válida');
+        }
+        
+        if (telefonosValidos.length === 0) {
+          throw new Error('Debe proporcionar al menos un teléfono válido');
+        }
 
-const updateClient = async () => {
-  const token = checkAuth();
-  if (!token) return;
+        const response = await fetch(`http://localhost:3000/api/clientes/${selectedClient.value.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            nombre: selectedClient.value.nombre,
+            apellido: selectedClient.value.apellido,
+            empresa: selectedClient.value.empresa,
+            direcciones: direccionesValidas,
+            telefonos: telefonosValidos
+          })
+        });
 
-  try {
-    // Validar que al menos haya una dirección y un teléfono
-    const direccionesValidas = selectedClient.value.direcciones
-      .filter(d => d.direccion?.trim() !== '');
-    
-    const telefonosValidos = selectedClient.value.telefonos
-      .filter(t => t.telefono?.trim() !== '');
-    
-    if (direccionesValidas.length === 0) {
-      throw new Error('Debe proporcionar al menos una dirección válida');
-    }
-    
-    if (telefonosValidos.length === 0) {
-      throw new Error('Debe proporcionar al menos un teléfono válido');
-    }
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al actualizar el cliente');
+        }
 
-    const response = await fetch(`http://localhost:3000/api/clientes/${selectedClient.value.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        nombre: selectedClient.value.nombre,
-        apellido: selectedClient.value.apellido,
-        empresa: selectedClient.value.empresa,
-        direcciones: direccionesValidas,
-        telefonos: telefonosValidos
-      })
-    });
+        const data = await response.json();
+        console.log("Cliente actualizado:", data);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Error al actualizar el cliente');
-    }
-
-    const data = await response.json();
-    console.log("Cliente actualizado:", data);
-
-    showEditModal.value = false;
-    showMessage('Éxito', 'Cliente actualizado correctamente', 'success');
-    
-    // Actualizar la lista de clientes
-    await fetchClients();
-    
-    // Seleccionar el cliente actualizado
-    if (data.data) {
-      selectedClient.value = data.data;
-    }
-  } catch (err) {
-    showMessage('Error', err.message, 'error');
-  }
-};
+        showEditModal.value = false;
+        showMessage('Éxito', 'Cliente actualizado correctamente', 'success');
+        
+        await fetchClients();
+        
+        if (data.data) {
+          selectedClient.value = data.data;
+        }
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      }
+    };
 
     const confirmDelete = () => {
       if (!selectedClient.value) {
         showMessage('Error', 'No hay ningún cliente seleccionado para eliminar', 'error');
         return;
       }
-
-      const confirmDelete = confirm(`¿Está seguro que desea eliminar al cliente ${selectedClient.value.nombre} ${selectedClient.value.apellido}?`);
-      if (confirmDelete) {
-        deleteClient();
-      }
     };
-
-   const deleteClient = async () => {
-  const token = checkAuth();
-  if (!token) return;
-
-  try {
-    const response = await fetch(`http://localhost:3000/api/clientes/${selectedClient.value.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Error al eliminar el cliente');
-    }
-
-    selectedClient.value = null;
-    showMessage('Éxito', 'Cliente eliminado correctamente', 'success');
-    fetchClients();
-  } catch (err) {
-    showMessage('Error', err.message, 'error');
-  }
-};
 
     const handleClientSelection = (client) => {
       selectedClient.value = { ...client };
@@ -582,6 +886,8 @@ const updateClient = async () => {
 
     onMounted(() => {
       fetchClients();
+      checkScreenSize();
+      window.addEventListener('resize', checkScreenSize);
     });
 
     return {
@@ -591,12 +897,20 @@ const updateClient = async () => {
       selectedClient,
       showCreateModal,
       showEditModal,
+      showDeleteModal,
       showMessageModal,
       messageTitle,
       messageContent,
       messageType,
       newClient,
       searchQuery,
+      deleteMode,
+      selectedClients,
+      currentPage,
+      paginatedClients,
+      totalPages,
+      displayedPageNumbers,
+      areAllSelected,
       showMessage,
       hideMessage,
       openCreateClientModal,
@@ -612,9 +926,16 @@ const updateClient = async () => {
       createClient,
       confirmEdit,
       updateClient,
-      confirmDelete,
-      deleteClient,
       handleClientSelection,
+      editClient,
+      enterDeleteMode,
+      cancelDeleteMode,
+      confirmBulkDelete,
+      deleteClients,
+      toggleClientSelection,
+      toggleSelectAll,
+      previousPage,
+      nextPage,
       filteredClients
     };
   }
@@ -917,6 +1238,361 @@ const updateClient = async () => {
   
   .modal-content {
     padding: 25px;
+  }
+}
+
+/* Estilos adicionales para la nueva funcionalidad */
+.delete-mode-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.cancel-button {
+  border: 1px solid #6c757d;
+  color: #6c757d;
+}
+
+.cancel-button:hover {
+  background-color: #f0f0f0;
+  color: #5a6268;
+  border-color: #5a6268;
+}
+
+.card-title-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.mobile-checkbox {
+  margin-top: 5px;
+  width: auto !important;
+}
+
+.clients-table-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.table-responsive {
+  display: none;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.clients-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.clients-table th, .clients-table td {
+  border: 1px solid #ddd;
+  padding: 10px 8px;
+  text-align: left;
+}
+
+.clients-table th {
+  background-color: #f8f8f8;
+  position: sticky;
+  top: 0;
+  font-weight: bold;
+}
+
+.clients-table tr:hover {
+  background-color: #f1f1f1;
+}
+
+.card-view {
+  display: block;
+  width: 100%;
+}
+
+.client-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  padding: 15px;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.client-card:hover {
+  background-color: #f8f8f8;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  flex: 1;
+}
+
+.client-id {
+  background-color: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #666;
+  margin-left: 10px;
+}
+
+.card-row {
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.card-row strong {
+  margin-right: 5px;
+  min-width: 80px;
+}
+
+.actions-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.edit-btn-small{
+  padding: 4px 8px;
+  font-size: 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.edit-btn-small {
+  background-color: #2196F3;
+  color: white;
+}
+
+.edit-btn-small:hover {
+  background-color: #1976D2;
+}
+
+.card-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
+}
+
+.edit-btn, .delete-btn {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  flex: 1;
+  text-align: center;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.edit-btn {
+  background-color: #2196F3;
+  color: white;
+}
+
+.edit-btn:hover {
+  background-color: #1976D2;
+}
+
+.delete-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+}
+
+.list-unstyled {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.list-unstyled li {
+  margin-bottom: 2px;
+}
+
+.empty-table {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.pagination {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.pagination button {
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  min-width: 40px;
+  transition: background-color 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #f0f0f0;
+}
+
+.pagination button.active {
+  background: #333;
+  color: white;
+  font-weight: bold;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-nav {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.btn-cancel, .btn-delete {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+  transition: background-color 0.2s;
+}
+
+.btn-cancel {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-cancel:hover {
+  background-color: #5a6268;
+}
+
+.btn-delete {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-delete:hover {
+  background-color: #c82333;
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+@media (min-width: 576px) {
+  .delete-mode-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .delete-mode-actions .action-button {
+    width: auto;
+    min-width: 150px;
+  }
+  
+  .modal-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .modal-actions button {
+    width: auto;
+    min-width: 120px;
+  }
+}
+
+@media (min-width: 768px) {
+  .table-responsive {
+    display: block;
+  }
+  
+  .card-view {
+    display: none;
+  }
+  
+  .clients-table th, .clients-table td {
+    text-align: center;
+  }
+  
+  .clients-table {
+    font-size: 16px;
+  }
+  
+  .actions-cell {
+    min-width: 140px;
+  }
+}
+
+@media (max-width: 350px) {
+  .client-card {
+    padding: 10px;
+  }
+  
+  .card-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .client-id {
+    margin-left: 0;
+    margin-top: 5px;
+  }
+  
+  .card-actions {
+    flex-direction: column;
   }
 }
 </style>

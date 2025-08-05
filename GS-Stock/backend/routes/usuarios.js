@@ -39,7 +39,6 @@ router.post('/', auth, async (req, res) => {
   try {
     const { nombre, apellido, email, id_roles, estado } = req.body;
     
-    // Validación básica
     if (!nombre || !apellido || !id_roles) {
       return res.status(400).json({ error: 'Nombre, apellido y rol son obligatorios' });
     }
@@ -62,8 +61,7 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Actualizar un usuario
-router.put('//:id', auth, async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, apellido, email, id_roles, estado } = req.body;
@@ -90,8 +88,7 @@ router.put('//:id', auth, async (req, res) => {
   }
 });
 
-// Desactivar un usuario (marcar como inactivo)
-router.put('//:id/deactivate', auth, async (req, res) => {
+router.put('/:id/deactivate', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -117,8 +114,7 @@ router.put('//:id/deactivate', auth, async (req, res) => {
   }
 });
 
-// Eliminar un usuario (eliminación física)
-router.delete('//:id', auth, async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -144,8 +140,7 @@ router.delete('//:id', auth, async (req, res) => {
   }
 });
 
-// Obtener un usuario específico por ID
-router.get('//:id', auth, async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -168,8 +163,7 @@ router.get('//:id', auth, async (req, res) => {
   }
 });
 
-// Obtener usuarios por estado
-router.get('//estado/:estado', auth, async (req, res) => {
+router.get('/estado/:estado', auth, async (req, res) => {
   try {
     const estado = req.params.estado === 'true';
     
@@ -189,8 +183,7 @@ router.get('//estado/:estado', auth, async (req, res) => {
   }
 });
 
-// Obtener usuarios por rol
-router.get('//rol/:id_rol', auth, async (req, res) => {
+router.get('/rol/:id_rol', auth, async (req, res) => {
   try {
     const { id_rol } = req.params;
     
