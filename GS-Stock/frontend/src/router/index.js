@@ -2,7 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import SalesManagment from '@/views/SalesManagment.vue';
 import ClientsView from '../views/ClientsView.vue'
-
+import RestablecerView from '@/views/RestablecerView.vue'
+import CambiarView from '@/views/CambiarView.vue'
 
 const routes = [
   {
