@@ -27,6 +27,13 @@ services:
       - DB_PASSWORD=secret
       - DB_NAME=mydb
       - DB_PORT=5432
+      - PORT=3000
+      - JWT_SECRET=fba7a07f4174d84d67ad67aedf16422a
+      - JWT_EXPIRES_IN=1h
+      - FRONTEND_URL=http://localhost:5173
+      - EMAIL_USER=distribuidoragenser@gmail.com
+      - EMAIL_PASSWORD=glls fzzd lcvx fwut
+      - EMAIL_FROM=GS Stock <distribuidoragenser@gmail.com>
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,6 +45,7 @@ services:
       start_period: 60s
     networks:
       - app-network
+
 
   postgres:
     image: postgres:16-alpine

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const http = require('http');
 const socketIo = require('socket.io');
-const app = require('./app'); // ← Cargamos la instancia de Express ya configurada
+const app = require('./app'); 
 const { Pool } = require('pg');
 
 // Configuración de la conexión a PostgreSQL
