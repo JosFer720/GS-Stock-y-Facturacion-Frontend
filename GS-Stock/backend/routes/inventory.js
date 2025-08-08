@@ -3,6 +3,8 @@ const router = express.Router();
 const { Pool } = require('pg');
 const SocketService = require('../services/socketService');
 
+const { checkRole, roles } = require('../middleware/roles');
+
 // Configuración de la conexión a PostgreSQL con variables de entorno
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
@@ -20,7 +22,7 @@ router.use((req, res, next) => {
 });
 
 // **RUTA GET: Obtener inventario completo con todos los detalles**
-router.get('/', async (req, res) => {
+router.get('/', checkRole([...roles.admin, ...roles.secretaria, ...roles.vendedor, ...roles.inventario]), async (req, res) => {
   try {
     const query = `
       SELECT 

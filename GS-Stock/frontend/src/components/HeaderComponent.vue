@@ -10,12 +10,12 @@
 
     <nav class="navigation" :class="{ open: isMenuOpen }">
       <ul>
-        <li><a href="/dashboard" :class="{ active: currentPath === '/dashboard' }" @click="closeMenu">Dashboard</a></li>
-        <li><a href="/inventario" :class="{ active: currentPath === '/inventario' }" @click="closeMenu">Inventario</a></li>
-        <li><a href="/usuarios" :class="{ active: currentPath === '/usuarios' }" @click="closeMenu">Gestión Usuarios</a></li>
-        <li><a href="/rendimiento" :class="{ active: currentPath === '/rendimiento' }" @click="closeMenu">Rendimiento</a></li>
-        <li><a href="/clientes" :class="{ active: currentPath === '/clientes' }" @click="closeMenu">Clientes</a></li>
-        <li><a href="/ventas" :class="{ active: currentPath === '/ventas' }" @click="closeMenu">Ventas</a></li>
+        <li v-if="hasAccess('dashboard')"><a href="/dashboard" :class="{ active: currentPath === '/dashboard' }" @click="closeMenu">Dashboard</a></li>
+        <li v-if="hasAccess('inventario')"><a href="/inventario" :class="{ active: currentPath === '/inventario' }" @click="closeMenu">Inventario</a></li>
+        <li v-if="hasAccess('usuarios')"><a href="/usuarios" :class="{ active: currentPath === '/usuarios' }" @click="closeMenu">Gestión Usuarios</a></li>
+        <li v-if="hasAccess('rendimiento')"><a href="/rendimiento" :class="{ active: currentPath === '/rendimiento' }" @click="closeMenu">Rendimiento</a></li>
+        <li v-if="hasAccess('clientes')"><a href="/clientes" :class="{ active: currentPath === '/clientes' }" @click="closeMenu">Clientes</a></li>
+        <li v-if="hasAccess('ventas')"><a href="/ventas" :class="{ active: currentPath === '/ventas' }" @click="closeMenu">Ventas</a></li>
       </ul>
     </nav>
 
@@ -34,11 +34,14 @@ export default {
   data() {
     return {
       currentPath: '',
-      isMenuOpen: false
+      isMenuOpen: false,
+      userRole: null
     };
   },
   created() {
     this.currentPath = this.$route.path;
+    const user = JSON.parse(localStorage.getItem('user'));
+    this.userRole = user?.rol || null;
   },
   watch: {
     '$route.path'(newPath) {
@@ -46,6 +49,20 @@ export default {
     }
   },
   methods: {
+    hasAccess(route) {
+      const role = this.userRole;
+      
+      if (!role) return false;
+      
+      const permissions = {
+        'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas'],
+        'Secretaria': ['dashboard', 'inventario', 'ventas'],
+        'Vendedor': ['dashboard', 'inventario', 'ventas'],
+        'Encargado de Inventario': ['dashboard', 'inventario']
+      };
+      
+      return permissions[role]?.includes(route) || false;
+    },
     toggleMenu() {
       this.isMenuOpen = !this.isMenuOpen;
     },
