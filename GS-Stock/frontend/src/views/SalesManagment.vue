@@ -173,6 +173,24 @@
           </div>
 
           <div class="form-group">
+            <label for="id_tipo_linea_producto">Línea de Producto:</label>
+            <select 
+              id="id_tipo_linea_producto" 
+              v-model="newSale.id_tipo_linea_producto" 
+              required
+            >
+              <option value="">Seleccione una línea</option>
+              <option 
+                v-for="tipo in tiposLineaProducto" 
+                :key="tipo.id" 
+                :value="tipo.id"
+              >
+                {{ tipo.nombre }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label for="id_vendedor">Vendedor:</label>
             <select id="id_vendedor" v-model="newSale.id_vendedor" required>
               <option value="">Seleccione un vendedor</option>
@@ -422,6 +440,7 @@ export default {
     const clienteSeleccionado = ref(null);
     const clientesFiltrados = ref([]);
     const searchTimeout = ref(null);
+    const tiposLineaProducto = ref([]);
     
     const filters = ref({
       date: '',
@@ -465,6 +484,44 @@ export default {
         return false;
       }
       return token;
+    };
+
+    const fetchTiposLineaProducto = async () => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+
+        console.log('🔄 Iniciando fetch de tipos de línea...');
+        
+        const response = await fetch('http://localhost:3000/api/tipos-linea-producto', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response headers:', [...response.headers.entries()]);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Error response text:', errorText);
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log("✅ Respuesta completa de tipos-linea:", result);
+        
+        if (result.success && Array.isArray(result.data)) {
+          tiposLineaProducto.value = result.data;
+          console.log("✅ Tipos de línea cargados:", tiposLineaProducto.value);
+          console.log("✅ Primer elemento:", tiposLineaProducto.value[0]);
+        } else {
+          console.error("❌ Estructura inesperada:", result);
+          throw new Error('Estructura de respuesta inesperada');
+        }
+      } catch (err) {
+        console.error('❌ Error completo al obtener tipos de línea:', err);
+        console.error('❌ Error stack:', err.stack);
+        showMessage('Error', `No se pudieron cargar los tipos de línea de producto: ${err.message}`, 'error');
+      }
     };
 
     const handleFacturaSeleccionada = (factura) => {
@@ -828,10 +885,12 @@ export default {
         fetchZapatosDisponibles(),
         fetchVendedores(),
         fetchMetodosPago(),
+        fetchTiposLineaProducto(),
         fetchEstadosPedidos()
       ]);
 
       newSale.value = {
+        id_tipo_linea_producto: '',
         id_cliente: '',
         id_vendedor: '',
         id_metodo_de_pago: '',
@@ -854,110 +913,238 @@ export default {
       showAddSaleModal.value = true;
     };
 
+    // En el método addSale, reemplaza la sección de generación de envíos con esta versión mejorada:
+
     const addSale = async () => {
-      console.log('=== INTENTANDO CREAR PEDIDO ===');
-      console.log('isValidForm:', isValidForm.value);
-      console.log('creatingPedido:', creatingPedido.value);
-      
-      if (!isValidForm.value) {
-        console.log('❌ Formulario no válido');
-        showMessage('Error', 'Complete todos los campos correctamente', 'error');
-        return;
-      }
-
-      console.log('✅ Validación pasada, creando pedido...');
-      creatingPedido.value = true;
-
-      try {
-        const token = checkAuth();
-        if (!token) {
-          console.log('❌ No hay token');
-          return;
-        }
-
-        const productosParaEnviar = [];
+        console.log('=== INTENTANDO CREAR PEDIDO ===');
+        console.log('isValidForm:', isValidForm.value);
+        console.log('creatingPedido:', creatingPedido.value);
         
-        newSale.value.productos.forEach((producto, pIndex) => {
-          console.log(`Procesando producto ${pIndex + 1}:`, producto);
-          
-          producto.tallas.forEach((talla, tIndex) => {
-            console.log(`  Procesando talla ${tIndex + 1}:`, talla);
-            
-            if (talla.id_talla && talla.cantidad > 0) {
-              productosParaEnviar.push({
-                id_zapato: parseInt(producto.id_zapato),
-                id_talla: parseInt(talla.id_talla),
-                cantidad: parseInt(talla.cantidad),
-                precio_unitario: parseFloat(producto.precio_unitario)
-              });
-              console.log('  ✅ Talla agregada al pedido');
-            } else {
-              console.log('  ❌ Talla omitida del pedido');
-            }
-          });
-        });
-
-        const pedidoData = {
-          id_cliente: parseInt(newSale.value.id_cliente),
-          id_vendedor: parseInt(newSale.value.id_vendedor),
-          id_metodo_de_pago: parseInt(newSale.value.id_metodo_de_pago),
-          productos: productosParaEnviar
-        };
-
-        console.log('📦 Datos del pedido a enviar:', pedidoData);
-        console.log('📦 Productos preparados:', productosParaEnviar.length);
-
-        if (productosParaEnviar.length === 0) {
-          console.log('❌ No hay productos para enviar');
-          showMessage('Error', 'No hay productos válidos para el pedido', 'error');
-          return;
-        }
-
-        const response = await fetch('http://localhost:3000/api/ventas/pedidos', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(pedidoData)
-        });
-
-        console.log('📡 Respuesta del servidor:', response.status);
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.log('❌ Error del servidor:', errorData);
-          
-          if (errorData.codigo_error === 'STOCK_INSUFICIENTE') {
-            showMessage(
-              'Stock Insuficiente', 
-              `${errorData.error}\n\nZapato: ${errorData.detalles.zapato}\nTalla: EU ${errorData.detalles.talla_eu}\nDisponible: ${errorData.detalles.stock_disponible}\nSolicitado: ${errorData.detalles.cantidad_solicitada}`,
-              'error'
-            );
+        if (!isValidForm.value) {
+            console.log('❌ Formulario no válido');
+            showMessage('Error', 'Complete todos los campos correctamente', 'error');
             return;
-          }
-          
-          throw new Error(errorData.error || 'Error al crear el pedido');
         }
 
-        const data = await response.json();
-        console.log('✅ Pedido creado exitosamente:', data);
+        console.log('✅ Validación pasada, creando pedido...');
+        creatingPedido.value = true;
 
-        showMessage('Éxito', 
-          `Pedido creado exitosamente!\n\nID: ${data.data.pedido.id}\nSubtotal: Q${data.data.resumen.subtotal}\nTotal: Q${data.data.resumen.total}\nProductos: ${data.data.resumen.productos_vendidos}`,
-          'success'
-        );
-        
-        showAddSaleModal.value = false;
-        fetchSales();
-        
-      } catch (err) {
-        console.error('❌ Error completo:', err);
-        showMessage('Error', err.message, 'error');
-      } finally {
-        creatingPedido.value = false;
-      }
-    };    
+        try {
+            const token = checkAuth();
+            if (!token) {
+                console.log('❌ No hay token');
+                return;
+            }
+
+            const productosParaEnviar = [];
+            
+            newSale.value.productos.forEach((producto, pIndex) => {
+                console.log(`Procesando producto ${pIndex + 1}:`, producto);
+                
+                producto.tallas.forEach((talla, tIndex) => {
+                    console.log(`  Procesando talla ${tIndex + 1}:`, talla);
+                    
+                    if (talla.id_talla && talla.cantidad > 0) {
+                        productosParaEnviar.push({
+                            id_zapato: parseInt(producto.id_zapato),
+                            id_talla: parseInt(talla.id_talla),
+                            cantidad: parseInt(talla.cantidad),
+                            precio_unitario: parseFloat(producto.precio_unitario)
+                        });
+                        console.log('  ✅ Talla agregada al pedido');
+                    } else {
+                        console.log('  ❌ Talla omitida del pedido');
+                    }
+                });
+            });
+
+            const pedidoData = {
+                id_tipo_linea_producto: parseInt(newSale.value.id_tipo_linea_producto),
+                id_cliente: parseInt(newSale.value.id_cliente),
+                id_vendedor: parseInt(newSale.value.id_vendedor),
+                id_metodo_de_pago: parseInt(newSale.value.id_metodo_de_pago),
+                productos: productosParaEnviar
+            };
+
+            console.log('📦 Datos del pedido a enviar:', pedidoData);
+            console.log('📦 Productos preparados:', productosParaEnviar.length);
+
+            if (productosParaEnviar.length === 0) {
+                console.log('❌ No hay productos para enviar');
+                showMessage('Error', 'No hay productos válidos para el pedido', 'error');
+                return;
+            }
+
+            const response = await fetch('http://localhost:3000/api/ventas/pedidos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(pedidoData)
+            });
+
+            console.log('📡 Respuesta del servidor:', response.status);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.log('❌ Error del servidor:', errorData);
+                
+                if (errorData.codigo_error === 'STOCK_INSUFICIENTE') {
+                    showMessage(
+                        'Stock Insuficiente', 
+                        `${errorData.error}\n\nZapato: ${errorData.detalles.zapato}\nTalla: EU ${errorData.detalles.talla_eu}\nDisponible: ${errorData.detalles.stock_disponible}\nSolicitado: ${errorData.detalles.cantidad_solicitada}`,
+                        'error'
+                    );
+                    return;
+                }
+                
+                throw new Error(errorData.error || 'Error al crear el pedido');
+            }
+
+            const data = await response.json();
+            console.log('✅ Pedido creado exitosamente:', data);
+
+            // =====================================================================
+            // GENERACIÓN AUTOMÁTICA DE ENVÍO Y DESCARGA DE PDF
+            // =====================================================================
+            const tipoLineaId = parseInt(newSale.value.id_tipo_linea_producto);
+            const tipoLinea = tiposLineaProducto.value.find(t => t.id === tipoLineaId);
+
+            console.log('🔍 Verificando tipo de línea para generar envío automático:', {
+                tipoLineaId,
+                tipoLinea: tipoLinea?.nombre,
+                tiposDisponibles: tiposLineaProducto.value.map(t => ({ id: t.id, nombre: t.nombre }))
+            });
+
+            if (tipoLinea?.nombre) {
+                try {
+                    let envioEndpoint;
+                    let diasEntrega;
+                    let tipoEnvio;
+                    let mensajeTipoEnvio;
+                    
+                    if (tipoLinea?.nombre) {
+                      const nombreLinea = tipoLinea.nombre.trim().toLowerCase();
+                      
+                      if (nombreLinea === 'Linea Importadora') {
+                        envioEndpoint = 'http://localhost:3000/api/envios/importadora';
+                        diasEntrega = 7;
+                        tipoEnvio = 'Importadora';
+                        mensajeTipoEnvio = 'Linea Importadora';
+                    } else if (nombreLinea === 'Linea Nacional') {
+                        envioEndpoint = 'http://localhost:3000/api/envios/nacional';
+                        diasEntrega = 3;
+                        tipoEnvio = 'Nacional';
+                        mensajeTipoEnvio = 'Linea Nacional';
+                    } else {
+                        console.log('⚠️ Tipo de línea no reconocido para envío automático:', tipoLinea.nombre);
+                        showMessage('Pedido Creado', 
+                            `✅ Pedido #${data.data.pedido.id} creado exitosamente!\n\n` +
+                            `💰 Total: Q${data.data.resumen.total}\n` +
+                            `📦 Productos: ${data.data.resumen.productos_vendidos}\n\n` +
+                            `⚠️ Tipo de línea "${tipoLinea.nombre}" no genera envío automático`,
+                            'success'
+                        );
+                        showAddSaleModal.value = false;
+                        fetchSales();
+                        return;
+                    }
+                    }
+                    
+                    // Calcular fecha de entrega estimada
+                    const fechaEntregaEstimada = new Date(Date.now() + diasEntrega * 24 * 60 * 60 * 1000);
+                    
+                    // Datos para crear el envío
+                    const envioData = {
+                        pedido_id: data.data.pedido.id,
+                        transporte: "Por definir",
+                        fecha_entrega_estimada: fechaEntregaEstimada.toISOString(),
+                        observaciones: `Pedido automático - ${mensajeTipoEnvio}`
+                    };
+
+                    console.log('📬 Generando envío y descarga PDF:', {
+                        tipo: mensajeTipoEnvio,
+                        endpoint: envioEndpoint,
+                        pedidoId: data.data.pedido.id
+                    });
+
+                    showMessage('Generando PDF...', 
+                        `✅ Pedido #${data.data.pedido.id} creado!\n\n📄 Generando y descargando PDF...`, 
+                        'info'
+                    );
+
+                    // DESCARGA DIRECTA CON FETCH API
+                    const envioResponse = await fetch(envioEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(envioData)
+                    });
+
+                    console.log('📡 Respuesta:', envioResponse.status, envioResponse.headers.get('content-type'));
+
+                    if (envioResponse.ok) {
+                        const contentType = envioResponse.headers.get('content-type');
+                        
+                        if (contentType && contentType.includes('application/pdf')) {
+                            // Es un PDF - descargarlo
+                            const blob = await envioResponse.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `envio_${tipoEnvio.toLowerCase()}_${data.data.pedido.id}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(url);
+                            
+                            console.log('✅ PDF descargado');
+                            
+                            showMessage('¡Éxito Completo!', 
+                                `✅ Pedido #${data.data.pedido.id} creado y PDF descargado`, 
+                                'success'
+                            );
+                        } else {
+                            // Es JSON con error
+                            const errorData = await envioResponse.json();
+                            throw new Error(errorData.error || 'Error inesperado');
+                        }
+                    } else {
+                        const errorData = await envioResponse.json();
+                        throw new Error(errorData.error || 'Error del servidor');
+                    }
+                    
+                } catch (envioError) {
+                    console.error('🚨 Error en descarga PDF:', envioError);
+                    showMessage('Pedido Creado - Error en PDF', 
+                        `✅ Pedido #${data.data.pedido.id} creado exitosamente\n\n` +
+                        `🚨 Error al generar PDF: ${envioError.message}\n\n` +
+                        `Puede generar el envío manualmente desde el módulo de envíos.`,
+                        'warning'
+                    );
+                }
+            }
+
+            // Cerrar modal y actualizar
+            showAddSaleModal.value = false;
+            fetchSales();
+            
+        } catch (envioError) {
+            console.error('🚨 Error en proceso de envío automático:', envioError.message); // Mostrar mensaje real
+            showMessage('Pedido Creado - Error en Envío', 
+                `✅ PEDIDO CREADO EXITOSAMENTE\n\n` +
+                `🚨 ERROR INESPERADO AL GENERAR ENVÍO:\n` +
+                `${envioError.message}\n\n`, 
+                'error'
+            );
+        } finally {
+            creatingPedido.value = false;
+        }
+    };
 
     const fetchSales = async () => {
       const token = checkAuth();
@@ -1180,7 +1367,8 @@ export default {
       seleccionarCliente,
       limpiarClienteSeleccionado,
       abrirModalNuevoCliente,
-      cerrarDropdownCliente
+      cerrarDropdownCliente,
+      tiposLineaProducto,
     };
   }
 }
@@ -1192,6 +1380,31 @@ export default {
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
+}
+
+.form-group#tipo-linea-group {
+  margin: 20px 0;
+  padding: 15px;
+  border: 2px solid #17a2b8;
+  border-radius: 8px;
+  background-color: #e8f7fa;
+}
+
+#tipo-linea-label {
+  font-weight: bold;
+  color: #0d6efd;
+  font-size: 16px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+#id_tipo_linea_producto {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #0dcaf0;
+  border-radius: 6px;
+  font-size: 16px;
+  background-color: white;
 }
 
 .content-section {

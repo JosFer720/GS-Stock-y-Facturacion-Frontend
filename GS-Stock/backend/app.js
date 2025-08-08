@@ -17,6 +17,9 @@ const sugerenciasFacturacionRoutes = require('./routes/sugerenciasFacturacion');
 const crearFacturaRoutes = require('./routes/crearFactura');
 const tallasRoutes = require('./routes/tallas');
 const tiposCalzadoRoutes = require('./routes/tiposCalzado');
+const tiposLineaProductoRoutes = require('./routes/tiposLineaProducto');
+const envioNacionalRoutes = require('./routes/envioNacional');
+const envioImportadoraRoutes = require('./routes/envioImportadora');
 
 const { Pool } = require('pg');
 
@@ -47,6 +50,22 @@ app.use('/api/sugerenciasFacturacion', sugerenciasFacturacionRoutes);
 app.use('/api/crearFactura', crearFacturaRoutes);
 app.use('/api/tallas', tallasRoutes);
 app.use('/api/tipos-calzados', tiposCalzadoRoutes);
+app.use('/api/tipos-linea-producto', tiposLineaProductoRoutes);
+app.use('/api/envios/nacional', envioNacionalRoutes);
+app.use('/api/envios/importadora', envioImportadoraRoutes);
+
+// Ruta adicional para debug
+app.get('/api/envios/test', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Rutas de envío funcionando correctamente',
+        rutas_disponibles: [
+            '/api/envios/nacional',
+            '/api/envios/nacionales', 
+            '/api/envios/importadora'
+        ]
+    });
+});
 
 app.get('/health', async (req, res) => {
   try {
