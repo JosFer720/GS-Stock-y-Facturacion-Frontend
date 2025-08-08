@@ -1,9 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
-import SalesManagment from '@/views/SalesManagment.vue';
-import ClientsView from '../views/ClientsView.vue'
-import RestablecerView from '@/views/RestablecerView.vue'
-import CambiarView from '@/views/CambiarView.vue'
 
 const routes = [
   {
@@ -14,7 +10,8 @@ const routes = [
   {
     path: '/dashboard',
     name: 'dashboard',
-    component: () => import('../views/DashboardView.vue')
+    component: () => import('../views/DashboardView.vue'),
+    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria', 'Vendedor', 'Encargado de Inventario'] }
   },
   {
     path: '/restablecer',
@@ -29,28 +26,28 @@ const routes = [
   {
     path: '/usuarios',
     name: 'usuarios',
-    component: () => import('../views/UserManagementView.vue')
+    component: () => import('../views/UserManagementView.vue'),
+    meta: { requiresAuth: true, allowedRoles: ['Administrador'] }
   },
   {
     path: '/inventario',
     name: 'Inventario',
-    component: () => import('../views/ProductManagement.vue')
+    component: () => import('../views/ProductManagement.vue'),
+    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria', 'Vendedor', 'Encargado de Inventario'] }
   },
   {
     path: '/ventas',
     name: 'Ventas',
-    component: () => import('../views/SalesManagment.vue')
-  },
-  {
-  path: '/ventas',
-  name: 'Ventas',
-  component: () => import('../views/SalesManagment.vue')
+    component: () => import('../views/SalesManagment.vue'),
+    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria', 'Vendedor'] }
   },
   {
     path: '/clientes',
     name: 'Clientes',
-    component: () => import('../views/ClientsView.vue')
-  }
+    component: () => import('../views/ClientsView.vue'),
+    meta: { requiresAuth: true, allowedRoles: ['Administrador'] }
+  },
+
 ]
 
 const router = createRouter({
@@ -58,18 +55,24 @@ const router = createRouter({
   routes
 })
 
-// Middleware de autenticación
 router.beforeEach((to, from, next) => {
   const publicPages = ['/', '/restablecer', '/cambiar'];
-  const authRequired = !publicPages.includes(to.path);
+  const authRequired = to.matched.some(record => record.meta.requiresAuth);
   const token = localStorage.getItem('jwtToken');
+  const user = JSON.parse(localStorage.getItem('user'));
 
   if (authRequired && !token) {
     return next('/');
   }
 
+  if (authRequired && token) {
+    const allowedRoles = to.meta.allowedRoles;
+    if (allowedRoles && !allowedRoles.includes(user?.rol)) {
+      return next('/dashboard'); // Or show access denied
+    }
+  }
+
   next();
 });
-
 
 export default router
