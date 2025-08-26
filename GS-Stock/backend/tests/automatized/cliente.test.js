@@ -1,6 +1,6 @@
 const request = require('supertest');
 const express = require('express');
-const clientesRouter = require('../routes/clientes');
+const clientesRouter = require('../../routes/clientes');
 
 // Mock de middleware auth
 jest.mock('../middleware/auth', () => (req, res, next) => next());

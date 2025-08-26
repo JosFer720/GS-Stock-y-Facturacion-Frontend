@@ -1,7 +1,7 @@
 const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const inventoryRouter = require('../routes/inventory');
+const inventoryRouter = require('../../routes/inventory');
 
 // Mock de la base de datos
 jest.mock('pg', () => {

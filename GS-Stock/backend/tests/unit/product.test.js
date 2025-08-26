@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../app');
+const app = require('../../app');
 const jwt = require('jsonwebtoken');
 
 describe('POST /api/productos', () => {
