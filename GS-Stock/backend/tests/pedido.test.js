@@ -1,20 +1,52 @@
+// backend/tests/inventory.test.js
 const request = require('supertest');
 const express = require('express');
+const inventoryRouter = require('../routes/inventory');
 
-// Importamos tu router
-const pedidosRouter = require('../routes/clientes');
+// Mock de middleware de roles para no bloquear el test
+jest.mock('../middleware/roles', () => ({
+  checkRole: () => (req, res, next) => next(),
+  roles: {
+    admin: ['admin'],
+    secretaria: ['secretaria'],
+    vendedor: ['vendedor'],
+    inventario: ['inventario']
+  }
+}));
 
-// Mock del middleware auth para no depender de JWT en pruebas de humo
-jest.mock('../middleware/auth', () => (req, res, next) => next());
+// Mock del pool de postgres para no depender de la DB real
+jest.mock('pg', () => {
+  const mClient = {
+    query: jest.fn().mockResolvedValue({ rows: [] }),
+    connect: jest.fn()
+  };
+  return { Pool: jest.fn(() => mClient) };
+});
 
-const app = express();
-app.use(express.json());
-app.use('/', pedidosRouter);
+// Mock de SocketService
+jest.mock('../services/socketService', () => {
+  return jest.fn().mockImplementation(() => ({
+    emitInventoryUpdate: jest.fn(),
+    emitStockUpdate: jest.fn(),
+    emitLowStockAlert: jest.fn(),
+    emitNewProduct: jest.fn()
+  }));
+});
 
-describe('Smoke Test - Pedidos', () => {
-  it('GET /pedidos debe responder con JSON y status 200 o 500 (smoke test)', async () => {
-    const res = await request(app).get('/ventas');
-    expect([200, 500]).toContain(res.status); 
-    expect(res.headers['content-type']).toMatch(/json/);
+describe('Inventory Routes (smoke test)', () => {
+  let app;
+
+  beforeAll(() => {
+    app = express();
+    app.use(express.json());
+    app.use('/inventory', inventoryRouter);
+  });
+
+  it('GET /inventory debería responder con 200 y success:true', async () => {
+    const res = await request(app).get('/inventory');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('success', true);
+    expect(res.body).toHaveProperty('data');
+    expect(Array.isArray(res.body.data)).toBe(true);
   });
 });
