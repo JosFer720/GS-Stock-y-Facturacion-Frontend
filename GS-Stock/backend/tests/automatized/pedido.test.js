@@ -1,7 +1,7 @@
 // backend/tests/inventory.test.js
 const request = require('supertest');
 const express = require('express');
-const inventoryRouter = require('../routes/inventory');
+const inventoryRouter = require('../../routes/inventory');
 
 // Mock de middleware de roles para no bloquear el test
 jest.mock('../middleware/roles', () => ({
