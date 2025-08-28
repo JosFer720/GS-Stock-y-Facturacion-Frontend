@@ -63,6 +63,7 @@
                 <th>Código</th>
                 <th>Nombre</th>
                 <th>Tipo</th>
+                <th>Línea de Producto</th>
                 <th>Precio por Par</th>
                 <th>Stock Total</th>
                 <th>Tallas Disponibles</th>
@@ -83,6 +84,7 @@
                 <td>{{ product.codigo || '-' }}</td>
                 <td>{{ product.nombre || '-' }}</td>
                 <td>{{ product.tipo_zapato?.nombre || '-' }}</td>
+                <td>{{ product.tipo_linea_producto?.nombre || '-' }}</td>
                 <td class="precio">Q{{ formatPrice(product.precio_par) }}</td>
                 <td class="stock-cell">
                   <span :class="getStockClass(product.resumen_stock.stock_total)">
@@ -135,6 +137,11 @@
               <div class="card-row">
                 <strong>Tipo:</strong>
                 <span>{{ product.tipo_zapato?.nombre || '-' }}</span>
+              </div>
+              
+              <div class="card-row">
+                <strong>Línea de Producto:</strong>
+                <span>{{ product.tipo_linea_producto?.nombre || '-' }}</span>
               </div>
               
               <div class="card-row">
@@ -253,6 +260,16 @@
             </div>
 
             <div class="form-group">
+              <label for="id_tipo_linea_producto">Línea de Producto:</label>
+              <select id="id_tipo_linea_producto" v-model="newProduct.id_tipo_linea_producto" required>
+                <option value="">Seleccione una línea</option>
+                <option v-for="tipo in tiposLineaProducto" :key="tipo.id" :value="tipo.id">
+                  {{ tipo.nombre }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
               <label for="precio_par">Precio por Par (Q):</label>
               <input 
                 type="number" 
@@ -343,6 +360,15 @@
             </div>
 
             <div class="form-group">
+              <label for="edit-id_tipo_linea_producto">Línea de Producto:</label>
+              <select id="edit-id_tipo_linea_producto" v-model="selectedProduct.tipo_linea_producto.id" required>
+                <option v-for="tipo in tiposLineaProducto" :key="tipo.id" :value="tipo.id">
+                  {{ tipo.nombre }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
               <label for="edit-precio_par">Precio por Par (Q):</label>
               <input 
                 type="number" 
@@ -359,6 +385,7 @@
               <select id="edit-estado" v-model="selectedProduct.inventario_general.estado" required>
                 <option value="Disponible">Disponible</option>
                 <option value="Agotado">Agotado</option>
+                <option value="No Disponible">No Disponible</option>
               </select>
             </div>
 
@@ -418,6 +445,7 @@
   </div>
 </template>
 
+
 <script>
 import { ref, computed, onMounted } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
@@ -443,11 +471,13 @@ export default {
     const messageContent = ref('');
     const messageType = ref('info');
     const tiposCalzado = ref([]);
+    const tiposLineaProducto = ref([]);
     const tallasDisponibles = ref([]);
     const newProduct = ref({
       codigo: '',
       nombre: '',
       id_tipo_de_zapato: '',
+      id_tipo_linea_producto: '',
       precio_par: 0,
       estado: 'Disponible',
       tallas: []
@@ -481,6 +511,7 @@ export default {
       switch (estado?.toLowerCase()) {
         case 'disponible': return 'status-disponible';
         case 'agotado': return 'status-agotado';
+        case 'no disponible': return 'status-no-disponible';
         case 'sin registrar': return 'status-sin-registrar';
         default: return 'status-default';
       }
@@ -592,7 +623,7 @@ export default {
         return product ? product.nombre : 'N/A';
       }).join(', ');
 
-      const confirmMessage = `¿Está seguro de que desea eliminar ${selectedProducts.value.length} producto(s)?\n\nProductos: ${productNames}`;
+      const confirmMessage = `¿Está seguro de que desea marcar como no disponible ${selectedProducts.value.length} producto(s)?\n\nProductos: ${productNames}`;
       
       if (confirm(confirmMessage)) {
         bulkDeleteProducts();
@@ -605,7 +636,7 @@ export default {
 
       try {
         const deletePromises = selectedProducts.value.map(productId => 
-          fetch(`http://localhost:3000/api/eliminarProducto/productos/${productId}`, {
+          fetch(`http://localhost:3000/api/inventory/${productId}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -617,15 +648,15 @@ export default {
         const failedDeletes = responses.filter(response => !response.ok);
 
         if (failedDeletes.length > 0) {
-          showMessage('Error', `Error al eliminar ${failedDeletes.length} producto(s)`, 'error');
+          showMessage('Error', `Error al desactivar ${failedDeletes.length} producto(s)`, 'error');
         } else {
-          showMessage('Éxito', `${selectedProducts.value.length} producto(s) eliminado(s) correctamente`, 'success');
+          showMessage('Éxito', `${selectedProducts.value.length} producto(s) marcado(s) como no disponible(s)`, 'success');
         }
 
         cancelDeleteMode();
         fetchProducts();
       } catch (err) {
-        showMessage('Error', 'Error al eliminar los productos', 'error');
+        showMessage('Error', 'Error al desactivar los productos', 'error');
       }
     };
 
@@ -646,6 +677,26 @@ export default {
       } catch (err) {
         console.error('Error al obtener tipos de calzado:', err);
         showMessage('Error', 'No se pudieron cargar los tipos de calzado', 'error');
+      }
+    };
+
+    const fetchTiposLineaProducto = async () => {
+      const token = checkAuth();
+      if (!token) return;
+
+      try {
+        const response = await fetch('http://localhost:3000/api/inventory/tipos-linea-producto', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) throw new Error('Error al cargar tipos de línea de producto');
+        const data = await response.json();
+        tiposLineaProducto.value = data.data;
+      } catch (err) {
+        console.error('Error al obtener tipos de línea de producto:', err);
+        showMessage('Error', 'No se pudieron cargar los tipos de línea de producto', 'error');
       }
     };
 
@@ -727,6 +778,7 @@ export default {
       return newProduct.value.codigo &&
              newProduct.value.nombre &&
              newProduct.value.id_tipo_de_zapato &&
+             newProduct.value.id_tipo_linea_producto &&
              newProduct.value.precio_par >= 0 &&
              newProduct.value.tallas.length > 0;
     });
@@ -734,10 +786,12 @@ export default {
     const openCreateProductModal = async () => {
       await fetchTiposCalzado();
       await fetchTallas();
+      await fetchTiposLineaProducto();
       newProduct.value = {
         codigo: '',
         nombre: '',
         id_tipo_de_zapato: '',
+        id_tipo_linea_producto: '',
         precio_par: 0,
         estado: 'Disponible',
         tallas: []
@@ -759,7 +813,7 @@ export default {
           return;
         }
 
-        const response = await fetch('http://localhost:3000/api/agregarProducto/productos', {
+        const response = await fetch('http://localhost:3000/api/inventory', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -770,7 +824,7 @@ export default {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al crear el producto');
+          throw new Error(errorData.message || 'Error al crear el producto');
         }
 
         const data = await response.json();
@@ -792,7 +846,8 @@ export default {
       return products.value.filter(product => 
         product.codigo?.toLowerCase().includes(query) ||
         product.nombre?.toLowerCase().includes(query) ||
-        product.tipo_zapato?.nombre?.toLowerCase().includes(query)
+        product.tipo_zapato?.nombre?.toLowerCase().includes(query) ||
+        product.tipo_linea_producto?.nombre?.toLowerCase().includes(query)
       );
     });
 
@@ -814,6 +869,7 @@ export default {
       
       await fetchTiposCalzado();
       await fetchTallas();
+      await fetchTiposLineaProducto();
       
       if (!selectedProduct.value.tallas_disponibles) {
         selectedProduct.value.tallas_disponibles = [];
@@ -870,12 +926,13 @@ export default {
           codigo: selectedProduct.value.codigo,
           nombre: selectedProduct.value.nombre,
           id_tipo_de_zapato: selectedProduct.value.tipo_zapato.id,
+          id_tipo_linea_producto: selectedProduct.value.tipo_linea_producto.id,
           precio_par: parseFloat(selectedProduct.value.precio_par),
           estado: selectedProduct.value.inventario_general.estado,
           tallas: tallasParaEnviar
         };
 
-        const response = await fetch(`http://localhost:3000/api/modificarProducto/productos/${selectedProduct.value.id}`, {
+        const response = await fetch(`http://localhost:3000/api/inventory/${selectedProduct.value.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -886,7 +943,7 @@ export default {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al actualizar el producto');
+          throw new Error(errorData.message || 'Error al actualizar el producto');
         }
 
         const data = await response.json();
@@ -941,6 +998,7 @@ export default {
       newProduct,
       searchQuery,
       tiposCalzado,
+      tiposLineaProducto,
       tallasDisponibles,
       isValidForm,
       deleteMode,
