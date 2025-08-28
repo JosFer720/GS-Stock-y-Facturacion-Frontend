@@ -252,9 +252,10 @@
             <label>Teléfonos:</label>
             <div v-for="(telefono, index) in newClient.telefonos" :key="'tel-'+index" class="multi-input-group">
               <input 
-                type="text" 
+                type="tel" 
                 v-model="newClient.telefonos[index]" 
-                placeholder="Teléfono"
+                placeholder="1234-5678"
+                @input="validateTelefono(index, 'new')"
                 required
               >
               <button type="button" @click="removeTelefono(index)" class="remove-btn">
@@ -333,9 +334,10 @@
             <label>Teléfonos:</label>
             <div v-for="(telefono, index) in selectedClient.telefonos" :key="'edit-tel-'+index" class="multi-input-group">
               <input 
-                type="text" 
+                type="tel" 
                 v-model="selectedClient.telefonos[index].telefono" 
-                placeholder="Teléfono"
+                placeholder="1234-5678"
+                @input="validateTelefono(index, 'edit')"
                 required
               >
               <button type="button" @click="removeEditTelefono(index)" class="remove-btn">
@@ -346,7 +348,7 @@
               + Añadir otro teléfono
             </button>
           </div>
-          
+                    
           <div class="form-actions">
             <button type="button" @click="showEditModal = false" class="cancel-btn">
               Cancelar
@@ -657,6 +659,32 @@ export default {
       }
     };
 
+    const validateTelefono = (index, tipo) => {
+      let telefono;
+      
+      if (tipo === 'new') {
+        telefono = newClient.value.telefonos[index];
+      } else {
+        telefono = selectedClient.value.telefonos[index].telefono;
+      }
+      
+      telefono = telefono.replace(/[^0-9]/g, '');
+      
+      if (telefono.length > 8) {
+        telefono = telefono.substring(0, 8);
+      }
+      
+      if (telefono.length > 4) {
+        telefono = telefono.substring(0, 4) + '-' + telefono.substring(4);
+      }
+      
+      if (tipo === 'new') {
+        newClient.value.telefonos[index] = telefono;
+      } else {
+        selectedClient.value.telefonos[index].telefono = telefono;
+      }
+    }; 
+
     const searchClient = async () => {
       if (searchQuery.value.nombre.trim() === '') {
         fetchClients();
@@ -936,7 +964,8 @@ export default {
       toggleSelectAll,
       previousPage,
       nextPage,
-      filteredClients
+      filteredClients,
+      validateTelefono 
     };
   }
 }
@@ -1594,5 +1623,44 @@ export default {
   .card-actions {
     flex-direction: column;
   }
+}
+
+.phone-input-container {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.codigo-area-input {
+  width: 60px;
+  border: none;
+  padding: 8px 6px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.phone-separator {
+  padding: 0 4px;
+  color: #666;
+  font-weight: bold;
+}
+
+.numero-telefono-input {
+  flex-grow: 1;
+  border: none;
+  padding: 8px 6px;
+}
+
+.codigo-area-input:focus,
+.numero-telefono-input:focus {
+  outline: none;
+}
+
+.phone-input-container:focus-within {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 </style>
