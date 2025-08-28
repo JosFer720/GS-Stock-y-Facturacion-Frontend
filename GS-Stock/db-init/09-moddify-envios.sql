@@ -17,22 +17,11 @@ ALTER TABLE Pedidos
 ADD COLUMN Id_Tipo_Linea_Producto INT,
 ADD FOREIGN KEY (Id_Tipo_Linea_Producto) REFERENCES Tipos_Linea_Producto(Id);
 
--- Agregar campos adicionales a la tabla de Envios para soportar la plantilla
-ALTER TABLE Envios 
-ADD COLUMN Numero_Envio_Display VARCHAR(100),
-ADD COLUMN Observaciones TEXT,
-ADD COLUMN Archivo_PDF_Path TEXT,
-ADD COLUMN Fecha_Creacion_PDF TIMESTAMP;
-
--- Agregar campos adicionales a Clientes si no existen (para la plantilla)
+-- Agregar campo adicional a Clientes si no existe (para la plantilla)
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clientes' AND column_name='nit') THEN
         ALTER TABLE Clientes ADD COLUMN NIT VARCHAR(50);
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clientes' AND column_name='codigo_cliente') THEN
-        ALTER TABLE Clientes ADD COLUMN Codigo_Cliente VARCHAR(50);
     END IF;
 END $$;
 
@@ -49,7 +38,6 @@ SELECT
     CONCAT(c.Nombre, ' ', c.Apellido) as cliente_nombre,
     c.Empresa as cliente_empresa,
     c.NIT as cliente_nit,
-    c.Codigo_Cliente as cliente_codigo,
     
     -- Dirección del cliente (primera dirección)
     (SELECT d.Direccion FROM Direcciones d 
