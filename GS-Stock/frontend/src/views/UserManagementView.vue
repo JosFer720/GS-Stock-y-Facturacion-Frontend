@@ -12,11 +12,19 @@
           Crear Usuario
         </button>
         <button 
-          v-if="!deleteMode" 
+          v-if="!deleteMode && !activateMode" 
           class="action-button delete-button" 
           @click="enterDeleteMode">
           Desactivar Usuario
         </button>
+        <button 
+          v-if="!deleteMode && !activateMode" 
+          class="action-button activate-button" 
+          @click="enterActivateMode">
+          Activar Usuario
+        </button>
+        
+        <!-- Modo desactivar -->
         <div v-if="deleteMode" class="delete-mode-actions">
           <button 
             class="action-button delete-button" 
@@ -25,6 +33,19 @@
             Desactivar Seleccionados ({{ selectedUsers.length }})
           </button>
           <button class="action-button cancel-button" @click="cancelDeleteMode">
+            Cancelar
+          </button>
+        </div>
+        
+        <!-- Modo activar -->
+        <div v-if="activateMode" class="activate-mode-actions">
+          <button 
+            class="action-button activate-button" 
+            @click="confirmBulkActivate" 
+            :disabled="selectedUsers.length === 0">
+            Activar Seleccionados ({{ selectedUsers.length }})
+          </button>
+          <button class="action-button cancel-button" @click="cancelActivateMode">
             Cancelar
           </button>
         </div>
@@ -55,7 +76,7 @@
           <table class="users-table">
             <thead>
               <tr>
-                <th v-if="deleteMode">
+                <th v-if="deleteMode || activateMode">
                   <input 
                     type="checkbox" 
                     @change="toggleSelectAll"
@@ -73,7 +94,7 @@
             </thead>
             <tbody>
               <tr v-for="user in paginatedUsers" :key="user.id">
-                <td v-if="deleteMode">
+                <td v-if="deleteMode || activateMode">
                   <input 
                     type="checkbox" 
                     :value="user.id"
@@ -89,14 +110,14 @@
                 <td :class="{ 'active': user.estado, 'inactive': !user.estado }">
                   {{ user.estadoTexto }}
                 </td>
-                <td v-if="!deleteMode" class="actions-cell">
+                <td v-if="!deleteMode && !activateMode" class="actions-cell">
                   <button @click.stop="editUser(user)" class="edit-btn-small">
                     Editar
                   </button>
                 </td>
               </tr>
               <tr v-if="paginatedUsers.length === 0">
-                <td :colspan="deleteMode ? 8 : 7" class="empty-table">
+                <td :colspan="(deleteMode || activateMode) ? 8 : 7" class="empty-table">
                   No hay usuarios disponibles
                 </td>
               </tr>
@@ -111,7 +132,7 @@
               <div class="card-header">
                 <div class="card-title-section">
                   <input 
-                    v-if="deleteMode" 
+                    v-if="deleteMode || activateMode" 
                     type="checkbox" 
                     :value="user.id"
                     :checked="selectedUsers.includes(user.id)"
@@ -142,7 +163,7 @@
                 </span>
               </div>
               
-              <div v-if="!deleteMode" class="card-actions">
+              <div v-if="!deleteMode && !activateMode" class="card-actions">
                 <button @click.stop="editUser(user)" class="edit-btn">
                   Editar
                 </button>
@@ -277,16 +298,20 @@
     <div v-if="showDeleteModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showDeleteModal = false">&times;</span>
-        <h2>Desactivar Usuario{{ selectedUsers.length > 1 ? 's' : '' }}</h2>
+        <h2>{{ activateMode ? 'Activar' : 'Desactivar' }} Usuario{{ selectedUsers.length > 1 ? 's' : '' }}</h2>
         <p v-if="selectedUsers.length <= 1">
-          ¿Está seguro que desea desactivar al usuario {{ selectedUser ? selectedUser.nombre + ' ' + selectedUser.apellido : '' }}?
+          ¿Está seguro que desea {{ activateMode ? 'activar' : 'desactivar' }} al usuario {{ selectedUser ? selectedUser.nombre + ' ' + selectedUser.apellido : '' }}?
         </p>
         <p v-else>
-          ¿Está seguro que desea desactivar {{ selectedUsers.length }} usuarios seleccionados?
+          ¿Está seguro que desea {{ activateMode ? 'activar' : 'desactivar' }} {{ selectedUsers.length }} usuarios seleccionados?
         </p>
         <div class="modal-actions">
           <button @click="showDeleteModal = false" class="btn-cancel">Cancelar</button>
-          <button @click="deactivateUsers" class="btn-delete">Desactivar</button>
+          <button 
+            @click="activateMode ? activateUsers() : deactivateUsers()" 
+            :class="activateMode ? 'btn-activate' : 'btn-delete'">
+            {{ activateMode ? 'Activar' : 'Desactivar' }}
+          </button>
         </div>
       </div>
     </div>
@@ -334,6 +359,93 @@ export default {
     const currentPage = ref(1);
     const perPage = ref(15);
     const isMobile = ref(false);
+    const activateMode = ref(false);
+
+    const enterActivateMode = () => {
+      activateMode.value = true;
+      selectedUsers.value = [];
+    };
+
+    const cancelActivateMode = () => {
+      activateMode.value = false;
+      selectedUsers.value = [];
+    };
+
+    const confirmBulkActivate = () => {
+      if (selectedUsers.value.length === 0) {
+        showMessage('Error', 'No hay usuarios seleccionados para activar', 'error');
+        return;
+      }
+      showDeleteModal.value = true;
+    };
+
+    const activateUsers = async () => {
+      const token = checkAuth();
+      if (!token) return;
+
+      try {
+        const results = [];
+        const usersToProcess = selectedUsers.value;
+        
+        for (const userId of usersToProcess) {
+          try {
+            const response = await fetch(`http://localhost:3000/api/usuarios/${userId}/activate`, {
+              method: 'PUT',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+              results.push({
+                id: userId,
+                success: true,
+                message: data.mensaje || 'Activado correctamente'
+              });
+            } else {
+              const user = users.value.find(u => u.id === userId);
+              results.push({
+                id: userId,
+                success: false,
+                message: data.error || 'Error desconocido',
+                userName: user ? `${user.nombre} ${user.apellido}` : `ID: ${userId}`
+              });
+            }
+          } catch (err) {
+            const user = users.value.find(u => u.id === userId);
+            results.push({
+              id: userId,
+              success: false,
+              message: 'Error de conexión',
+              userName: user ? `${user.nombre} ${user.apellido}` : `ID: ${userId}`
+            });
+          }
+        }
+
+        const successful = results.filter(r => r.success);
+        const failed = results.filter(r => !r.success);
+
+        if (successful.length > 0 && failed.length === 0) {
+          showMessage('Éxito', `${successful.length} usuario(s) activado(s) correctamente`, 'success');
+        } else if (successful.length > 0 && failed.length > 0) {
+          const failedNames = failed.map(f => `• ${f.userName}: ${f.message}`).join('\n');
+          showMessage(
+            'Parcialmente completado', 
+            `${successful.length} usuario(s) activado(s) correctamente.\n\nNo se pudieron activar ${failed.length} usuario(s):\n${failedNames}`, 
+            'warning'
+          );
+        } else {
+          const failedNames = failed.map(f => `• ${f.userName}: ${f.message}`).join('\n');
+          showMessage('Error', `No se pudo activar ningún usuario:\n${failedNames}`, 'error');
+        }
+
+        showDeleteModal.value = false;
+        cancelActivateMode();
+        fetchUsers();
+      } catch (err) {
+        showMessage('Error', 'Error general al activar los usuarios', 'error');
+      }
+    };
 
     const newUser = ref({
       nombre: '',
@@ -899,7 +1011,12 @@ export default {
       toggleUserSelection,
       toggleSelectAll,
       previousPage,
-      nextPage
+      nextPage,
+      activateMode,
+      enterActivateMode,
+      cancelActivateMode,
+      confirmBulkActivate,
+      activateUsers
     };
   }
 };
@@ -922,6 +1039,36 @@ export default {
   color: #dc3545;
   font-size: 14px;
   margin-top: 5px;
+}
+
+.activate-button {
+  border: 1px solid #28a745;
+  color: #28a745;
+}
+
+.activate-button:hover {
+  background-color: #e8f5e9;
+  color: #1e7e34;
+  border-color: #1e7e34;
+}
+
+.activate-mode-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+@media (min-width: 576px) {
+  .activate-mode-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .activate-mode-actions .action-button {
+    width: auto;
+    min-width: 150px;
+  }
 }
 
 .content-section {
@@ -1497,5 +1644,20 @@ export default {
   .card-actions {
     flex-direction: column;
   }
+}
+
+.btn-activate {
+  background-color: #28a745;
+  color: white;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+}
+
+.btn-activate:hover {
+  background-color: #218838;
 }
 </style>
