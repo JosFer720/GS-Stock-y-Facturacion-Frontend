@@ -140,7 +140,11 @@ router.post('/', checkRole([...roles.admin, ...roles.secretaria]), async (req, r
   try {
     const zapatoData = req.body;
     const newZapato = await addZapatoToDB(zapatoData);
-    req.socketService.emitNewProduct(newZapato);
+    
+    // Emitir evento de nuevo producto si el servicio de socket está disponible
+    if (req.socketService && typeof req.socketService.emitNewProduct === 'function') {
+      req.socketService.emitNewProduct(newZapato);
+    }
 
     res.json({
       success: true,
@@ -163,7 +167,11 @@ router.put('/:id', checkRole([...roles.admin, ...roles.secretaria]), async (req,
     const updateData = req.body;
     
     const updatedZapato = await updateZapatoInDB(zapatoId, updateData);
-    req.socketService.emitInventoryUpdate(updatedZapato);
+    
+    // Emitir evento de actualización si el servicio de socket está disponible
+    if (req.socketService && typeof req.socketService.emitInventoryUpdate === 'function') {
+      req.socketService.emitInventoryUpdate(updatedZapato);
+    }
 
     res.json({
       success: true,
@@ -185,7 +193,10 @@ router.delete('/:id', checkRole([...roles.admin, ...roles.secretaria]), async (r
     const zapatoId = req.params.id;
     await deactivateProduct(zapatoId);
     
-    req.socketService.emitProductDeactivation(zapatoId);
+    // Emitir evento de desactivación si el servicio de socket está disponible
+    if (req.socketService && typeof req.socketService.emitProductDeactivation === 'function') {
+      req.socketService.emitProductDeactivation(zapatoId);
+    }
 
     res.json({
       success: true,
@@ -253,7 +264,7 @@ async function addZapatoToDB(zapatoData) {
   }
 }
 
-// Actualizar zapato
+// Actualizar zapato (versión corregida)
 async function updateZapatoInDB(zapatoId, updateData) {
   const client = await pool.connect();
   
@@ -305,16 +316,22 @@ async function updateZapatoInDB(zapatoId, updateData) {
       }
     }
 
-    // Actualizar tallas si se proporcionan
+    // Actualizar tallas si se proporcionan (versión corregida sin ON CONFLICT)
     if (updateData.tallas && updateData.tallas.length > 0) {
       for (const talla of updateData.tallas) {
-        const tallaQuery = `
-          INSERT INTO Zapatos_Tallas (id_zapato, id_talla, stock)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (id_zapato, id_talla) 
-          DO UPDATE SET stock = $3
-        `;
-        await client.query(tallaQuery, [zapatoId, talla.id_talla, talla.stock || 0]);
+        // Primero verifica si ya existe
+        const checkQuery = 'SELECT id FROM Zapatos_Tallas WHERE id_zapato = $1 AND id_talla = $2';
+        const checkResult = await client.query(checkQuery, [zapatoId, talla.id_talla]);
+        
+        if (checkResult.rows.length > 0) {
+          // Actualiza si existe
+          const updateQuery = 'UPDATE Zapatos_Tallas SET stock = $1 WHERE id_zapato = $2 AND id_talla = $3';
+          await client.query(updateQuery, [talla.stock || 0, zapatoId, talla.id_talla]);
+        } else {
+          // Inserta si no existe
+          const insertQuery = 'INSERT INTO Zapatos_Tallas (id_zapato, id_talla, stock) VALUES ($1, $2, $3)';
+          await client.query(insertQuery, [zapatoId, talla.id_talla, talla.stock || 0]);
+        }
       }
     }
 
