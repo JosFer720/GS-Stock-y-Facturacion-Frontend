@@ -85,10 +85,8 @@ export default {
         localStorage.setItem('jwtToken', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        this.showMessage('Éxito', 'Inicio de sesión exitoso', 'success');
-        setTimeout(() => {
-          this.$router.push('/dashboard');
-        }, 1500);
+        // Redirigir directamente sin mostrar modal de éxito
+        this.$router.push('/dashboard');
       } catch (err) {
         this.showMessage('Error', err.message, 'error');
       }
