@@ -16,6 +16,7 @@
         <li v-if="hasAccess('rendimiento')"><a href="/rendimiento" :class="{ active: currentPath === '/rendimiento' }" @click="closeMenu">Rendimiento</a></li>
         <li v-if="hasAccess('clientes')"><a href="/clientes" :class="{ active: currentPath === '/clientes' }" @click="closeMenu">Clientes</a></li>
         <li v-if="hasAccess('ventas')"><a href="/ventas" :class="{ active: currentPath === '/ventas' }" @click="closeMenu">Ventas</a></li>
+        <li v-if="hasAccess('pagosydevoluciones')"><a href="/pagosydevoluciones" :class="{ active: currentPath === '/pagosydevoluciones' }" @click="closeMenu">Pagos Y Devoluciones</a></li>
       </ul>
     </nav>
 
@@ -55,9 +56,9 @@ export default {
       if (!role) return false;
       
       const permissions = {
-        'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas'],
-        'Secretaria': ['dashboard', 'inventario', 'ventas'],
-        'Vendedor': ['dashboard', 'inventario', 'ventas'],
+        'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
+        'Secretaria': ['dashboard', 'inventario', 'ventas', 'pagosydevoluciones'],
+        'Vendedor': ['dashboard', 'inventario', 'ventas', 'pagosydevoluciones'],
         'Encargado de Inventario': ['dashboard', 'inventario']
       };
       

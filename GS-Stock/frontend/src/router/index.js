@@ -47,6 +47,12 @@ const routes = [
     component: () => import('../views/ClientsView.vue'),
     meta: { requiresAuth: true, allowedRoles: ['Administrador'] }
   },
+  {
+    path: '/pagosydevoluciones',
+    name: 'Pagos Y Devoluciones',
+    component: () => import('../views/PagosDevolucionesView.vue'),
+    meta: { requiresAuth: true, allowedRoles: ['Administrador','Secretaria', 'Vendedor'] }
+  },
 
 ]
 
