@@ -20,6 +20,8 @@ const tiposCalzadoRoutes = require('./routes/tiposCalzado');
 const tiposLineaProductoRoutes = require('./routes/tiposLineaProducto');
 const envioNacionalRoutes = require('./routes/envioNacional');
 const envioImportadoraRoutes = require('./routes/envioImportadora');
+const devolucionesRoutes = require('./routes/devoluciones');
+
 
 const { Pool } = require('pg');
 
@@ -53,6 +55,7 @@ app.use('/api/tipos-calzados', tiposCalzadoRoutes);
 app.use('/api/tipos-linea-producto', tiposLineaProductoRoutes);
 app.use('/api/envios/nacional', envioNacionalRoutes);
 app.use('/api/envios/importadora', envioImportadoraRoutes);
+app.use('/api/devoluciones', devolucionesRoutes);
 
 // Ruta adicional para debug
 app.get('/api/envios/test', (req, res) => {

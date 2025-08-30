@@ -39,47 +39,58 @@
           <tr>
             <th>Fecha</th>
             <th>Cliente</th>
-            <th>Vendedor</th>
+            
+            <!-- columnas para pagos -->
+            <th v-if="type === 'pagos'">Vendedor</th>
             <th v-if="type === 'pagos'">Monto</th>
             <th v-if="type === 'pagos'">Método</th>
+
+            <!-- columnas para devoluciones -->
+            <th v-if="type === 'devoluciones'">Código Pedido</th>
             <th v-if="type === 'devoluciones'">Producto</th>
             <th v-if="type === 'devoluciones'">Cantidad</th>
-            <th>Observaciones</th>
+            <th v-if="type === 'devoluciones'">Monto Devuelto</th>
+            <th v-if="type === 'devoluciones'">Método de Devolución</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td :colspan="type === 'pagos' ? 7 : 6" class="loading-row">
+            <td :colspan="type === 'pagos' ? 5 : 7" class="loading-row">
               Cargando datos...
             </td>
           </tr>
           
           <tr v-else-if="data.length === 0">
-            <td :colspan="type === 'pagos' ? 7 : 6" class="no-data-row">
+            <td :colspan="type === 'pagos' ? 5 : 7" class="no-data-row">
               No se encontraron {{ type === 'pagos' ? 'pagos' : 'devoluciones' }}
             </td>
           </tr>
           
           <tr v-else v-for="item in data" :key="item.id">
             <td>{{ formatDate(item.fecha) }}</td>
-            <td>{{ item.cliente_nombre || 'N/A' }}</td>
-            <td>{{ item.vendedor_nombre || 'N/A' }}</td>
+            <td>
+              {{ item.cliente_nombre || '' }} {{ item.cliente_apellido || '' }}
+              <span v-if="item.empresa">({{ item.empresa }})</span>
+            </td>
             
+            <!-- pagos -->
+            <td v-if="type === 'pagos'">{{ item.vendedor_nombre || 'N/A' }}</td>
             <td v-if="type === 'pagos'">Q{{ formatCurrency(item.monto) }}</td>
             <td v-if="type === 'pagos'">{{ item.metodo_pago || 'N/A' }}</td>
             
-            <td v-if="type === 'devoluciones'">
-              {{ item.producto_codigo }} - {{ item.producto_nombre }}
-            </td>
-            <td v-if="type === 'devoluciones'">{{ item.cantidad }}</td>
-            
-            <td>{{ item.observaciones || 'Sin observaciones' }}</td>
+            <!-- devoluciones -->
+            <td v-if="type === 'devoluciones'">#{{ item.pedido_id }}</td>
+            <td v-if="type === 'devoluciones'">{{ item.productos || 'N/A' }}</td>
+            <td v-if="type === 'devoluciones'">{{ item.cantidad_total || 0 }}</td>
+            <td v-if="type === 'devoluciones'">Q{{ formatCurrency(item.monto) }}</td>
+            <td v-if="type === 'devoluciones'">{{ item.metodo_devolucion || 'N/A' }}</td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 </template>
+
 
 <script>
 import { ref, watch } from 'vue';

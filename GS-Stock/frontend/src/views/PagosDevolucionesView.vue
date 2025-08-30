@@ -48,7 +48,7 @@
                     v-model="clienteSearchTermPago"
                     @input="buscarClientesPago"
                     @focus="showClienteDropdownPago = true"
-                    @blur="setTimeout(() => showClienteDropdownPago = false, 200)"
+                    @blur="() => setTimeout(() => showClienteDropdownPago = false, 200)"
                     placeholder="Buscar cliente..."
                     required
                   />
@@ -150,124 +150,88 @@
           <h2 class="section-title">Registrar Nueva Devolución</h2>
           
           <form @submit.prevent="registrarDevolucion" class="return-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="dev-vendedor">Vendedor:</label>
-                <select id="dev-vendedor" v-model="nuevaDevolucion.id_vendedor" required>
-                  <option value="">Seleccione un vendedor</option>
-                  <option v-for="vendedor in vendedores" :key="vendedor.id" :value="vendedor.id">
-                    {{ vendedor.nombre_completo }} - {{ vendedor.ruta }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label for="dev-cliente">Cliente:</label>
-                <div class="cliente-search-container">
-                  <input 
-                    type="text"
-                    id="dev-cliente"
-                    v-model="clienteSearchTermDev"
-                    @input="buscarClientesDev"
-                    @focus="showClienteDropdownDev = true"
-                    @blur="setTimeout(() => showClienteDropdownDev = false, 200)"
-                    placeholder="Buscar cliente..."
-                    required
-                  />
-                  
+            <!-- Buscar cliente -->
+            <div class="form-group">
+              <label for="dev-cliente">Cliente:</label>
+              <div class="cliente-search-container">
+                <input 
+                  type="text"
+                  id="dev-cliente"
+                  v-model="clienteSearchTermDev"
+                  @input="buscarClientesDev"
+                  @focus="showClienteDropdownDev = true"
+                  @blur="setTimeout(() => showClienteDropdownDev = false, 200)"
+                  placeholder="Buscar por nombre o empresa..."
+                  required
+                />
+                
+                <div 
+                  v-if="showClienteDropdownDev && clientesFiltradosDev.length > 0" 
+                  class="cliente-dropdown"
+                >
                   <div 
-                    v-if="showClienteDropdownDev && clientesFiltradosDev.length > 0" 
-                    class="cliente-dropdown"
+                    v-for="cliente in clientesFiltradosDev" 
+                    :key="cliente.id"
+                    @click="seleccionarClienteDev(cliente)"
+                    class="cliente-option"
                   >
-                    <div 
-                      v-for="cliente in clientesFiltradosDev" 
-                      :key="cliente.id"
-                      @click="seleccionarClienteDev(cliente)"
-                      class="cliente-option"
-                    >
-                      <div class="cliente-info">
-                        <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
-                        <span v-if="cliente.empresa" class="empresa-tag">{{ cliente.empresa }}</span>
-                      </div>
+                    <div class="cliente-info">
+                      <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
+                      <span v-if="cliente.empresa" class="empresa-tag">{{ cliente.empresa }}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="dev-linea">Línea de Producto:</label>
-                <select id="dev-linea" v-model="nuevaDevolucion.id_tipo_linea_producto" required>
-                  <option value="">Seleccione una línea</option>
-                  <option v-for="tipo in tiposLineaProducto" :key="tipo.id" :value="tipo.id">
-                    {{ tipo.nombre }}
-                  </option>
-                </select>
-              </div>
+            <!-- Mostrar pedidos del cliente seleccionado -->
+            <div v-if="clienteSeleccionadoDev && pedidosClienteDev.length > 0" class="form-group">
+              <label for="dev-pedido">Pedido del Cliente:</label>
+              <select id="dev-pedido" v-model="nuevaDevolucion.id_pedido" required>
+                <option value="">Seleccione un pedido</option>
+                <option v-for="pedido in pedidosClienteDev" :key="pedido.id" :value="pedido.id">
+                  Pedido #{{ pedido.id }} - {{ formatDate(pedido.fecha) }} (Q{{ formatCurrency(pedido.total) }})
+                </option>
+              </select>
+            </div>
 
-              <div class="form-group">
-                <label for="dev-codigo">Código de Producto:</label>
-                <div class="producto-search-container">
-                  <input 
-                    type="text"
-                    id="dev-codigo"
-                    v-model="productoSearchTermDev"
-                    @input="buscarProductosDev"
-                    @focus="showProductoDropdownDev = true"
-                    @blur="setTimeout(() => showProductoDropdownDev = false, 200)"
-                    placeholder="Buscar por código o nombre..."
-                    required
-                  />
-                  
-                  <div 
-                    v-if="showProductoDropdownDev && productosFiltradosDev.length > 0" 
-                    class="producto-dropdown"
-                  >
-                    <div 
-                      v-for="producto in productosFiltradosDev" 
-                      :key="producto.id"
-                      @click="seleccionarProductoDev(producto)"
-                      class="producto-option"
-                    >
-                      <div class="producto-info">
-                        <strong>{{ producto.codigo }}</strong>
-                        <span>{{ producto.nombre }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <!-- Mensaje si no hay pedidos -->
+            <div v-if="clienteSeleccionadoDev && pedidosClienteDev.length === 0" class="form-group">
+              <div class="no-orders-message">
+                Este cliente no tiene pedidos elegibles para devolución.
+                <small>Solo se pueden devolver pedidos entregados que no tengan devoluciones previas.</small>
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="dev-talla">Talla:</label>
-                <select id="dev-talla" v-model="nuevaDevolucion.id_talla" required :disabled="!nuevaDevolucion.id_zapato">
-                  <option value="">Seleccione una talla</option>
-                  <option 
-                    v-for="talla in tallasDisponiblesDevolucion" 
-                    :key="talla.talla_id" 
-                    :value="talla.talla_id"
-                  >
-                    EU {{ talla.talla_eu }} / US {{ talla.talla_us }}
-                  </option>
-                </select>
-              </div>
+            <!-- Método de devolución -->
+            <div class="form-group">
+              <label for="dev-metodo">Método de Devolución:</label>
+              <select id="dev-metodo" v-model="nuevaDevolucion.metodo" required>
+                <option value="">Seleccione un método</option>
+                <option v-for="metodo in metodosDevoluciones" :key="metodo.id" :value="metodo.metodo">
+                  {{ metodo.metodo }}
+                </option>
+              </select>
+            </div>
 
-              <div class="form-group">
-                <label for="dev-cantidad">Cantidad:</label>
+            <!-- Monto personalizado (opcional) -->
+            <div class="form-group">
+              <label for="dev-monto">Monto de Devolución (opcional):</label>
+              <div class="currency-input">
+                <span class="currency-symbol">Q</span>
                 <input 
                   type="number" 
-                  id="dev-cantidad" 
-                  v-model.number="nuevaDevolucion.cantidad" 
-                  required
-                  min="1"
-                  placeholder="1"
+                  id="dev-monto" 
+                  v-model.number="nuevaDevolucion.monto" 
+                  step="0.01"
+                  min="0"
+                  placeholder="Dejar vacío para devolver el total del pedido"
                 />
               </div>
+              <small>Si no especifica un monto, se devolverá el total del pedido.</small>
             </div>
 
+            <!-- Motivo de devolución -->
             <div class="form-group">
               <label for="dev-observaciones">Motivo de Devolución:</label>
               <textarea 
@@ -279,7 +243,22 @@
               ></textarea>
             </div>
 
-            <button type="submit" class="submit-button" :disabled="procesandoDevolucion">
+            <!-- Observaciones adicionales -->
+            <div class="form-group">
+              <label for="dev-observaciones-adicionales">Observaciones Adicionales:</label>
+              <textarea 
+                id="dev-observaciones-adicionales" 
+                v-model="nuevaDevolucion.observaciones_adicionales"
+                placeholder="Información adicional sobre la devolución..."
+                rows="2"
+              ></textarea>
+            </div>
+
+            <button 
+              type="submit" 
+              class="submit-button" 
+              :disabled="procesandoDevolucion || !clienteSeleccionadoDev || pedidosClienteDev.length === 0"
+            >
               {{ procesandoDevolucion ? 'Procesando...' : 'Registrar Devolución' }}
             </button>
           </form>
@@ -376,6 +355,9 @@ export default {
     const productoSearchTermDev = ref('');
     const showProductoDropdownDev = ref(false);
     const productosFiltradosDev = ref([]);
+    const metodosDevoluciones = ref([]);
+    const clienteSeleccionadoDev = ref(null);
+    const pedidosClienteDev = ref([]);
     
     const nuevaDevolucion = ref({
       id_vendedor: '',
@@ -386,6 +368,113 @@ export default {
       cantidad: 1,
       observaciones: ''
     });
+
+    const fetchMetodosDevoluciones = async () => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+        
+        const response = await fetch('http://localhost:3000/api/devoluciones/metodos', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener métodos de devolución');
+        
+        const data = await response.json();
+        metodosDevoluciones.value = data.data || [];
+      } catch (err) {
+        console.error('Error al obtener métodos de devolución:', err);
+      }
+    };
+
+    const fetchPedidosCliente = async (clienteId) => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+        
+        const response = await fetch(`http://localhost:3000/api/devoluciones/pedidos-cliente/${clienteId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener pedidos del cliente');
+        
+        const data = await response.json();
+        pedidosClienteDev.value = data.data || [];
+      } catch (err) {
+        console.error('Error al obtener pedidos del cliente:', err);
+        pedidosClienteDev.value = [];
+      }
+    };
+
+    const seleccionarClienteDev = async (cliente) => {
+      clienteSeleccionadoDev.value = cliente;
+      nuevaDevolucion.value.id_cliente = cliente.id;
+      clienteSearchTermDev.value = `${cliente.nombre} ${cliente.apellido}`;
+      showClienteDropdownDev.value = false;
+      clientesFiltradosDev.value = [];
+      
+      // Cargar pedidos del cliente seleccionado
+      await fetchPedidosCliente(cliente.id);
+    };
+
+    const registrarDevolucion = async () => {
+      if (!nuevaDevolucion.value.id_cliente || !nuevaDevolucion.value.id_pedido || !nuevaDevolucion.value.metodo) {
+        showMessage('Error', 'Complete todos los campos requeridos', 'error');
+        return;
+      }
+
+      procesandoDevolucion.value = true;
+      try {
+        const token = checkAuth();
+        if (!token) return;
+
+        const payload = {
+          id_pedido: nuevaDevolucion.value.id_pedido,
+          motivo: nuevaDevolucion.value.observaciones,
+          id_metodo_devolucion: metodosDevoluciones.value.find(m => m.metodo === nuevaDevolucion.value.metodo)?.id,
+          monto_devolucion: nuevaDevolucion.value.monto || null,
+          observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
+        };
+
+        const response = await fetch('http://localhost:3000/api/devoluciones', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al registrar la devolución');
+        }
+
+        showMessage('Éxito', 'Devolución registrada correctamente', 'success');
+        
+        // Limpiar formulario
+        nuevaDevolucion.value = {
+          id_cliente: '',
+          id_pedido: '',
+          metodo: '',
+          observaciones: '',
+          monto: null,
+          observaciones_adicionales: ''
+        };
+        clienteSearchTermDev.value = '';
+        clienteSeleccionadoDev.value = null;
+        pedidosClienteDev.value = [];
+        
+        // Recargar datos
+        await fetchDevoluciones();
+        
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      } finally {
+        procesandoDevolucion.value = false;
+      }
+    };
+
     
     const filtrosDevoluciones = ref({
       cliente: '',
@@ -576,12 +665,7 @@ export default {
       clientesFiltradosPago.value = [];
     };
 
-    const seleccionarClienteDev = (cliente) => {
-      nuevaDevolucion.value.id_cliente = cliente.id;
-      clienteSearchTermDev.value = `${cliente.nombre} ${cliente.apellido}`;
-      showClienteDropdownDev.value = false;
-      clientesFiltradosDev.value = [];
-    };
+
 
     const seleccionarProductoDev = (producto) => {
       nuevaDevolucion.value.id_zapato = producto.id;
@@ -644,56 +728,6 @@ export default {
         showMessage('Error', err.message, 'error');
       } finally {
         procesandoPago.value = false;
-      }
-    };
-
-    const registrarDevolucion = async () => {
-      if (!nuevaDevolucion.value.id_cliente || !nuevaDevolucion.value.id_zapato || !nuevaDevolucion.value.id_talla) {
-        showMessage('Error', 'Complete todos los campos requeridos', 'error');
-        return;
-      }
-
-      procesandoDevolucion.value = true;
-      try {
-        const token = checkAuth();
-        if (!token) return;
-
-        const response = await fetch('http://localhost:3000/api/devoluciones', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(nuevaDevolucion.value)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al registrar la devolución');
-        }
-
-        showMessage('Éxito', 'Devolución registrada correctamente', 'success');
-        
-        // Limpiar formulario
-        nuevaDevolucion.value = {
-          id_vendedor: '',
-          id_cliente: '',
-          id_tipo_linea_producto: '',
-          id_zapato: '',
-          id_talla: '',
-          cantidad: 1,
-          observaciones: ''
-        };
-        clienteSearchTermDev.value = '';
-        productoSearchTermDev.value = '';
-        
-        // Recargar datos
-        await fetchDevoluciones();
-        
-      } catch (err) {
-        showMessage('Error', err.message, 'error');
-      } finally {
-        procesandoDevolucion.value = false;
       }
     };
 
@@ -825,6 +859,7 @@ export default {
         fetchVendedores(),
         fetchClientes(),
         fetchTiposLineaProducto(),
+        fetchMetodosDevoluciones(),
         fetchMetodosPago(),
         fetchZapatos(),
         fetchPagos(),
@@ -872,6 +907,10 @@ export default {
       showProductoDropdownDev,
       productosFiltradosDev,
       tallasDisponiblesDevolucion,
+      metodosDevoluciones,
+      clienteSeleccionadoDev,
+      pedidosClienteDev,
+      fetchPedidosCliente,
       
       // Funciones
       showMessage,
@@ -1237,5 +1276,37 @@ export default {
   .producto-option {
     padding: 10px;
   }
+}
+
+.no-orders-message {
+  background-color: #fff3cd;
+  border: 1px solid #ffecb5;
+  border-radius: 6px;
+  padding: 15px;
+  color: #856404;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.no-orders-message small {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.submit-button:disabled {
+  background-color: #6c757d !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.currency-input small {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: #6c757d;
+  font-style: italic;
 }
 </style>
