@@ -28,25 +28,38 @@
           <h2 class="section-title">Registrar Nuevo Pago</h2>
           
           <form @submit.prevent="registrarPago" class="payment-form">
-            <!-- Cliente dropdown -->
+            <!-- Cliente search -->
             <div class="form-group">
               <label for="pago-cliente">Cliente:</label>
-              <select 
-                id="pago-cliente" 
-                v-model="nuevoPago.id_cliente" 
-                @change="cargarPedidosCliente(nuevoPago.id_cliente)"
-                required
-              >
-                <option value="">Seleccione un cliente</option>
-                <option 
-                  v-for="cliente in clientes" 
-                  :key="cliente.id" 
-                  :value="cliente.id"
+              <div class="cliente-search-container">
+                <input 
+                  type="text"
+                  id="pago-cliente"
+                  v-model="clienteSearchTermPago"
+                  @input="buscarClientesPago"
+                  @focus="showClienteDropdownPago = true"
+                  @blur="setTimeout(() => showClienteDropdownPago = false, 200)"
+                  placeholder="Buscar por nombre o empresa..."
+                  required
+                />
+                
+                <div 
+                  v-if="showClienteDropdownPago && clientesFiltradosPago.length > 0" 
+                  class="cliente-dropdown"
                 >
-                  {{ cliente.nombre }} {{ cliente.apellido }} 
-                  <span v-if="cliente.empresa">- {{ cliente.empresa }}</span>
-                </option>
-              </select>
+                  <div 
+                    v-for="cliente in clientesFiltradosPago" 
+                    :key="cliente.id"
+                    @click="seleccionarClientePago(cliente)"
+                    class="cliente-option"
+                  >
+                    <div class="cliente-info">
+                      <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
+                      <span v-if="cliente.empresa" class="empresa-tag">{{ cliente.empresa }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Pedido dropdown -->
@@ -55,7 +68,7 @@
               <select 
                 id="pago-pedido" 
                 v-model="nuevoPago.id_pedido" 
-                :disabled="!nuevoPago.id_cliente || pedidosClientePago.length === 0"
+                :disabled="!clienteSeleccionadoPago || pedidosClientePago.length === 0"
                 required
               >
                 <option value="">Seleccione un pedido</option>
@@ -68,7 +81,7 @@
                   - {{ pedido.estado_pago === 'pagado' ? 'Pagado' : 'Pendiente' }}
                 </option>
               </select>
-              <div v-if="nuevoPago.id_cliente && pedidosClientePago.length === 0" class="no-orders-message">
+              <div v-if="clienteSeleccionadoPago && pedidosClientePago.length === 0" class="no-orders-message">
                 Este cliente no tiene pedidos pendientes de pago.
               </div>
             </div>
@@ -115,7 +128,7 @@
             <button 
               type="submit" 
               class="submit-button" 
-              :disabled="procesandoPago || !nuevoPago.id_cliente || !nuevoPago.id_pedido || !nuevoPago.id_metodo_pago || !nuevoPago.monto_pagado"
+              :disabled="procesandoPago || !clienteSeleccionadoPago || !nuevoPago.id_pedido || !nuevoPago.id_metodo_pago || !nuevoPago.monto_pagado"
             >
               {{ procesandoPago ? 'Procesando...' : 'Registrar Pago' }}
             </button>
@@ -283,7 +296,6 @@
   </div>
 </template>
 
-
 <script>
 import { ref, computed, onMounted } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
@@ -423,21 +435,21 @@ export default {
       }
     };
 
-    const fetchClientes = async () => {
+    const fetchClientesConPagosPendientes = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/clientes', {
+        const response = await fetch('http://localhost:3000/api/pagos/clientes-pendientes', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) throw new Error('Error al obtener clientes');
+        if (!response.ok) throw new Error('Error al obtener clientes con pagos pendientes');
         
         const data = await response.json();
         clientes.value = data.data || [];
       } catch (err) {
-        console.error('Error al obtener clientes:', err);
+        console.error('Error al obtener clientes con pagos pendientes:', err);
       }
     };
 
@@ -528,12 +540,22 @@ export default {
 
     const seleccionarClientePago = async (cliente) => {
       clienteSeleccionadoPago.value = cliente;
+      nuevoPago.value.id_cliente = cliente.id;
       clienteSearchTermPago.value = `${cliente.nombre} ${cliente.apellido}`;
       showClienteDropdownPago.value = false;
       clientesFiltradosPago.value = [];
       
       // Cargar pedidos del cliente seleccionado
       await fetchPedidosClientePago(cliente.id);
+    };
+
+    const cargarPedidosCliente = async (clienteId) => {
+      if (!clienteId) {
+        pedidosClientePago.value = [];
+        return;
+      }
+      
+      await fetchPedidosClientePago(clienteId);
     };
 
     const registrarPago = async () => {
@@ -561,7 +583,9 @@ export default {
           throw new Error(errorData.error || 'Error al registrar el pago');
         }
 
-        showMessage('Éxito', 'Pago registrado correctamente', 'success');
+        const result = await response.json();
+        
+        showMessage('Éxito', result.message, 'success');
         
         // Limpiar formulario
         nuevoPago.value = {
@@ -577,6 +601,7 @@ export default {
         
         // Recargar datos
         await fetchPagos();
+        await fetchClientesConPagosPendientes();
         
       } catch (err) {
         showMessage('Error', err.message, 'error');
@@ -795,7 +820,7 @@ export default {
     onMounted(async () => {
       await Promise.all([
         fetchVendedores(),
-        fetchClientes(),
+        fetchClientesConPagosPendientes(),
         fetchMetodosPago(),
         fetchMetodosDevoluciones(),
         fetchPagos(),
@@ -852,6 +877,7 @@ export default {
       buscarClientesDev,
       seleccionarClientePago,
       seleccionarClienteDev,
+      cargarPedidosCliente,
       registrarPago,
       registrarDevolucion,
       actualizarFiltrosPagos,
@@ -863,379 +889,6 @@ export default {
 }
 </script>
 
-<style scoped>
-.pagos-devoluciones-container {
-  width: 100%;
-  min-height: 100vh;
-  box-sizing: border-box;
-  overflow-x: hidden;
-}
+<style scoped src="../styles/pagosYdevoluciones/pagosDevoluciones.css">
 
-.content-section {
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  margin-top: 60px;
-}
-
-.page-title {
-  font-size: clamp(20px, 4vw, 24px);
-  font-weight: bold;
-  margin-bottom: 20px;
-  text-align: center;
-  color: #333;
-  width: 100%;
-  word-wrap: break-word;
-}
-
-.tabs-navigation {
-  display: flex;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  padding: 4px;
-  margin-bottom: 30px;
-  width: 100%;
-  max-width: min(600px, 100vw - 30px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  box-sizing: border-box;
-}
-
-.tab-button {
-  flex: 1;
-  padding: 12px 8px;
-  border: none;
-  background-color: transparent;
-  color: #6c757d;
-  font-weight: 500;
-  font-size: clamp(12px, 3vw, 14px);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.tab-button:hover {
-  background-color: #e9ecef;
-  color: #495057;
-}
-
-.tab-button.active {
-  background-color: #007bff;
-  color: white;
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-}
-
-.tab-content {
-  width: 100%;
-  max-width: min(1200px, 100vw - 30px);
-  animation: fadeIn 0.3s ease-in-out;
-  box-sizing: border-box;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.form-section {
-  background-color: white;
-  border-radius: 8px;
-  padding: clamp(15px, 4vw, 25px);
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border: 1px solid #e9ecef;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.section-title {
-  font-size: clamp(18px, 4vw, 20px);
-  font-weight: bold;
-  color: #2c3e50;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #e9ecef;
-  word-wrap: break-word;
-}
-
-.payment-form,
-.return-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 15px;
-  width: 100%;
-}
-
-@media (min-width: 768px) {
-  .form-row {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-}
-
-.form-group label {
-  font-weight: 600;
-  color: #495057;
-  font-size: clamp(12px, 3vw, 14px);
-  word-wrap: break-word;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: 12px;
-  border: 2px solid #e9ecef;
-  border-radius: 6px;
-  font-size: clamp(12px, 3vw, 14px);
-  transition: border-color 0.2s ease;
-  background-color: white;
-  width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.form-group input:disabled,
-.form-group select:disabled {
-  background-color: #f8f9fa;
-  color: #6c757d;
-  cursor: not-allowed;
-}
-
-.currency-input {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.currency-symbol {
-  position: absolute;
-  left: 12px;
-  font-weight: bold;
-  color: #28a745;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.currency-input input {
-  padding-left: 30px;
-}
-
-.cliente-search-container,
-.producto-search-container {
-  position: relative;
-  width: 100%;
-}
-
-.cliente-dropdown,
-.producto-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background-color: white;
-  border: 2px solid #e9ecef;
-  border-top: none;
-  border-radius: 0 0 6px 6px;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 1000;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.cliente-option,
-.producto-option {
-  padding: 12px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  border-bottom: 1px solid #f1f3f4;
-}
-
-.cliente-option:last-child,
-.producto-option:last-child {
-  border-bottom: none;
-}
-
-.cliente-option:hover,
-.producto-option:hover {
-  background-color: #f8f9fa;
-}
-
-.cliente-info,
-.producto-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cliente-info strong,
-.producto-info strong {
-  font-size: clamp(12px, 3vw, 14px);
-  color: #2c3e50;
-}
-
-.cliente-info span,
-.producto-info span {
-  font-size: clamp(11px, 3vw, 13px);
-  color: #6c757d;
-}
-
-.empresa-tag {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-  align-self: flex-start;
-}
-
-.submit-button {
-  background-color: #28a745;
-  color: white;
-  padding: 14px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: clamp(14px, 3vw, 16px);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-top: 10px;
-  width: 100%;
-  max-width: 300px;
-  align-self: center;
-}
-
-.submit-button:hover:not(:disabled) {
-  background-color: #218838;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
-}
-
-.submit-button:disabled {
-  background-color: #6c757d;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.table-section {
-  background-color: white;
-  border-radius: 8px;
-  padding: clamp(15px, 4vw, 25px);
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border: 1px solid #e9ecef;
-  width: 100%;
-  box-sizing: border-box;
-  overflow-x: auto;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .content-section {
-    padding: 10px;
-    margin-top: 50px;
-  }
-  
-  .tabs-navigation {
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .tab-button {
-    width: 100%;
-  }
-  
-  .form-section,
-  .table-section {
-    padding: 15px;
-  }
-  
-  .submit-button {
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    padding: 10px;
-  }
-  
-  .cliente-option,
-  .producto-option {
-    padding: 10px;
-  }
-}
-
-.no-orders-message {
-  background-color: #fff3cd;
-  border: 1px solid #ffecb5;
-  border-radius: 6px;
-  padding: 15px;
-  color: #856404;
-  text-align: center;
-  margin-top: 10px;
-}
-
-.no-orders-message small {
-  display: block;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #6c757d;
-}
-
-.submit-button:disabled {
-  background-color: #6c757d !important;
-  cursor: not-allowed !important;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-.currency-input small {
-  display: block;
-  margin-top: 5px;
-  font-size: 12px;
-  color: #6c757d;
-  font-style: italic;
-}
 </style>
