@@ -35,6 +35,8 @@ const authenticateJWT = (allowedRoles = []) => {
       if (result.rows.length === 0) return res.status(403).json({ error: 'Usuario no autorizado' });
 
       const user = result.rows[0];
+      
+      // UPDATED: Allow both Vendedor and Administrador if no specific roles are provided
       if (allowedRoles.length && !allowedRoles.includes(user.rol)) {
         return res.status(403).json({ error: 'No tienes permisos para esta acción' });
       }
@@ -61,6 +63,57 @@ router.get('/admin', authenticateJWT(['Administrador']), (req, res) => {
     message: 'Acceso administrativo',
     user: req.user
   });
+});
+
+// NUEVO ENDPOINT: Obtener información del usuario actual con detalles completos
+router.get('/usuario-actual', authenticateJWT(), async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        u.id,
+        u.nombre,
+        u.apellido,
+        r.rol,
+        cu.usuario,
+        cu.email
+      FROM Usuarios u
+      JOIN Roles r ON u.id_roles = r.id
+      LEFT JOIN Cuentas_Usuarios cu ON u.id = cu.id_usuarios
+      WHERE u.id = $1
+    `, [req.user.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Usuario no encontrado' 
+      });
+    }
+
+    const usuario = result.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        id: usuario.id,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        nombre_completo: `${usuario.nombre} ${usuario.apellido}`,
+        rol: usuario.rol,
+        es_vendedor: usuario.rol === 'Vendedor',
+        es_administrador: usuario.rol === 'Administrador',
+        usuario: usuario.usuario,
+        email: usuario.email
+      },
+      message: 'Información del usuario obtenida correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error al obtener información del usuario:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al obtener información del usuario' 
+    });
+  }
 });
 
 // NUEVO ENDPOINT 1: Crear nuevo usuario 
@@ -328,6 +381,55 @@ router.delete('/delete/:id', authenticateJWT(), async (req, res) => {
   } catch (err) {
     console.error('Error al desactivar/eliminar usuario:', err);
     res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+// ENDPOINT MANTENIDO: Para compatibilidad con el código de ventas
+router.get('/vendedor', authenticateJWT(), async (req, res) => {
+  try {
+    // Permitir Vendedor o Administrador
+    if (req.user.rol !== 'Vendedor' && req.user.rol !== 'Administrador') {
+      return res.status(403).json({
+        success: false,
+        error: 'El usuario actual no tiene permisos de vendedor o administrador'
+      });
+    }
+
+    // Obtener información del usuario (vendedor o admin)
+    const result = await pool.query(`
+      SELECT 
+        u.Id,
+        u.Nombre,
+        u.Apellido,
+        u.Email,
+        r.Rol,
+        cu.Usuario as nombre_usuario
+      FROM Usuarios u
+      JOIN Roles r ON u.Id_Roles = r.Id
+      JOIN Cuentas_Usuarios cu ON u.Id = cu.Id_Usuarios
+      WHERE u.Id = $1
+    `, [req.user.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+
+    const usuario = result.rows[0];
+
+    return res.json({
+      success: true,
+      data: {
+        id: usuario.Id,
+        nombre: usuario.Nombre,
+        apellido: usuario.Apellido,
+        email: usuario.Email,
+        rol: usuario.Rol,
+        nombre_usuario: usuario.nombre_usuario
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener información del vendedor:', error);
+    return res.status(500).json({ success: false, error: 'Error al obtener información del vendedor' });
   }
 });
 

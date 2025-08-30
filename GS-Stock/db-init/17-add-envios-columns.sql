@@ -1,0 +1,9 @@
+BEGIN;
+
+ALTER TABLE Envios
+  ADD COLUMN IF NOT EXISTS Numero_Envio_Display VARCHAR(50);
+
+ALTER TABLE Envios
+  ADD COLUMN IF NOT EXISTS Observaciones TEXT;
+
+COMMIT;

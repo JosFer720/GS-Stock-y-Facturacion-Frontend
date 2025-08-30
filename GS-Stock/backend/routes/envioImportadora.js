@@ -1,8 +1,10 @@
-const express = require('express'); 
+const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
 const PDFDocument = require('pdfkit');
 const authenticateToken = require('../middleware/auth');
+const path = require('path');
+const fs = require('fs');
 
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
@@ -23,17 +25,18 @@ function generarNumeroEnvio(tipo = 'IMP') {
     return `${tipo}${year}${month}${day}${timestamp}`;
 }
 
-// Función para crear PDF de envío importadora
+// Función para crear PDF de envío importadora con diseño exacto
 async function crearPDFEnvioImportadora(datosEnvio) {
     return new Promise((resolve, reject) => {
         try {
             const doc = new PDFDocument({
                 size: 'A4',
+                layout: 'landscape', // Cambiar a horizontal
                 margins: {
-                    top: 50,
-                    bottom: 50,
-                    left: 50,
-                    right: 50
+                    top: 30,
+                    bottom: 30,
+                    left: 30,
+                    right: 30
                 }
             });
 
@@ -53,173 +56,160 @@ async function crearPDFEnvioImportadora(datosEnvio) {
                 reject(error);
             });
 
-            // Configuración de fuentes y colores
-            const primaryColor = '#2c3e50';
-            const secondaryColor = '#e74c3c'; // Rojo para diferenciarlo de línea nacional
+            const pageWidth = 841.89; // A4 landscape width in points
+            const pageHeight = 595.28; // A4 landscape height in points
+            const margin = 30;
+
+            // --- Logo GENSER ---
+            const logoX = pageWidth - 180; // Posición en esquina superior derecha
+            const logoY = margin;
             
-            // Header con logo y información de la empresa
-            doc.fontSize(20)
-               .fillColor(primaryColor)
-               .text('ZAPATERIA', 50, 50, { width: 200 });
-
-            // Marca de IMPORTADORA
-            doc.fontSize(14)
-               .fillColor(secondaryColor)
-               .text('LÍNEA IMPORTADORA', 50, 75);
-
-            // Información del envío en la esquina superior derecha
-            doc.fontSize(12)
-               .fillColor('#000000')
-               .text('FECHA', 400, 50)
-               .rect(450, 47, 100, 20)
-               .stroke()
-               .text(new Date().toLocaleDateString('es-ES'), 455, 52);
-
-            doc.text('ENVIO #', 400, 80)
-               .rect(450, 77, 100, 20)
-               .stroke()
-               .text(datosEnvio.numero_envio || '', 455, 82);
-
-            // Logo GENSER en la esquina derecha
-            doc.fontSize(16)
-               .fillColor(primaryColor)
-               .text('GENSER', 480, 120)
-               .fontSize(8)
-               .text('DISTRIBUIDORES AUTORIZADOS', 465, 140);
-
-            // Información del cliente
-            doc.fontSize(12)
-               .fillColor('#000000')
-               .text('CLIENTE', 50, 110);
-            
-            doc.rect(50, 127, 300, 20)
-               .stroke()
-               .text(datosEnvio.cliente_nombre || '', 55, 132);
-
-            // Información del vendedor
-            doc.text('VENDEDOR', 50, 160);
-            doc.rect(50, 177, 540, 20)
-               .stroke()
-               .text(datosEnvio.vendedor_nombre || '', 55, 182);
-
-            // Información del transporte
-            doc.text('TRANSPORTE', 50, 210);
-            doc.rect(50, 227, 540, 20)
-               .stroke()
-               .text(datosEnvio.transporte || 'Por definir', 55, 232);
-
-            // Dirección
-            doc.text('DIRECCIÓN:', 50, 260);
-            doc.rect(50, 277, 540, 20)
-               .stroke()
-               .text(datosEnvio.cliente_direccion || '', 55, 282);
-
-            // Tabla de productos
-            const tableTop = 320;
-            const col1X = 50;  // CANTIDAD
-            const col2X = 100; // COLOR
-            const col3X = 150; // ESTILO
-            const col4X = 250; // DESCRIPCIÓN
-            const col5X = 450; // PRECIO/U
-            const col6X = 520; // TOTAL
-
-            // Headers de la tabla
-            doc.rect(col1X, tableTop, 50, 25)
-               .rect(col2X, tableTop, 50, 25)
-               .rect(col3X, tableTop, 100, 25)
-               .rect(col4X, tableTop, 200, 25)
-               .rect(col5X, tableTop, 70, 25)
-               .rect(col6X, tableTop, 70, 25)
-               .stroke();
-
-            doc.fontSize(10)
-               .text('CANTIDAD', col1X + 5, tableTop + 8)
-               .text('COLOR', col2X + 10, tableTop + 8)
-               .text('ESTILO', col3X + 30, tableTop + 8)
-               .text('DESCRIPCIÓN', col4X + 70, tableTop + 8)
-               .text('PRECIO/U', col5X + 10, tableTop + 8)
-               .text('TOTAL', col6X + 20, tableTop + 8);
-
-            // Filas de productos
-            let currentY = tableTop + 25;
-            const rowHeight = 25;
-            let totalGeneral = 0;
-
-            if (datosEnvio.productos && datosEnvio.productos.length > 0) {
-                datosEnvio.productos.forEach((producto, index) => {
-                    const subtotal = (producto.cantidad * producto.precio_unitario);
-                    totalGeneral += subtotal;
-
-                    doc.rect(col1X, currentY, 50, rowHeight)
-                       .rect(col2X, currentY, 50, rowHeight)
-                       .rect(col3X, currentY, 100, rowHeight)
-                       .rect(col4X, currentY, 200, rowHeight)
-                       .rect(col5X, currentY, 70, rowHeight)
-                       .rect(col6X, currentY, 70, rowHeight)
-                       .stroke();
-
-                    doc.text(producto.cantidad.toString(), col1X + 15, currentY + 8)
-                       .text('', col2X + 10, currentY + 8)
-                       .text(producto.codigo || '', col3X + 5, currentY + 8)
-                       .text(producto.nombre || '', col4X + 5, currentY + 8)
-                       .text(`Q${producto.precio_unitario.toFixed(2)}`, col5X + 5, currentY + 8)
-                       .text(`Q${subtotal.toFixed(2)}`, col6X + 5, currentY + 8);
-
-                    currentY += rowHeight;
-                });
-            } else {
-                // Filas vacías para mantener el formato
-                for (let i = 0; i < 5; i++) {
-                    doc.rect(col1X, currentY, 50, rowHeight)
-                       .rect(col2X, currentY, 50, rowHeight)
-                       .rect(col3X, currentY, 100, rowHeight)
-                       .rect(col4X, currentY, 200, rowHeight)
-                       .rect(col5X, currentY, 70, rowHeight)
-                       .rect(col6X, currentY, 70, rowHeight)
-                       .stroke();
-                    currentY += rowHeight;
+            try {
+                // Ruta exacta del logo
+                const logoPath = path.join(__dirname, '..', '..', 'frontend/src/assets/images/logo-without-back-letters.png');
+                
+                if (fs.existsSync(logoPath)) {
+                    doc.image(logoPath, logoX, logoY, {
+                        width: 150,
+                        align: 'right'
+                    });
+                    console.log('✅ Logo cargado desde:', logoPath);
+                } else {
+                    // Texto alternativo si no encuentra el logo
+                    doc.fontSize(14).fillColor('#000000').text('GENSER', logoX + 40, logoY + 5);
+                    doc.fontSize(8).text('COMERCIALIZADORA E IMPORTADORA', logoX - 10, logoY + 25, { width: 170, align: 'center' });
+                    console.log('⚠️ Logo no encontrado, usando texto alternativo');
                 }
+            } catch (error) {
+                doc.fontSize(14).fillColor('#000000').text('GENSER', logoX + 40, logoY + 5);
+                doc.fontSize(8).text('COMERCIALIZADORA E IMPORTADORA', logoX - 10, logoY + 25, { width: 170, align: 'center' });
+                console.log('⚠️ Error cargando logo:', error.message);
             }
 
-            // Sección de información adicional (lado derecho) - PARA IMPORTADORA
-            const infoBoxX = 320;
-            const infoBoxY = currentY + 20;
-            const infoBoxWidth = 270;
+            // --- Header Fields (ZAPATERIA, FECHA, ENVIO #) ---
+            const headerY = margin;
+            const headerBoxWidth = 350;
+            const headerBoxHeight = 25;
+            const fieldPadding = 5;
 
-            doc.rect(infoBoxX, infoBoxY, infoBoxWidth, 160)
-               .stroke();
+            // ZAPATERIA
+            doc.fontSize(10).text('ZAPATERIA', margin, headerY);
+            doc.rect(margin, headerY + 15, headerBoxWidth, headerBoxHeight).stroke();
+            doc.fontSize(10).text(datosEnvio.zapateria_nombre || '', margin + fieldPadding, headerY + 15 + fieldPadding, { width: headerBoxWidth - (fieldPadding * 2), align: 'left' });
 
-            doc.fontSize(10)
-               .fillColor(secondaryColor)
-               .text('LÍNEA IMPORTADORA - CONDICIONES ESPECIALES', infoBoxX + 10, infoBoxY + 5)
+            // FECHA and ENVIO #
+            doc.fontSize(10).text('FECHA', 400, headerY);
+            doc.rect(400, headerY + 15, 120, headerBoxHeight).stroke();
+            doc.fontSize(10).text(new Date().toLocaleDateString('es-ES'), 400 + fieldPadding, headerY + 15 + fieldPadding, { width: 110, align: 'center' });
+
+            doc.fontSize(10).text('ENVIO #', 530, headerY);
+            doc.rect(530, headerY + 15, 120, headerBoxHeight).stroke();
+            doc.fontSize(10).text(datosEnvio.numero_envio || '', 530 + fieldPadding, headerY + 15 + fieldPadding, { width: 110, align: 'center' });
+
+            // --- CLIENTE and VENDEDOR ---
+            const clientY = headerY + 65;
+            doc.fontSize(10).text('CLIENTE', margin, clientY);
+            doc.rect(margin, clientY + 15, headerBoxWidth, headerBoxHeight).stroke();
+            doc.fontSize(10).text(datosEnvio.cliente_nombre || '', margin + fieldPadding, clientY + 15 + fieldPadding, { width: headerBoxWidth - (fieldPadding * 2), align: 'left' });
+
+            doc.fontSize(10).text('VENDEDOR', 400, clientY);
+            doc.rect(400, clientY + 15, 300, headerBoxHeight).stroke();
+            doc.fontSize(10).text(datosEnvio.vendedor_nombre || '', 400 + fieldPadding, clientY + 15 + fieldPadding, { width: 250, align: 'left' });
+
+            // --- TRANSPORTE and DIRECCION ---
+            const transportY = clientY + 65;
+            doc.fontSize(10).text('TRANSPORTE', margin, transportY);
+            doc.rect(margin, transportY + 15, headerBoxWidth, headerBoxHeight).stroke();
+            doc.fontSize(10).text(datosEnvio.transporte || 'Por definir', margin + fieldPadding, transportY + 15 + fieldPadding, { width: headerBoxWidth - (fieldPadding * 2), align: 'left' });
+
+            doc.fontSize(10).text('DIRECCION:', 400, transportY);
+            doc.rect(400, transportY + 15, 300, headerBoxHeight).stroke();
+            doc.fontSize(10).text(datosEnvio.cliente_direccion || '', 400 + fieldPadding, transportY + 15 + fieldPadding, { width: 250, align: 'left' });
+
+            // --- Product Table ---
+            const tableTop = transportY + 65;
+            const tableWidth = pageWidth - 60;
+            const col1W = 60;   // CANTIDAD
+            const col2W = 60;   // COLOR
+            const col3W = 80;   // ESTILO  
+            const col4W = 350;  // DESCRIPCION
+            const col5W = 85;   // PRECIO/U
+            const col6W = 85;   // TOTAL
+
+            const col1X = margin;
+            const col2X = col1X + col1W;
+            const col3X = col2X + col2W;
+            const col4X = col3X + col3W;
+            const col5X = col4X + col4W;
+            const col6X = col5X + col5W;
+            const rowHeight = 250; 
+
+            // Headers
+            doc.rect(col1X, tableTop, col1W, 20).stroke();
+            doc.rect(col2X, tableTop, col2W, 20).stroke();
+            doc.rect(col3X, tableTop, col3W, 20).stroke();
+            doc.rect(col4X, tableTop, col4W, 20).stroke();
+            doc.rect(col5X, tableTop, col5W, 20).stroke();
+            doc.rect(col6X, tableTop, col6W, 20).stroke();
+
+            doc.fontSize(9)
                .fillColor('#000000')
-               .text('NOMBRE ____________________________', infoBoxX + 10, infoBoxY + 25)
-               .text('FIRMA ______________________________', infoBoxX + 10, infoBoxY + 40)
-               .text('REVISADO: ___________________________', infoBoxX + 10, infoBoxY + 55)
-               .text('FECHA RECIBIDO: _____________________', infoBoxX + 10, infoBoxY + 70)
-               .text('CARGO POR ENVÍO Q. __________________', infoBoxX + 10, infoBoxY + 85)
-               .text('DESCUENTO IMPORTADORA', infoBoxX + 10, infoBoxY + 100)
-               .text('DESCUENTO 0 A 15 DÍAS    -20%', infoBoxX + 20, infoBoxY + 115)
-               .text('DESCUENTO 16 A 30 DÍAS   -15%', infoBoxX + 20, infoBoxY + 130)
-               .text('DESCUENTO 31 A 45 DÍAS   -10%', infoBoxX + 20, infoBoxY + 145);
+               .text('CANTIDAD', col1X, tableTop + 6, { width: col1W, align: 'center' })
+               .text('COLOR', col2X, tableTop + 6, { width: col2W, align: 'center' })
+               .text('ESTILO', col3X, tableTop + 6, { width: col3W, align: 'center' })
+               .text('DESCRIPCION', col4X, tableTop + 6, { width: col4W, align: 'center' })
+               .text('PRECIO/U', col5X, tableTop + 6, { width: col5W, align: 'center' })
+               .text('TOTAL', col6X, tableTop + 6, { width: col6W, align: 'center' });
 
-            doc.text('CARGO POR CHEQUE RECHAZADO Q. 100.00', infoBoxX + 10, infoBoxY + 165);
+            // Fila de contenido única
+            const contentY = tableTop + 20;
+            doc.rect(col1X, contentY, col1W, rowHeight).stroke();
+            doc.rect(col2X, contentY, col2W, rowHeight).stroke();
+            doc.rect(col3X, contentY, col3W, rowHeight).stroke();
+            doc.rect(col4X, contentY, col4W, rowHeight).stroke();
+            doc.rect(col5X, contentY, col5W, rowHeight).stroke();
+            doc.rect(col6X, contentY, col6W, rowHeight).stroke();
 
-            // Total
-            doc.fontSize(12)
-               .fillColor('#000000')
-               .text('TOTAL', 450, currentY + 200)
-               .rect(520, currentY + 195, 70, 25)
-               .stroke()
-               .text(`Q${(datosEnvio.total || totalGeneral).toFixed(2)}`, 525, currentY + 202);
+            // Insertar el contenido en las celdas
+            if (datosEnvio.productos && datosEnvio.productos.length > 0) {
+                // ... (no se listan productos individualmente para mantener el diseño 6x2)
+            }
 
-            // Nota especial para línea importadora
-            doc.fontSize(10)
-               .fillColor(secondaryColor)
-               .text('* PRODUCTO IMPORTADO - CONDICIONES ESPECIALES DE GARANTÍA', 50, currentY + 240)
-               .text('* TIEMPOS DE ENTREGA PUEDEN VARIAR SEGÚN DISPONIBILIDAD', 50, currentY + 255);
+            // --- Cuadro de información dentro de la columna de DESCRIPCION ---
+            const infoBoxX = col4X + 50; 
+            const infoBoxY = contentY + 120; // Ajuste para moverlo más abajo
+            const infoBoxWidth = col4W - 100;
+            const infoBoxHeight = 110;
+            doc.rect(infoBoxX, infoBoxY, infoBoxWidth, infoBoxHeight).stroke();
 
-            // IMPORTANTE: Finalizar el documento para generar el buffer
+            doc.fontSize(8).fillColor('#000000')
+               .text('NOMBRE ___________________________________', infoBoxX + 10, infoBoxY + 8)
+               .text('FIRMA _____________________________________', infoBoxX + 10, infoBoxY + 20)
+               .text('REVISADO:_________________________________', infoBoxX + 10, infoBoxY + 32)
+               .text('FECHA RECIBIDO: __________________________', infoBoxX + 10, infoBoxY + 44)
+               .text('CARGO POR ENVÍO Q.________________________', infoBoxX + 10, infoBoxY + 56)
+               .text('GUÍA No.__________________________________', infoBoxX + 10, infoBoxY + 68);
+
+            doc.fontSize(7)
+               .text('DESCUENTO 0 A 30 DÍAS -15%', infoBoxX + 15, infoBoxY + 80)
+               .text('DESCUENTO 31 A 60 DÍAS -10%', infoBoxX + 15, infoBoxY + 88);
+
+            doc.fontSize(8).fillColor('#000000')
+               .text('CARGO POR CHEQUE RECHAZADO Q. 75.00', infoBoxX + 10, infoBoxY + 98);
+
+            // --- TOTAL Box ---
+            const totalBoxWidth = col6W;
+            const totalBoxHeight = 25;
+            const totalBoxX = col6X;
+            const totalBoxY = contentY + rowHeight - totalBoxHeight - 10;
+
+            doc.fontSize(10).fillColor('#000000').text('TOTAL', totalBoxX, totalBoxY - 15, { width: totalBoxWidth, align: 'center' });
+            doc.rect(totalBoxX, totalBoxY, totalBoxWidth, totalBoxHeight).stroke();
+            
+            doc.fillColor('#000000')
+               .fontSize(12)
+               .text(`Q${(datosEnvio.total).toFixed(2)}`, totalBoxX, totalBoxY + 8, { width: totalBoxWidth, align: 'center' });
+
             doc.end();
 
         } catch (error) {
@@ -227,6 +217,7 @@ async function crearPDFEnvioImportadora(datosEnvio) {
         }
     });
 }
+
 // POST - Crear nuevo envío de importadora y generar PDF
 router.post('/', authenticateToken, async (req, res) => {
     const client = await pool.connect();
@@ -366,7 +357,7 @@ router.post('/', authenticateToken, async (req, res) => {
         
         console.log('✅ PDF generado exitosamente, tamaño:', pdfResult.pdfBuffer.length, 'bytes');
         
-        // CRÍTICO: Configurar headers correctos para descarga de PDF
+        // Configurar headers correctos para descarga de PDF
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${pdfResult.fileName}"`);
         res.setHeader('Content-Length', pdfResult.pdfBuffer.length);

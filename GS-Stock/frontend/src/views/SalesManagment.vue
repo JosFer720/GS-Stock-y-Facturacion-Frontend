@@ -92,6 +92,18 @@
         <h2>Agregar Nueva Venta</h2>
         <form @submit.prevent="addSale">
           
+          <!-- NUEVA SECCIÓN: Información del Vendedor Automática -->
+          <div class="vendedor-section" v-if="vendedorActual">
+            <h3>Vendedor</h3>
+            <div class="vendedor-info">
+              <div class="vendedor-badge">
+                <span class="vendedor-nombre">{{ vendedorActual.nombre_completo }}</span>
+                <span class="vendedor-rol">{{ vendedorActual.rol }}</span>
+              </div>
+              <small class="vendedor-usuario">Usuario: {{ vendedorActual.usuario }}</small>
+            </div>
+          </div>
+          
           <div class="cliente-section">
             <h3>Información del Cliente</h3>
             
@@ -191,16 +203,6 @@
           </div>
 
           <div class="form-group">
-            <label for="id_vendedor">Vendedor:</label>
-            <select id="id_vendedor" v-model="newSale.id_vendedor" required>
-              <option value="">Seleccione un vendedor</option>
-              <option v-for="vendedor in vendedores" :key="vendedor.id" :value="vendedor.id">
-                {{ vendedor.nombre_completo }} - {{ vendedor.ruta }}
-              </option>
-            </select>
-          </div>
-
-          <div class="form-group">
             <label for="id_metodo_de_pago">Método de Pago:</label>
             <select id="id_metodo_de_pago" v-model="newSale.id_metodo_de_pago" required>
               <option value="">Seleccione un método</option>
@@ -280,10 +282,6 @@
                             {{ istallaYaSeleccionada(producto, talla.talla_id, tallaIndex) ? ' - YA SELECCIONADA' : '' }}
                           </option>
                         </select>
-                        
-                        <small v-if="tallaItem.id_talla" class="debug-info">
-                          Talla seleccionada: {{ tallaItem.id_talla }}
-                        </small>
                       </div>
                       <div class="cantidad-input-group">
                         <label>Cantidad:</label>
@@ -294,7 +292,7 @@
                           min="1"
                           :max="getMaxStockForTalla(producto.id_zapato, tallaItem.id_talla)"
                           class="cantidad-input"
-                          @change="updateSubtotal"
+                          @change="updateTotal"
                         >
                       </div>
 
@@ -344,13 +342,11 @@
             </button>
           </div>
 
+          <!-- CAMBIO: Solo mostrar total, no subtotal -->
           <div class="totales-section">
             <div class="totales-display">
-              <div class="total-row">
-                <strong>Subtotal: Q{{ formatPrice(calculatedSubtotal) }}</strong>
-              </div>
-              <div class="total-row">
-                <strong>Total: Q{{ formatPrice(calculatedTotal) }}</strong>
+              <div class="total-row total-final">
+                <strong>TOTAL: Q{{ formatPrice(calculatedTotal) }}</strong>
               </div>
             </div>
           </div>
@@ -379,17 +375,31 @@
             <p><strong>Vendedor:</strong> {{ selectedSale.vendedor_nombre }}</p>
             <p><strong>Fecha:</strong> {{ formatDate(selectedSale.fecha) }}</p>
             <p><strong>Estado:</strong> {{ selectedSale.estado_pedido }}</p>
+            <p><strong>Línea de Producto:</strong> {{ selectedSale.tipo_linea_producto }}</p>
           </div>
           <div class="detail-section">
             <h3>Totales</h3>
-            <p><strong>Subtotal:</strong> Q{{ formatCurrency(selectedSale.subtotal) }}</p>
             <p><strong>Total:</strong> Q{{ formatCurrency(selectedSale.total) }}</p>
           </div>
         </div>
       </div>
     </div>
 
-    <modal-message 
+    
+    <!-- Modal de descarga de envío -->
+    <div v-if="showEnvioDialog" class="modal">
+      <div class="modal-content">
+        <h3 style="margin-top:0">¿Quieres descargar el envío?</h3>
+        <p>Se generará el PDF del envío para el <strong>pedido #{{ lastPedidoId }}</strong> con el formato de <strong>{{ lastTipoLinea }}</strong>.</p>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px">
+          <button class="btn-secondary" @click="showEnvioDialog=false">No</button>
+          <button class="btn-primary" :disabled="downloadingEnvio" @click="descargarEnvio">
+            {{ downloadingEnvio ? 'Generando...' : 'Sí, descargar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+<modal-message 
       :show="showMessageModal"
       :title="messageTitle"
       :message="messageContent"
@@ -430,8 +440,11 @@ export default {
     const messageType = ref('info');
     const creatingPedido = ref(false);
     const activeTab = ref('ventas');
-    const vendedores = ref([]);
-    const metodosPago = ref([]);
+    const metodosPago = ref([])
+    const showEnvioDialog = ref(false);
+    const lastPedidoId = ref(null);
+    const lastTipoLinea = ref('');
+    const downloadingEnvio = ref(false);;
     const estadosPedidos = ref([]);
     const clientes = ref([]);
     const zapatosDisponibles = ref([]);
@@ -441,6 +454,7 @@ export default {
     const clientesFiltrados = ref([]);
     const searchTimeout = ref(null);
     const tiposLineaProducto = ref([]);
+    const vendedorActual = ref(null); // NUEVO
     
     const filters = ref({
       date: '',
@@ -448,9 +462,10 @@ export default {
       status: ''
     });
 
+    // CAMBIO: Eliminamos id_vendedor del newSale
     const newSale = ref({
       id_cliente: '',
-      id_vendedor: '',
+      id_tipo_linea_producto: '', // NUEVO campo obligatorio
       id_metodo_de_pago: '',
       productos: [{ 
         id_zapato: '', 
@@ -486,41 +501,58 @@ export default {
       return token;
     };
 
+    // NUEVO: Obtener información del vendedor actual
+    const fetchVendedorActual = async () => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+
+        const response = await fetch('http://localhost:3000/api/ventas/vendedor-actual', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener vendedor actual');
+        
+        const result = await response.json();
+        if (result.success) {
+          vendedorActual.value = result.data;
+          
+          // CAMBIO: Permitir tanto Vendedor como Administrador
+          if (!result.data.es_vendedor && !result.data.es_administrador) {
+            showMessage('Error de Permisos', 
+              'Tu usuario no tiene permisos de vendedor o administrador. Contacta al administrador.', 
+              'error'
+            );
+            setTimeout(() => router.push('/dashboard'), 2000);
+            return;
+          }
+          
+          console.log('Usuario actual:', vendedorActual.value);
+        }
+      } catch (err) {
+        console.error('Error al obtener vendedor actual:', err);
+        showMessage('Error', 'No se pudo obtener la información del vendedor', 'error');
+      }
+    };
+
     const fetchTiposLineaProducto = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
 
-        console.log('🔄 Iniciando fetch de tipos de línea...');
-        
-        const response = await fetch('http://localhost:3000/api/tipos-linea-producto', {
+        const response = await fetch('http://localhost:3000/api/ventas/tipos-linea-producto', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        console.log('📡 Response status:', response.status);
-        console.log('📡 Response headers:', [...response.headers.entries()]);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ Error response text:', errorText);
-          throw new Error(`Error ${response.status}: ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error('Error al obtener tipos de línea');
         
         const result = await response.json();
-        console.log("✅ Respuesta completa de tipos-linea:", result);
-        
         if (result.success && Array.isArray(result.data)) {
           tiposLineaProducto.value = result.data;
-          console.log("✅ Tipos de línea cargados:", tiposLineaProducto.value);
-          console.log("✅ Primer elemento:", tiposLineaProducto.value[0]);
-        } else {
-          console.error("❌ Estructura inesperada:", result);
-          throw new Error('Estructura de respuesta inesperada');
         }
       } catch (err) {
-        console.error('❌ Error completo al obtener tipos de línea:', err);
-        console.error('❌ Error stack:', err.stack);
-        showMessage('Error', `No se pudieron cargar los tipos de línea de producto: ${err.message}`, 'error');
+        console.error('Error al obtener tipos de línea:', err);
+        showMessage('Error', 'No se pudieron cargar los tipos de línea de producto', 'error');
       }
     };
 
@@ -564,13 +596,8 @@ export default {
     };
 
     const seleccionarCliente = (cliente) => {
-      console.log('Seleccionando cliente:', cliente);
       clienteSeleccionado.value = cliente;
-      
       newSale.value.id_cliente = parseInt(cliente.id);
-      
-      console.log('ID cliente guardado:', newSale.value.id_cliente);
-      
       clienteSearchTerm.value = `${cliente.nombre} ${cliente.apellido}${cliente.empresa ? ' - ' + cliente.empresa : ''}`;
       showClienteDropdown.value = false;
       clientesFiltrados.value = [];
@@ -602,7 +629,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/clientes', {
+        const response = await fetch('http://localhost:3000/api/ventas/clientes', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -610,8 +637,6 @@ export default {
         
         const data = await response.json();
         clientes.value = data.data || [];
-        
-        console.log('Clientes cargados:', clientes.value.length);
         
       } catch (err) {
         console.error('Error al obtener clientes:', err);
@@ -633,24 +658,6 @@ export default {
         zapatosDisponibles.value = data.data || [];
       } catch (err) {
         console.error('Error al obtener zapatos:', err);
-      }
-    };
-
-    const fetchVendedores = async () => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:3000/api/ventas/vendedores', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener vendedores');
-        
-        const data = await response.json();
-        vendedores.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener vendedores:', err);
       }
     };
     
@@ -706,7 +713,7 @@ export default {
         }
       }
       
-      updateSubtotal();
+      updateTotal();
     };
 
     const fetchEstadosPedidos = async () => {
@@ -722,7 +729,6 @@ export default {
         
         const data = await response.json();
         estadosPedidos.value = data.data || [];
-        console.log('Estados cargados:', estadosPedidos.value);
       } catch (err) {
         console.error('Error al obtener estados de pedidos:', err);
       }
@@ -731,8 +737,6 @@ export default {
     const onTallaChange = (productoIndex, tallaIndex) => {
       const tallaItem = newSale.value.productos[productoIndex].tallas[tallaIndex];
       tallaItem.error_stock = '';
-      
-      console.log('Talla seleccionada:', tallaItem.id_talla);
       
       const tallasDelProducto = newSale.value.productos[productoIndex].tallas;
       const tallaRepetida = tallasDelProducto.find((t, index) => 
@@ -761,7 +765,7 @@ export default {
         }
       }
       
-      updateSubtotal();
+      updateTotal();
     };
 
     const agregarTalla = (productoIndex) => {
@@ -775,7 +779,7 @@ export default {
     const eliminarTalla = (productoIndex, tallaIndex) => {
       if (newSale.value.productos[productoIndex].tallas.length > 1) {
         newSale.value.productos[productoIndex].tallas.splice(tallaIndex, 1);
-        updateSubtotal();
+        updateTotal();
       }
     };
 
@@ -790,73 +794,42 @@ export default {
       return parseFloat(price).toFixed(2);
     };
 
-    const calculatedSubtotal = computed(() => {
+    // CAMBIO: Solo calculamos total, no subtotal
+    const calculatedTotal = computed(() => {
       return newSale.value.productos.reduce((total, producto) => {
         return total + calcularSubtotalProducto(producto);
       }, 0);
     });
 
-    const calculatedTotal = computed(() => {
-      return calculatedSubtotal.value;
-    });
-
-    const updateSubtotal = () => {
+    const updateTotal = () => {
+      // Función para forzar la reactividad
     };
 
     const isValidForm = computed(() => {
-      console.log('=== DEBUG VALIDACIÓN ===');
-      console.log('Cliente ID:', newSale.value.id_cliente);
-      console.log('Vendedor ID:', newSale.value.id_vendedor);  
-      console.log('Método Pago ID:', newSale.value.id_metodo_de_pago);
-      console.log('Productos:', newSale.value.productos);
-      
       // Validar datos básicos
-      if (!newSale.value.id_cliente) {
-        console.log('❌ Falta cliente');
-        return false;
-      }
-      
-      if (!newSale.value.id_vendedor) {
-        console.log('❌ Falta vendedor');
-        return false;
-      }
-      
-      if (!newSale.value.id_metodo_de_pago) {
-        console.log('❌ Falta método de pago');
-        return false;
-      }
+      if (!newSale.value.id_cliente) return false;
+      if (!newSale.value.id_tipo_linea_producto) return false; // NUEVO campo requerido
+      if (!newSale.value.id_metodo_de_pago) return false;
       
       // Validar productos
       for (let i = 0; i < newSale.value.productos.length; i++) {
         const producto = newSale.value.productos[i];
-        console.log(`Producto ${i + 1}:`, producto);
         
-        if (!producto.id_zapato) {
-          console.log(`❌ Producto ${i + 1}: Falta zapato`);
-          return false;
-        }
+        if (!producto.id_zapato) return false;
         
         let tieneAlMenosUnaTallaValida = false;
         
         for (let j = 0; j < producto.tallas.length; j++) {
           const talla = producto.tallas[j];
-          console.log(`  Talla ${j + 1}:`, talla);
           
           if (talla.id_talla && talla.cantidad > 0 && !talla.error_stock) {
-            console.log(`  ✅ Talla ${j + 1} válida`);
             tieneAlMenosUnaTallaValida = true;
-          } else {
-            console.log(`  ❌ Talla ${j + 1} inválida - ID: ${talla.id_talla}, Cantidad: ${talla.cantidad}, Error: ${talla.error_stock}`);
           }
         }
         
-        if (!tieneAlMenosUnaTallaValida) {
-          console.log(`❌ Producto ${i + 1}: No hay tallas válidas`);
-          return false;
-        }
+        if (!tieneAlMenosUnaTallaValida) return false;
       }
       
-      console.log('✅ Formulario VÁLIDO');
       return true;
     });
 
@@ -875,24 +848,32 @@ export default {
     const eliminarProducto = (index) => {
       if (newSale.value.productos.length > 1) {
         newSale.value.productos.splice(index, 1);
-        updateSubtotal();
+        updateTotal();
       }
     };
 
     const openAddSaleModal = async () => {
+      // Verificar permisos de vendedor antes de abrir modal
+      if (!vendedorActual.value || (!vendedorActual.value.es_vendedor && !vendedorActual.value.es_administrador)) {
+        showMessage('Error de Permisos', 
+          'Solo los usuarios con rol de vendedor o administrador pueden crear ventas.', 
+          'error'
+        );
+        return;
+      }
+
       await Promise.all([
         fetchClientes(),
         fetchZapatosDisponibles(),
-        fetchVendedores(),
         fetchMetodosPago(),
         fetchTiposLineaProducto(),
         fetchEstadosPedidos()
       ]);
 
+      // CAMBIO: Ya no incluimos id_vendedor
       newSale.value = {
-        id_tipo_linea_producto: '',
         id_cliente: '',
-        id_vendedor: '',
+        id_tipo_linea_producto: '',
         id_metodo_de_pago: '',
         productos: [{ 
           id_zapato: '', 
@@ -913,238 +894,149 @@ export default {
       showAddSaleModal.value = true;
     };
 
-    // En el método addSale, reemplaza la sección de generación de envíos con esta versión mejorada:
-
     const addSale = async () => {
-        console.log('=== INTENTANDO CREAR PEDIDO ===');
-        console.log('isValidForm:', isValidForm.value);
-        console.log('creatingPedido:', creatingPedido.value);
+      if (!isValidForm.value) {
+        showMessage('Error', 'Complete todos los campos correctamente', 'error');
+        return;
+      }
+
+      creatingPedido.value = true;
+
+      try {
+        const token = checkAuth();
+        if (!token) return;
+
+        // FIXED: Transform the productos data structure correctly
+        const productosParaEnviar = [];
         
-        if (!isValidForm.value) {
-            console.log('❌ Formulario no válido');
-            showMessage('Error', 'Complete todos los campos correctamente', 'error');
-            return;
+        newSale.value.productos.forEach((producto, pIndex) => {
+          // Each talla becomes a separate product entry
+          producto.tallas.forEach((talla, tIndex) => {
+            if (talla.id_talla && talla.cantidad > 0 && !talla.error_stock) {
+              productosParaEnviar.push({
+                id_zapato: parseInt(producto.id_zapato),
+                id_talla: parseInt(talla.id_talla),
+                cantidad: parseInt(talla.cantidad),
+                precio_unitario: parseFloat(producto.precio_unitario)
+              });
+            }
+          });
+        });
+
+        if (productosParaEnviar.length === 0) {
+          showMessage('Error', 'No hay productos válidos para el pedido', 'error');
+          return;
         }
 
-        console.log('✅ Validación pasada, creando pedido...');
-        creatingPedido.value = true;
+        // FIXED: Data structure that matches backend expectations
+        const pedidoData = {
+          id_cliente: parseInt(newSale.value.id_cliente),
+          id_tipo_linea_producto: parseInt(newSale.value.id_tipo_linea_producto),
+          id_metodo_de_pago: parseInt(newSale.value.id_metodo_de_pago),
+          productos: productosParaEnviar
+        };
 
-        try {
-            const token = checkAuth();
-            if (!token) {
-                console.log('❌ No hay token');
-                return;
-            }
+        console.log('Sending pedido data:', pedidoData); // Debug log
 
-            const productosParaEnviar = [];
-            
-            newSale.value.productos.forEach((producto, pIndex) => {
-                console.log(`Procesando producto ${pIndex + 1}:`, producto);
-                
-                producto.tallas.forEach((talla, tIndex) => {
-                    console.log(`  Procesando talla ${tIndex + 1}:`, talla);
-                    
-                    if (talla.id_talla && talla.cantidad > 0) {
-                        productosParaEnviar.push({
-                            id_zapato: parseInt(producto.id_zapato),
-                            id_talla: parseInt(talla.id_talla),
-                            cantidad: parseInt(talla.cantidad),
-                            precio_unitario: parseFloat(producto.precio_unitario)
-                        });
-                        console.log('  ✅ Talla agregada al pedido');
-                    } else {
-                        console.log('  ❌ Talla omitida del pedido');
-                    }
-                });
-            });
+        const response = await fetch('http://localhost:3000/api/ventas/pedidos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(pedidoData)
+        });
 
-            const pedidoData = {
-                id_tipo_linea_producto: parseInt(newSale.value.id_tipo_linea_producto),
-                id_cliente: parseInt(newSale.value.id_cliente),
-                id_vendedor: parseInt(newSale.value.id_vendedor),
-                id_metodo_de_pago: parseInt(newSale.value.id_metodo_de_pago),
-                productos: productosParaEnviar
-            };
-
-            console.log('📦 Datos del pedido a enviar:', pedidoData);
-            console.log('📦 Productos preparados:', productosParaEnviar.length);
-
-            if (productosParaEnviar.length === 0) {
-                console.log('❌ No hay productos para enviar');
-                showMessage('Error', 'No hay productos válidos para el pedido', 'error');
-                return;
-            }
-
-            const response = await fetch('http://localhost:3000/api/ventas/pedidos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(pedidoData)
-            });
-
-            console.log('📡 Respuesta del servidor:', response.status);
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.log('❌ Error del servidor:', errorData);
-                
-                if (errorData.codigo_error === 'STOCK_INSUFICIENTE') {
-                    showMessage(
-                        'Stock Insuficiente', 
-                        `${errorData.error}\n\nZapato: ${errorData.detalles.zapato}\nTalla: EU ${errorData.detalles.talla_eu}\nDisponible: ${errorData.detalles.stock_disponible}\nSolicitado: ${errorData.detalles.cantidad_solicitada}`,
-                        'error'
-                    );
-                    return;
-                }
-                
-                throw new Error(errorData.error || 'Error al crear el pedido');
-            }
-
-            const data = await response.json();
-            console.log('✅ Pedido creado exitosamente:', data);
-
-            // =====================================================================
-            // GENERACIÓN AUTOMÁTICA DE ENVÍO Y DESCARGA DE PDF
-            // =====================================================================
-            const tipoLineaId = parseInt(newSale.value.id_tipo_linea_producto);
-            const tipoLinea = tiposLineaProducto.value.find(t => t.id === tipoLineaId);
-
-            console.log('🔍 Verificando tipo de línea para generar envío automático:', {
-                tipoLineaId,
-                tipoLinea: tipoLinea?.nombre,
-                tiposDisponibles: tiposLineaProducto.value.map(t => ({ id: t.id, nombre: t.nombre }))
-            });
-
-            if (tipoLinea?.nombre) {
-                try {
-                    let envioEndpoint;
-                    let diasEntrega;
-                    let tipoEnvio;
-                    let mensajeTipoEnvio;
-                    
-                    if (tipoLinea?.nombre) {
-                      const nombreLinea = tipoLinea.nombre.trim().toLowerCase();
-                      
-                      if (nombreLinea === 'Linea Importadora') {
-                        envioEndpoint = 'http://localhost:3000/api/envios/importadora';
-                        diasEntrega = 7;
-                        tipoEnvio = 'Importadora';
-                        mensajeTipoEnvio = 'Linea Importadora';
-                    } else if (nombreLinea === 'Linea Nacional') {
-                        envioEndpoint = 'http://localhost:3000/api/envios/nacional';
-                        diasEntrega = 3;
-                        tipoEnvio = 'Nacional';
-                        mensajeTipoEnvio = 'Linea Nacional';
-                    } else {
-                        console.log('⚠️ Tipo de línea no reconocido para envío automático:', tipoLinea.nombre);
-                        showMessage('Pedido Creado', 
-                            `✅ Pedido #${data.data.pedido.id} creado exitosamente!\n\n` +
-                            `💰 Total: Q${data.data.resumen.total}\n` +
-                            `📦 Productos: ${data.data.resumen.productos_vendidos}\n\n` +
-                            `⚠️ Tipo de línea "${tipoLinea.nombre}" no genera envío automático`,
-                            'success'
-                        );
-                        showAddSaleModal.value = false;
-                        fetchSales();
-                        return;
-                    }
-                    }
-                    
-                    // Calcular fecha de entrega estimada
-                    const fechaEntregaEstimada = new Date(Date.now() + diasEntrega * 24 * 60 * 60 * 1000);
-                    
-                    // Datos para crear el envío
-                    const envioData = {
-                        pedido_id: data.data.pedido.id,
-                        transporte: "Por definir",
-                        fecha_entrega_estimada: fechaEntregaEstimada.toISOString(),
-                        observaciones: `Pedido automático - ${mensajeTipoEnvio}`
-                    };
-
-                    console.log('📬 Generando envío y descarga PDF:', {
-                        tipo: mensajeTipoEnvio,
-                        endpoint: envioEndpoint,
-                        pedidoId: data.data.pedido.id
-                    });
-
-                    showMessage('Generando PDF...', 
-                        `✅ Pedido #${data.data.pedido.id} creado!\n\n📄 Generando y descargando PDF...`, 
-                        'info'
-                    );
-
-                    // DESCARGA DIRECTA CON FETCH API
-                    const envioResponse = await fetch(envioEndpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify(envioData)
-                    });
-
-                    console.log('📡 Respuesta:', envioResponse.status, envioResponse.headers.get('content-type'));
-
-                    if (envioResponse.ok) {
-                        const contentType = envioResponse.headers.get('content-type');
-                        
-                        if (contentType && contentType.includes('application/pdf')) {
-                            // Es un PDF - descargarlo
-                            const blob = await envioResponse.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `envio_${tipoEnvio.toLowerCase()}_${data.data.pedido.id}.pdf`;
-                            document.body.appendChild(a);
-                            a.click();
-                            a.remove();
-                            window.URL.revokeObjectURL(url);
-                            
-                            console.log('✅ PDF descargado');
-                            
-                            showMessage('¡Éxito Completo!', 
-                                `✅ Pedido #${data.data.pedido.id} creado y PDF descargado`, 
-                                'success'
-                            );
-                        } else {
-                            // Es JSON con error
-                            const errorData = await envioResponse.json();
-                            throw new Error(errorData.error || 'Error inesperado');
-                        }
-                    } else {
-                        const errorData = await envioResponse.json();
-                        throw new Error(errorData.error || 'Error del servidor');
-                    }
-                    
-                } catch (envioError) {
-                    console.error('🚨 Error en descarga PDF:', envioError);
-                    showMessage('Pedido Creado - Error en PDF', 
-                        `✅ Pedido #${data.data.pedido.id} creado exitosamente\n\n` +
-                        `🚨 Error al generar PDF: ${envioError.message}\n\n` +
-                        `Puede generar el envío manualmente desde el módulo de envíos.`,
-                        'warning'
-                    );
-                }
-            }
-
-            // Cerrar modal y actualizar
-            showAddSaleModal.value = false;
-            fetchSales();
-            
-        } catch (envioError) {
-            console.error('🚨 Error en proceso de envío automático:', envioError.message); // Mostrar mensaje real
-            showMessage('Pedido Creado - Error en Envío', 
-                `✅ PEDIDO CREADO EXITOSAMENTE\n\n` +
-                `🚨 ERROR INESPERADO AL GENERAR ENVÍO:\n` +
-                `${envioError.message}\n\n`, 
-                'error'
+        if (!response.ok) {
+          const errorData = await response.json();
+          
+          if (errorData.codigo_error === 'STOCK_INSUFICIENTE') {
+            showMessage(
+              'Stock Insuficiente', 
+              `${errorData.error}\n\nZapato: ${errorData.detalles.zapato}\nTalla: EU ${errorData.detalles.talla_eu}\nDisponible: ${errorData.detalles.stock_disponible}\nSolicitado: ${errorData.detalles.cantidad_solicitada}`,
+              'error'
             );
-        } finally {
-            creatingPedido.value = false;
+            return;
+          }
+          
+          throw new Error(errorData.error || `HTTP Error: ${response.status}`);
         }
+
+        const data = await response.json();
+
+        // Success message with updated structure
+        showMessage('Pedido Creado Exitosamente');
+
+        // Ofrecer descarga de envío si aplica
+        lastPedidoId.value = data.data.pedido.id;
+        lastTipoLinea.value = data.data.resumen.tipo_linea;
+        if (lastTipoLinea.value === 'Linea Nacional' || lastTipoLinea.value === 'Linea Importadora') {
+          showEnvioDialog.value = true;
+        }
+
+        // Close modal and refresh
+        showAddSaleModal.value = false;
+        fetchSales();
+        
+      } catch (error) {
+        console.error('Error al crear pedido:', error);
+        showMessage('Error', `Error al crear el pedido: ${error.message}`, 'error');
+      } finally {
+        creatingPedido.value = false;
+      }
     };
+
+    
+    const descargarEnvio = async () => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+        downloadingEnvio.value = true;
+
+        const endpoint = (lastTipoLinea.value === 'Linea Nacional')
+          ? 'http://localhost:3000/api/envios/nacional'
+          : 'http://localhost:3000/api/envios/importadora';
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ pedido_id: lastPedidoId.value })
+        });
+
+        if (!res.ok) {
+          let err = 'No se pudo generar el PDF';
+          try { const e = await res.json(); if (e && e.error) err = e.error; } catch (_) {}
+          showMessage('Error', err, 'error');
+          return;
+        }
+
+        const blob = await res.blob();
+        const cd = res.headers.get('Content-Disposition') || '';
+        const m = /filename="([^"]+)"/i.exec(cd);
+        const fileName = m?.[1] || 'envio.pdf';
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        showMessage('Descarga lista', `Se descargó ${fileName}`, 'success');
+      } catch (e) {
+        console.error('descargarEnvio error', e);
+        showMessage('Error', 'No se pudo descargar el envío', 'error');
+      } finally {
+        downloadingEnvio.value = false;
+        showEnvioDialog.value = false;
+      }
+    };
+
 
     const fetchSales = async () => {
       const token = checkAuth();
@@ -1167,8 +1059,6 @@ export default {
         }
         
         const data = await response.json();
-        console.log('Datos de ventas recibidos:', data);
-        
         sales.value = data.data || [];
         
       } catch (err) {
@@ -1246,7 +1136,6 @@ export default {
 
     const handleSaleSelection = (sale) => {
       selectedSale.value = sale;
-      console.log('Venta seleccionada:', sale);
     };
 
     const handleStatusUpdate = async ({ pedido_id, nuevo_estado }) => {
@@ -1299,14 +1188,13 @@ export default {
       return result;
     });
 
-    onMounted(() => {
+    onMounted(async () => {
+      await fetchVendedorActual(); // NUEVO: Cargar vendedor actual al montar
       fetchSales();
       fetchEstadosPedidos();
-
     });
 
     return {
-      // Estados
       sales,
       loading,
       error,
@@ -1322,7 +1210,6 @@ export default {
       newSale,
       clientes,
       zapatosDisponibles,
-      vendedores,
       metodosPago,
       estadosPedidos,
       filteredSales,
@@ -1333,9 +1220,10 @@ export default {
       showClienteDropdown,
       clienteSeleccionado,
       clientesFiltrados,
-      calculatedSubtotal,
       calculatedTotal,
       isValidForm,
+      tiposLineaProducto,
+      vendedorActual,
       showMessage,
       hideMessage,
       fetchSales,
@@ -1352,7 +1240,7 @@ export default {
       getMaxStockForTalla,
       onZapatoChange,
       onTallaChange,
-      updateSubtotal,
+      updateTotal,
       agregarTalla,
       eliminarTalla,
       calcularSubtotalProducto,
@@ -1368,45 +1256,26 @@ export default {
       limpiarClienteSeleccionado,
       abrirModalNuevoCliente,
       cerrarDropdownCliente,
-      tiposLineaProducto,
-    };
+      showEnvioDialog,
+      lastPedidoId,
+      lastTipoLinea,
+      downloadingEnvio,
+      descargarEnvio
+    };;
   }
 }
 </script>
 
 <style scoped>
-
+/* Base Styles */
 .sales-management-container {
   width: 100%;
+  min-height: 100vh;
   box-sizing: border-box;
   overflow-x: hidden;
 }
 
-.form-group#tipo-linea-group {
-  margin: 20px 0;
-  padding: 15px;
-  border: 2px solid #17a2b8;
-  border-radius: 8px;
-  background-color: #e8f7fa;
-}
-
-#tipo-linea-label {
-  font-weight: bold;
-  color: #0d6efd;
-  font-size: 16px;
-  display: block;
-  margin-bottom: 10px;
-}
-
-#id_tipo_linea_producto {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #0dcaf0;
-  border-radius: 6px;
-  font-size: 16px;
-  background-color: white;
-}
-
+/* Content Section */
 .content-section {
   padding: 15px;
   display: flex;
@@ -1419,37 +1288,44 @@ export default {
 }
 
 .page-title {
-  font-size: 20px;
+  font-size: clamp(20px, 4vw, 24px);
   font-weight: bold;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   text-align: center;
   color: #333;
   width: 100%;
+  word-wrap: break-word;
 }
 
+/* Tabs Navigation */
 .tabs-navigation {
   display: flex;
   background-color: #f8f9fa;
   border-radius: 8px;
   padding: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
   width: 100%;
-  max-width: 600px;
+  max-width: min(600px, 100vw - 30px);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-sizing: border-box;
 }
 
 .tab-button {
   flex: 1;
-  padding: 12px 20px;
+  padding: 12px 8px;
   border: none;
   background-color: transparent;
   color: #6c757d;
   font-weight: 500;
-  font-size: 14px;
+  font-size: clamp(12px, 3vw, 14px);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .tab-button:hover {
@@ -1465,7 +1341,12 @@ export default {
 
 .tab-content {
   width: 100%;
+  max-width: min(1200px, 100vw - 30px);
   animation: fadeIn 0.3s ease-in-out;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 @keyframes fadeIn {
@@ -1479,19 +1360,306 @@ export default {
   }
 }
 
+/* Actions Section */
+.actions-section {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: min(800px, 100vw - 30px);
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.action-button {
+  padding: 12px 16px;
+  border: 2px solid #007bff;
+  border-radius: 6px;
+  background-color: white;
+  color: #007bff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: clamp(14px, 3vw, 16px);
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.action-button:hover:not(:disabled) {
+  background-color: #007bff;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.add-button {
+  border-color: #28a745;
+  color: #28a745;
+}
+
+.add-button:hover:not(:disabled) {
+  background-color: #28a745;
+  color: white;
+}
+
+/* Filter Section */
+.filter-section {
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: min(800px, 100vw - 30px);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  box-sizing: border-box;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.filter-group label {
+  font-weight: 600;
+  color: #495057;
+  font-size: clamp(12px, 3vw, 14px);
+  word-wrap: break-word;
+}
+
+.filter-group input {
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  font-size: clamp(12px, 3vw, 14px);
+  transition: border-color 0.2s ease;
+  background-color: white;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filter-group input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-direction: column;
+  width: 100%;
+}
+
+.filter-button {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 6px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: clamp(12px, 3vw, 14px);
+  font-weight: 500;
+  width: 100%;
+}
+
+.filter-button:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+
+.filter-button.reset {
+  background-color: #6c757d;
+}
+
+.filter-button.reset:hover {
+  background-color: #5a6268;
+}
+
+/* List Title */
+.list-title {
+  margin: 20px 0;
+  font-size: clamp(18px, 4vw, 20px);
+  font-weight: bold;
+  text-align: center;
+  width: 100%;
+  color: #333;
+  word-wrap: break-word;
+}
+
+/* Loading and Error States */
+.loading-indicator {
+  text-align: center;
+  padding: 30px 15px;
+  font-style: italic;
+  color: #666;
+  font-size: clamp(14px, 3vw, 16px);
+  width: 100%;
+}
+
+.error-message {
+  text-align: center;
+  padding: 20px;
+  color: #dc3545;
+  font-weight: bold;
+  border: 2px solid #dc3545;
+  border-radius: 6px;
+  background-color: #f8d7da;
+  margin: 15px 0;
+  width: 100%;
+  max-width: min(600px, 100vw - 30px);
+  box-sizing: border-box;
+  font-size: clamp(12px, 3vw, 14px);
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1000;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding-top: 20px;
+}
+
+.modal-content {
+  background: white;
+  padding: clamp(15px, 4vw, 25px);
+  border-radius: 8px;
+  width: 100%;
+  max-width: min(800px, 100vw - 20px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+.details-modal {
+  max-width: min(900px, 100vw - 20px);
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 10px;
+  font-size: clamp(18px, 4vw, 22px);
+  word-wrap: break-word;
+}
+
+.close {
+  float: right;
+  font-size: clamp(20px, 4vw, 28px);
+  cursor: pointer;
+  padding: 5px;
+  line-height: 0.8;
+  color: #666;
+  margin-top: -10px;
+}
+
+.close:hover {
+  color: #333;
+}
+
+/* Vendedor Section */
+.vendedor-section {
+  margin: 20px 0;
+  padding: clamp(12px, 3vw, 20px);
+  border: 2px solid #28a745;
+  border-radius: 8px;
+  background-color: #f8fff8;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vendedor-section h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #28a745;
+  font-size: clamp(16px, 4vw, 18px);
+  border-bottom: 2px solid #dee2e6;
+  padding-bottom: 8px;
+}
+
+.vendedor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vendedor-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  background-color: #28a745;
+  color: white;
+  border-radius: 6px;
+  font-weight: bold;
+  flex-wrap: wrap;
+}
+
+.vendedor-nombre {
+  font-size: clamp(14px, 3vw, 16px);
+}
+
+.vendedor-rol {
+  background-color: rgba(255,255,255,0.2);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+}
+
+.vendedor-usuario {
+  color: #6c757d;
+  font-style: italic;
+  padding-left: 15px;
+  font-size: clamp(11px, 3vw, 13px);
+}
+
+/* Cliente Section */
 .cliente-section {
   margin: 20px 0;
-  padding: 20px;
+  padding: clamp(15px, 4vw, 25px);
   border: 2px solid #007bff;
   border-radius: 8px;
   background-color: #f8f9ff;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .cliente-section h3 {
   margin-top: 0;
   margin-bottom: 15px;
   color: #007bff;
-  font-size: 18px;
+  font-size: clamp(16px, 4vw, 18px);
   border-bottom: 2px solid #dee2e6;
   padding-bottom: 8px;
 }
@@ -1506,8 +1674,9 @@ export default {
   padding: 12px 15px;
   border: 2px solid #e9ecef;
   border-radius: 6px;
-  font-size: 16px;
+  font-size: clamp(14px, 3vw, 16px);
   transition: border-color 0.3s ease;
+  box-sizing: border-box;
 }
 
 .cliente-search-input:focus {
@@ -1521,14 +1690,15 @@ export default {
   top: 100%;
   left: 0;
   right: 0;
-  max-height: 300px;
+  max-height: 250px;
   overflow-y: auto;
   background-color: white;
-  border: 1px solid #dee2e6;
+  border: 2px solid #e9ecef;
   border-top: none;
   border-radius: 0 0 6px 6px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   z-index: 1000;
+  -webkit-overflow-scrolling: touch;
 }
 
 .cliente-option {
@@ -1536,6 +1706,7 @@ export default {
   cursor: pointer;
   border-bottom: 1px solid #f8f9fa;
   transition: background-color 0.2s ease;
+  word-break: break-word;
 }
 
 .cliente-option:hover {
@@ -1551,10 +1722,12 @@ export default {
   align-items: center;
   gap: 10px;
   margin-bottom: 4px;
+  flex-wrap: wrap;
 }
 
 .cliente-info strong {
   color: #2c3e50;
+  font-size: clamp(12px, 3vw, 14px);
 }
 
 .empresa-tag {
@@ -1568,7 +1741,7 @@ export default {
 
 .cliente-detalles small {
   color: #6c757d;
-  font-size: 12px;
+  font-size: clamp(11px, 3vw, 12px);
 }
 
 .no-cliente-found {
@@ -1576,6 +1749,7 @@ export default {
   text-align: center;
   color: #6c757d;
   font-style: italic;
+  font-size: clamp(12px, 3vw, 14px);
 }
 
 .btn-link {
@@ -1597,18 +1771,20 @@ export default {
   background-color: #e8f5e8;
   border: 1px solid #28a745;
   border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .cliente-seleccionado h4 {
   margin-top: 0;
   margin-bottom: 15px;
   color: #28a745;
-  font-size: 16px;
+  font-size: clamp(14px, 3vw, 16px);
 }
 
 .cliente-details-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 12px;
   margin-bottom: 15px;
 }
@@ -1622,58 +1798,99 @@ export default {
 .detail-item label {
   font-weight: 600;
   color: #495057;
-  font-size: 13px;
+  font-size: clamp(11px, 3vw, 13px);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .detail-item span {
   color: #2c3e50;
-  font-size: 14px;
+  font-size: clamp(12px, 3vw, 14px);
   padding: 6px 8px;
   background-color: white;
   border-radius: 4px;
   border: 1px solid #dee2e6;
+  word-break: break-word;
 }
 
 .btn-limpiar-cliente {
   background-color: #6c757d;
   color: white;
   border: none;
-  padding: 8px 15px;
+  padding: 10px 15px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: clamp(12px, 3vw, 13px);
   transition: background-color 0.2s;
+  width: 100%;
 }
 
 .btn-limpiar-cliente:hover {
   background-color: #5a6268;
 }
 
+/* Form Group Styles */
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #495057;
+  font-size: clamp(12px, 3vw, 14px);
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  font-size: clamp(14px, 3vw, 16px);
+  box-sizing: border-box;
+  transition: border-color 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Products Section */
 .productos-section {
-  margin: 20px 0;
-  padding: 20px;
+  margin: 25px 0;
+  padding: clamp(15px, 4vw, 25px);
   border: 2px solid #e0e0e0;
   border-radius: 8px;
   background-color: #f9f9f9;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .productos-section > label {
   display: block;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   font-weight: bold;
   color: #333;
-  font-size: 16px;
+  font-size: clamp(14px, 3vw, 16px);
 }
 
 .producto-item {
   margin-bottom: 25px;
-  padding: 20px;
+  padding: clamp(15px, 4vw, 20px);
   border: 2px solid #dee2e6;
   border-radius: 8px;
   background-color: white;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .producto-header {
@@ -1688,21 +1905,22 @@ export default {
 .producto-header h4 {
   margin: 0;
   color: #495057;
-  font-size: 16px;
+  font-size: clamp(14px, 3vw, 16px);
 }
 
 .remove-product-button-header {
   background-color: #dc3545;
   color: white;
   border: none;
-  width: 30px;
-  height: 30px;
+  width: clamp(28px, 8vw, 35px);
+  height: clamp(28px, 8vw, 35px);
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: clamp(12px, 3vw, 16px);
+  flex-shrink: 0;
 }
 
 .remove-product-button-header:hover {
@@ -1711,37 +1929,42 @@ export default {
 
 .zapato-selection {
   margin-bottom: 20px;
+  width: 100%;
 }
 
 .zapato-selection label {
   display: block;
   font-weight: bold;
   color: #555;
-  font-size: 14px;
-  margin-bottom: 5px;
+  font-size: clamp(12px, 3vw, 14px);
+  margin-bottom: 6px;
 }
 
 .zapato-select {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  font-size: clamp(12px, 3vw, 14px);
+  box-sizing: border-box;
 }
 
+/* Tallas Section */
 .tallas-section {
   margin-top: 20px;
   padding: 15px;
   background-color: #f8f9fa;
   border-radius: 6px;
   border: 1px solid #dee2e6;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tallas-label {
   display: block;
   font-weight: bold;
   color: #495057;
-  font-size: 15px;
+  font-size: clamp(13px, 3vw, 15px);
   margin-bottom: 15px;
 }
 
@@ -1756,35 +1979,41 @@ export default {
   background-color: white;
   border: 1px solid #dee2e6;
   border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .talla-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr auto;
+  grid-template-columns: 1fr;
   gap: 15px;
   align-items: end;
+  width: 100%;
 }
 
 .talla-selector,
 .cantidad-input-group {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
+  width: 100%;
 }
 
 .talla-selector label,
 .cantidad-input-group label {
-  font-weight: bold;
+  font-weight: 600;
   color: #555;
-  font-size: 13px;
+  font-size: clamp(11px, 3vw, 13px);
 }
 
 .talla-select,
 .cantidad-input {
-  padding: 8px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 10px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  font-size: clamp(12px, 3vw, 14px);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .talla-select option.talla-agotada {
@@ -1792,16 +2021,23 @@ export default {
   font-style: italic;
 }
 
+.talla-repetida {
+  color: #dc3545 !important;
+  font-style: italic;
+}
+
 .stock-info-container {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 10px;
+  width: 100%;
 }
 
 .stock-info-badge {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   background-color: #e3f2fd;
   border: 1px solid #2196f3;
@@ -1810,16 +2046,15 @@ export default {
 }
 
 .stock-label {
-  font-size: 11px;
+  font-size: clamp(10px, 3vw, 11px);
   color: #1565c0;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 2px;
 }
 
 .stock-number {
-  font-size: 16px;
+  font-size: clamp(12px, 3vw, 14px);
   font-weight: bold;
   color: #1976d2;
 }
@@ -1828,14 +2063,12 @@ export default {
   background-color: #dc3545;
   color: white;
   border: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 6px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
+  font-size: clamp(11px, 3vw, 12px);
 }
 
 .remove-talla-button:hover {
@@ -1844,9 +2077,9 @@ export default {
 
 .stock-error {
   color: #dc3545;
-  font-size: 12px;
+  font-size: clamp(11px, 3vw, 12px);
   margin-top: 8px;
-  padding: 5px 8px;
+  padding: 8px;
   background-color: #f8d7da;
   border: 1px solid #f5c6cb;
   border-radius: 4px;
@@ -1855,48 +2088,52 @@ export default {
 .add-talla-button {
   background-color: #17a2b8;
   color: white;
-  padding: 8px 15px;
+  padding: 10px 15px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
-  margin-top: 10px;
+  font-size: clamp(12px, 3vw, 13px);
+  margin-top: 15px;
+  width: 100%;
 }
 
 .add-talla-button:hover {
   background-color: #138496;
 }
 
+/* Precio Section */
 .precio-section {
   margin-top: 15px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 }
 
 .precio-section label {
   font-weight: bold;
   color: #555;
-  font-size: 14px;
+  font-size: clamp(12px, 3vw, 14px);
 }
 
 .precio-display {
-  font-size: 18px;
+  font-size: clamp(16px, 4vw, 18px);
   font-weight: bold;
   color: #28a745;
-  padding: 8px 12px;
+  padding: 10px 15px;
   background-color: #e8f5e8;
-  border-radius: 4px;
+  border-radius: 6px;
+  text-align: center;
 }
 
 .subtotal-producto {
   margin-top: 15px;
-  text-align: right;
+  text-align: center;
   color: #495057;
-  font-size: 16px;
-  padding: 10px;
+  font-size: clamp(14px, 3vw, 16px);
+  padding: 12px;
   background-color: #f8f9fa;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .add-product-button {
@@ -1904,10 +2141,10 @@ export default {
   color: white;
   padding: 12px 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 16px;
-  margin-top: 15px;
+  font-size: clamp(14px, 3vw, 16px);
+  margin-top: 20px;
   width: 100%;
 }
 
@@ -1915,283 +2152,82 @@ export default {
   background-color: #218838;
 }
 
+/* Totales Section */
 .totales-section {
   background-color: #e9ecef;
   padding: 20px;
-  border-radius: 6px;
-  margin: 20px 0;
+  border-radius: 8px;
+  margin: 25px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .totales-display {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.total-row {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 16px;
 }
 
-.total-row:last-child {
-  font-size: 18px;
+.total-final {
+  font-size: clamp(18px, 4vw, 22px);
   color: #28a745;
-  border-top: 2px solid #dee2e6;
-  padding-top: 10px;
-  margin-top: 10px;
+  background-color: white;
+  padding: 15px 25px;
+  border-radius: 8px;
+  border: 2px solid #28a745;
+  box-shadow: 0 2px 4px rgba(40,167,69,0.2);
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
+/* Modal Actions */
 .modal-actions {
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 25px;
+  width: 100%;
+}
+
+.submit-button,
+.cancel-button {
+  padding: 14px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: clamp(14px, 3vw, 16px);
+  font-weight: 600;
+  transition: all 0.3s ease;
+  width: 100%;
 }
 
 .submit-button {
-  flex: 1;
-  padding: 12px;
   background-color: #28a745;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background-color 0.2s;
 }
 
 .submit-button:hover:not(:disabled) {
   background-color: #218838;
+  transform: translateY(-1px);
 }
 
 .submit-button:disabled {
   background-color: #6c757d;
   cursor: not-allowed;
+  transform: none;
 }
 
 .cancel-button {
-  flex: 1;
-  padding: 12px;
   background-color: #6c757d;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
 }
 
 .cancel-button:hover {
   background-color: #5a6268;
 }
 
-.actions-section {
-  margin: 15px 0;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  gap: 8px;
-}
-
-.filter-section {
-  margin-bottom: 15px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-}
-
-.action-button {
-  padding: 12px 16px;
-  border: 1px solid #333;
-  border-radius: 4px;
-  background-color: white;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  color: #333;
-  width: 100%;
-  font-size: 16px;
-  text-align: center;
-}
-
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 10px;
-  box-sizing: border-box;
-}
-
-.modal-content {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  width: 100%;
-  max-width: 800px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.details-modal {
-  max-width: 700px;
-}
-
-.modal-content h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: #333;
-  border-bottom: 2px solid #f0f0f0;
-  padding-bottom: 10px;
-}
-
-.close {
-  float: right;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 5px;
-  line-height: 0.8;
-  color: #666;
-}
-
-.close:hover {
-  color: #333;
-}
-
-.form-group {
-  margin-bottom: 15px;
-  text-align: left;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-  box-sizing: border-box;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.filter-group label {
-  font-weight: bold;
-  color: #333;
-  font-size: 14px;
-}
-
-.filter-group input {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-  background-color: white;
-}
-
-.filter-buttons {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-  flex-direction: column;
-}
-
-.filter-button {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  background-color: #4CAF50;
-  color: white;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  font-size: 14px;
-}
-
-.filter-button:hover {
-  background-color: #45a049;
-}
-
-.filter-button.reset {
-  background-color: #6c757d;
-}
-
-.filter-button.reset:hover {
-  background-color: #5a6268;
-}
-
-.action-button:hover {
-  background-color: #f0f0f0;
-}
-
-.action-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.add-button:hover {
-  color: #4CAF50;
-  border-color: #4CAF50;
-}
-
-.view-button:hover {
-  color: #2196F3;
-  border-color: #2196F3;
-}
-
-.refresh-button:hover {
-  color: #4CAF50;
-  border-color: #4CAF50;
-}
-
-.list-title {
-  margin-top: 15px;
-  margin-bottom: 10px;
-  font-size: 18px;
-  font-weight: bold;
-  text-align: center;
-  width: 100%;
-  color: #333;
-}
-
-.loading-indicator {
-  text-align: center;
-  padding: 40px 20px;
-  font-style: italic;
-  color: #666;
-  font-size: 16px;
-}
-
-.error-message {
-  text-align: center;
-  padding: 20px;
-  color: #dc3545;
-  font-weight: bold;
-  border: 1px solid #dc3545;
-  border-radius: 4px;
-  background-color: #f8d7da;
-  margin: 15px 0;
-}
-
+/* Sale Details */
 .sale-details {
   display: flex;
   flex-direction: column;
@@ -2209,13 +2245,14 @@ export default {
   margin-top: 0;
   margin-bottom: 15px;
   color: #007bff;
-  font-size: 18px;
+  font-size: clamp(14px, 3vw, 16px);
 }
 
 .detail-section p {
   margin: 8px 0;
-  font-size: 14px;
+  font-size: clamp(12px, 3vw, 14px);
   line-height: 1.5;
+  word-wrap: break-word;
 }
 
 .detail-section strong {
@@ -2223,6 +2260,41 @@ export default {
   font-weight: 600;
 }
 
+/* Utility Classes */
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: clamp(12px, 3vw, 14px);
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: clamp(12px, 3vw, 14px);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.btn-primary:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Status Styles */
 .status-completed {
   background-color: #4caf50;
   color: white;
@@ -2268,103 +2340,210 @@ export default {
   font-weight: bold;
 }
 
+/* Responsive Breakpoints */
 
-@media (max-width: 576px) {
+/* Mobile Devices - up to 768px */
+@media (max-width: 768px) {
+  .content-section {
+    padding: 10px;
+    margin-top: 50px;
+  }
+  
   .tabs-navigation {
     flex-direction: column;
     gap: 4px;
+    max-width: 100%;
   }
   
   .tab-button {
-    padding: 10px 15px;
-    font-size: 13px;
+    width: 100%;
+    padding: 14px 16px;
+  }
+  
+  .actions-section {
+    gap: 8px;
+  }
+  
+  .filter-section {
+    padding: 15px;
+  }
+  
+  .filter-buttons {
+    gap: 8px;
+  }
+  
+  .modal {
+    padding: 5px;
+    align-items: flex-start;
+    padding-top: 10px;
+  }
+  
+  .modal-content {
+    max-height: 95vh;
+    padding: 15px;
+  }
+  
+  .vendedor-badge {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
   }
   
   .cliente-details-grid {
     grid-template-columns: 1fr;
-  }
-  
-  .cliente-section {
-    padding: 15px;
+    gap: 8px;
   }
   
   .talla-row {
-    grid-template-columns: 1fr;
     gap: 10px;
   }
   
-  .remove-talla-button {
-    width: 100%;
-    height: auto;
-    border-radius: 4px;
-    padding: 8px;
-    margin-top: 10px;
+  .stock-info-container {
+    justify-content: flex-start;
   }
-
-  .totales-display {
-    text-align: center;
+  
+  .precio-section {
+    align-items: stretch;
   }
-
-  .modal-actions {
-    flex-direction: column;
+  
+  .sale-details {
+    gap: 15px;
   }
   
   .detail-section {
     padding: 12px;
   }
-  
-  .detail-section h3 {
-    font-size: 16px;
+}
+
+/* Small Mobile - up to 480px */
+@media (max-width: 480px) {
+  .content-section {
+    padding: 8px;
   }
   
-  .stock-info-badge {
-    padding: 6px 10px;
+  .modal {
+    padding: 5px;
   }
   
-  .stock-label {
-    font-size: 10px;
+  .modal-content {
+    padding: 12px;
   }
   
-  .stock-number {
-    font-size: 14px;
+  .cliente-dropdown {
+    max-height: 200px;
+  }
+  
+  .vendedor-section,
+  .cliente-section,
+  .productos-section {
+    padding: 12px;
+  }
+  
+  .producto-item {
+    padding: 12px;
+  }
+  
+  .tallas-section {
+    padding: 12px;
+  }
+  
+  .talla-item {
+    padding: 12px;
   }
 }
 
-@media (min-width: 577px) {
-  .content-section {
-    padding: 20px;
-    margin-top: 70px;
-  }
-  
-  .page-title {
-    font-size: 22px;
-  }
-  
-  .tabs-navigation {
-    max-width: 500px;
-  }
-  
-  .tab-button {
-    padding: 14px 24px;
-    font-size: 15px;
-  }
-  
+/* Tablet - 768px to 1024px */
+@media (min-width: 768px) and (max-width: 1024px) {
   .actions-section {
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: center;
     gap: 15px;
   }
   
   .action-button {
-    width: auto;
+    flex: 1;
     min-width: 150px;
+    max-width: 200px;
+  }
+  
+  .filter-section {
+    padding: 20px;
+  }
+  
+  .filter-buttons {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .filter-button {
+    flex: 1;
+    max-width: 150px;
+  }
+  
+  .cliente-details-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .talla-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+  
+  .remove-talla-button {
+    grid-column: span 2;
+    margin-top: 10px;
+  }
+  
+  .modal-actions {
+    flex-direction: row;
+    justify-content: center;
+    gap: 15px;
+  }
+  
+  .submit-button,
+  .cancel-button {
+    flex: 1;
+    max-width: 200px;
+  }
+  
+  .sale-details {
+    flex-direction: row;
+    gap: 25px;
+  }
+  
+  .detail-section {
+    flex: 1;
+  }
+}
+
+/* Desktop - 1024px and up */
+@media (min-width: 1024px) {
+  .content-section {
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 80px;
+  }
+  
+  .actions-section {
+    flex-direction: row;
+    justify-content: space-between;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .action-button {
+    min-width: 150px;
+    width: auto;
   }
   
   .filter-section {
     flex-direction: row;
-    flex-wrap: wrap;
     align-items: flex-end;
-    gap: 15px;
+    gap: 20px;
   }
   
   .filter-group {
@@ -2376,161 +2555,160 @@ export default {
     flex-direction: row;
     margin-top: 0;
     align-items: flex-end;
+    flex: 0 0 auto;
   }
   
   .filter-button {
-    min-width: 100px;
+    min-width: 120px;
+    width: auto;
   }
-
+  
+  .cliente-details-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+  
   .talla-row {
     grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 20px;
   }
   
-  .cliente-details-grid {
-    grid-template-columns: 1fr 1fr;
+  .remove-talla-button {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    margin-top: 0;
+    padding: 0;
+  }
+  
+  .stock-info-container {
+    justify-content: center;
+    margin-top: 0;
   }
 }
 
-@media (min-width: 768px) {
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .tab-button, 
+  .action-button, 
+  .filter-button,
+  .cliente-option,
+  .remove-product-button-header,
+  .remove-talla-button,
+  .add-talla-button,
+  .add-product-button,
+  .submit-button,
+  .cancel-button,
+  .btn-limpiar-cliente {
+    min-height: 44px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  
+  /* Prevent zoom on iOS */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Landscape Mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .modal {
+    align-items: flex-start;
+    padding-top: 10px;
+  }
+  
+  .modal-content {
+    max-height: 90vh;
+  }
+  
+  .cliente-dropdown {
+    max-height: 120px;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .tab-button.active,
+  .action-button:focus,
+  .filter-button:focus {
+    outline: 2px solid #000;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .tab-button,
+  .action-button,
+  .filter-button,
+  .cliente-option {
+    transition: none;
+  }
+  
+  .tab-content {
+    animation: none;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .modal,
+  .tabs-navigation,
+  .actions-section,
+  .filter-section {
+    display: none;
+  }
+  
   .content-section {
-    max-width: 1400px;
-    margin-left: auto;
-    margin-right: auto;
-    margin-top: 100px;
-  }
-  
-  .page-title {
-    font-size: 24px;
-  }
-  
-  .tabs-navigation {
-    max-width: 600px;
-  }
-  
-  .tab-button {
-    padding: 16px 28px;
-    font-size: 16px;
-  }
-  
-  .list-title {
-    font-size: 20px;
-  }
-  
-  .modal-content {
-    max-width: 900px;
-  }
-
-  .talla-row {
-    grid-template-columns: 2.5fr 1fr 1fr auto;
-  }
-
-  .totales-section {
-    max-width: 400px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  
-  .sale-details {
-    flex-direction: row;
-    gap: 30px;
-  }
-  
-  .detail-section {
-    flex: 1;
-  }
-  
-  .cliente-details-grid {
-    grid-template-columns: 1fr 1fr 1fr;
+    margin-top: 0;
+    padding: 0;
   }
 }
 
-@media (min-width: 1200px) {
-  .tabs-navigation {
-    max-width: 700px;
-  }
-  
-  .talla-row {
-    grid-template-columns: 3fr 1fr 1fr auto;
+/* Scrolling Improvements */
+.modal {
+  -webkit-overflow-scrolling: touch;
+}
+
+.cliente-dropdown {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Text Overflow Prevention */
+.tab-button,
+.action-button,
+.filter-button {
+  word-wrap: break-word;
+}
+
+/* Form Element Safety */
+input, select, textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Additional Small Screen Safety */
+@media (max-width: 320px) {
+  .content-section {
+    padding: 5px;
   }
   
   .modal-content {
-    max-width: 1000px;
+    padding: 10px;
   }
-}
-
-.tab-button {
-  position: relative;
-  overflow: hidden;
-}
-
-.tab-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  transition: left 0.5s;
-}
-
-.tab-button:hover::before {
-  left: 100%;
-}
-
-.tabs-navigation {
-  border: 1px solid #e9ecef;
-}
-
-.tab-content {
-  min-height: 400px;
-}
-
-.tab-loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 200px;
-  color: #6c757d;
-  font-style: italic;
-}
-
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.talla-repetida {
-  color: #dc3545 !important;
-  font-style: italic;
-}
-
-.debug-info {
-  color: #28a745;
-  font-weight: bold;
-  font-size: 11px;
-}
-
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
-
-.tallas-grid:empty::after {
-  content: 'No hay tallas agregadas';
-  display: block;
-  text-align: center;
-  color: #6c757d;
-  font-style: italic;
-  padding: 20px;
-}
-
-.producto-item:hover {
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  transform: translateY(-2px);
-  transition: all 0.2s ease;
-}
-
-.stock-info-badge:hover {
-  transform: scale(1.05);
-  transition: transform 0.2s ease;
+  
+  .vendedor-section,
+  .cliente-section,
+  .productos-section {
+    padding: 10px;
+  }
+  
+  .producto-item {
+    padding: 8px;
+  }
+  
+  .talla-item {
+    padding: 8px;
+  }
 }
 </style>

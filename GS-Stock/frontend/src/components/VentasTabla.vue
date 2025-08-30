@@ -14,7 +14,6 @@
             <th>Fecha</th>
             <th>Método Pago</th>
             <th>Estado</th>
-            <th>Subtotal</th>
             <th>Total</th>
             <th>Acciones</th>
           </tr>
@@ -57,7 +56,6 @@
                 </option>
               </select>
             </td>
-            <td class="subtotal-cell">Q{{ formatCurrency(sale.subtotal) }}</td>
             <td class="total-cell">
               <strong>Q{{ formatCurrency(sale.total) }}</strong>
             </td>
@@ -301,13 +299,6 @@ export default {
 
 .estado-cell {
   min-width: 130px;
-}
-
-.subtotal-cell {
-  min-width: 100px;
-  text-align: right;
-  color: #495057;
-  font-weight: 500;
 }
 
 .total-cell {
