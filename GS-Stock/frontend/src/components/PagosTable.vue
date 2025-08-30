@@ -33,7 +33,8 @@
             <th>Cliente</th>
             <th>Pedido #</th>
             <th>Vendedor</th>
-            <th>Total Pedido</th>
+            <th>Total Pedido Original</th>
+            <th>Saldo Pendiente</th>
             <th>Estado Pago</th>
             <th>Método de Pago</th>
             <th>Monto Pagado</th>
@@ -44,13 +45,13 @@
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="11" class="loading-row">
+            <td colspan="12" class="loading-row">
               Cargando pagos...
             </td>
           </tr>
           
           <tr v-else-if="filteredData.length === 0">
-            <td colspan="11" class="no-data-row">
+            <td colspan="12" class="no-data-row">
               No se encontraron pagos
             </td>
           </tr>
@@ -61,9 +62,10 @@
               {{ pago.cliente_nombre || '' }} {{ pago.cliente_apellido || '' }}
               <span v-if="pago.empresa" class="empresa-tag">({{ pago.empresa }})</span>
             </td>
-            <td>#{{ pago.pedido_id }}</td>
+            <td>#{{ pago.id_pedido }}</td>
             <td>{{ pago.vendedor_nombre || 'N/A' }}</td>
-            <td>Q{{ formatCurrency(pago.total_pedido) }}</td>
+            <td>Q{{ formatCurrency(pago.pedido_original_total) }}</td>
+            <td>Q{{ formatCurrency(pago.remaining_balance) }}</td>
             <td>
               <span 
                 class="status-badge"
@@ -169,6 +171,8 @@ export default {
   }
 }
 </script>
+
+
 
 <style scoped>
 .pagos-table {

@@ -14,6 +14,7 @@ ON CONFLICT (Estado) DO NOTHING;
 CREATE TABLE pagos_pedidos (
     Id SERIAL PRIMARY KEY,
     Id_Pedido INT NOT NULL,
+    total_pedido DECIMAL(10,2),
     Id_Metodos_De_Pago INT NOT NULL,
     Monto_Pagado DECIMAL(10,2) NOT NULL CHECK (Monto_Pagado >= 0),
     Vuelto DECIMAL(10,2) DEFAULT NULL CHECK (Vuelto >= 0),

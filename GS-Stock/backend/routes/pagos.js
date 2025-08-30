@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
@@ -79,7 +80,7 @@ router.post('/', auth, async (req, res) => {
     
     const { id_pedido, id_metodo_pago, monto_pagado, observaciones } = req.body;
     
-    // Get the order details
+    // Get the order details including the current total from pedidos
     const orderQuery = `
       SELECT p.Total, p.Id_Cliente, p.Id_Pedido_Estado_Pago
       FROM Pedidos p
@@ -93,50 +94,69 @@ router.post('/', auth, async (req, res) => {
     }
     
     const order = orderResult.rows[0];
-    const currentTotal = parseFloat(order.total);
+    const originalTotal = parseFloat(order.total);
     
-    if (currentTotal <= 0 && order.id_pedido_estado_pago === 2) {
+    if (originalTotal <= 0 && order.id_pedido_estado_pago === 2) {
       throw new Error('Este pedido ya ha sido pagado completamente');
     }
     
-    // Calculate change if payment amount exceeds the remaining total
-    let vuelto = 0;
-    let newTotal = currentTotal - monto_pagado;
+    // Get the latest payment record for this order to get the current remaining balance
+    const latestPaymentQuery = `
+      SELECT total_pedido 
+      FROM pagos_pedidos 
+      WHERE Id_Pedido = $1 
+      ORDER BY Id DESC 
+      LIMIT 1
+    `;
     
-    if (newTotal < 0) {
-      vuelto = Math.abs(newTotal);
-      newTotal = 0;
+    const latestPaymentResult = await client.query(latestPaymentQuery, [id_pedido]);
+    
+    let currentBalance = originalTotal;
+    
+    // If there are previous payments, use the latest total_pedido (which is the remaining balance)
+    if (latestPaymentResult.rows.length > 0) {
+      currentBalance = parseFloat(latestPaymentResult.rows[0].total_pedido);
     }
     
-    // Insert payment record
+    // Calculate change if payment amount exceeds the remaining balance
+    let vuelto = 0;
+    let newBalance = currentBalance - monto_pagado;
+    
+    if (newBalance < 0) {
+      vuelto = Math.abs(newBalance);
+      newBalance = 0;
+    }
+    
+    // Insert payment record with the NEW balance (after this payment)
     const insertPaymentQuery = `
       INSERT INTO pagos_pedidos 
-        (Id_Pedido, Id_Metodos_De_Pago, Monto_Pagado, Vuelto, Observaciones, Fecha_De_Pago)
-      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        (Id_Pedido, total_pedido, Id_Metodos_De_Pago, Monto_Pagado, Vuelto, Observaciones, Fecha_De_Pago)
+      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
       RETURNING *
     `;
     
     const paymentResult = await client.query(insertPaymentQuery, [
       id_pedido, 
+      newBalance, // Store the NEW remaining balance after this payment
       id_metodo_pago, 
       monto_pagado, 
       vuelto > 0 ? vuelto : null, 
       observaciones
     ]);
     
-    // Update order total and payment status
+    // Update order payment status based on the new balance
     let paymentStatus = 1; // pendiente
-    if (newTotal <= 0) {
+    if (newBalance <= 0) {
       paymentStatus = 2; // pagado
     }
     
-    const updateOrderQuery = `
+    const updateOrderStatusQuery = `
       UPDATE Pedidos 
-      SET Total = $1, Id_Pedido_Estado_Pago = $2
-      WHERE Id = $3
+      SET Id_Pedido_Estado_Pago = $1
+      WHERE Id = $2
     `;
     
-    await client.query(updateOrderQuery, [newTotal, paymentStatus, id_pedido]);
+    await client.query(updateOrderStatusQuery, [paymentStatus, id_pedido]);
     
     await client.query('COMMIT');
     
@@ -144,7 +164,7 @@ router.post('/', auth, async (req, res) => {
       success: true,
       data: {
         payment: paymentResult.rows[0],
-        newOrderTotal: newTotal,
+        newBalance: newBalance,
         paymentStatus: paymentStatus === 2 ? 'pagado' : 'pendiente',
         vuelto: vuelto > 0 ? vuelto : 0
       },
@@ -170,12 +190,13 @@ router.get('/', auth, async (req, res) => {
       SELECT 
         pp.Id,
         pp.Id_Pedido,
+        pp.total_pedido as remaining_balance,
         pp.Monto_Pagado,
         pp.Vuelto,
         pp.Observaciones,
         pp.Fecha_De_Pago,
         mdp.Tipo as metodo_pago,
-        p.Total as total_pedido,
+        p.Total as pedido_original_total,
         CONCAT(c.Nombre, ' ', c.Apellido) as cliente_nombre,
         c.Apellido as cliente_apellido,
         c.Empresa,
@@ -204,5 +225,6 @@ router.get('/', auth, async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;
