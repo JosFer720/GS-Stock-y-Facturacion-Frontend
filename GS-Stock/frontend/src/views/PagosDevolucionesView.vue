@@ -28,91 +28,93 @@
           <h2 class="section-title">Registrar Nuevo Pago</h2>
           
           <form @submit.prevent="registrarPago" class="payment-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pago-vendedor">Vendedor:</label>
-                <select id="pago-vendedor" v-model="nuevoPago.id_vendedor" required>
-                  <option value="">Seleccione un vendedor</option>
-                  <option v-for="vendedor in vendedores" :key="vendedor.id" :value="vendedor.id">
-                    {{ vendedor.nombre_completo }} - {{ vendedor.ruta }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label for="pago-cliente">Cliente:</label>
-                <div class="cliente-search-container">
-                  <input 
-                    type="text"
-                    id="pago-cliente"
-                    v-model="clienteSearchTermPago"
-                    @input="buscarClientesPago"
-                    @focus="showClienteDropdownPago = true"
-                    @blur="() => setTimeout(() => showClienteDropdownPago = false, 200)"
-                    placeholder="Buscar cliente..."
-                    required
-                  />
-                  
+            <!-- Cliente search -->
+            <div class="form-group">
+              <label for="pago-cliente">Cliente:</label>
+              <div class="cliente-search-container">
+                <input 
+                  type="text"
+                  id="pago-cliente"
+                  v-model="clienteSearchTermPago"
+                  @input="buscarClientesPago"
+                  @focus="showClienteDropdownPago = true"
+                  @blur="setTimeout(() => showClienteDropdownPago = false, 200)"
+                  placeholder="Buscar por nombre o empresa..."
+                  required
+                />
+                
+                <div 
+                  v-if="showClienteDropdownPago && clientesFiltradosPago.length > 0" 
+                  class="cliente-dropdown"
+                >
                   <div 
-                    v-if="showClienteDropdownPago && clientesFiltradosPago.length > 0" 
-                    class="cliente-dropdown"
+                    v-for="cliente in clientesFiltradosPago" 
+                    :key="cliente.id"
+                    @click="seleccionarClientePago(cliente)"
+                    class="cliente-option"
                   >
-                    <div 
-                      v-for="cliente in clientesFiltradosPago" 
-                      :key="cliente.id"
-                      @click="seleccionarClientePago(cliente)"
-                      class="cliente-option"
-                    >
-                      <div class="cliente-info">
-                        <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
-                        <span v-if="cliente.empresa" class="empresa-tag">{{ cliente.empresa }}</span>
-                      </div>
+                    <div class="cliente-info">
+                      <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
+                      <span v-if="cliente.empresa" class="empresa-tag">{{ cliente.empresa }}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pago-linea">Línea de Producto:</label>
-                <select id="pago-linea" v-model="nuevoPago.id_tipo_linea_producto" required>
-                  <option value="">Seleccione una línea</option>
-                  <option v-for="tipo in tiposLineaProducto" :key="tipo.id" :value="tipo.id">
-                    {{ tipo.nombre }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label for="pago-metodo">Método de Pago:</label>
-                <select id="pago-metodo" v-model="nuevoPago.id_metodo_pago" required>
-                  <option value="">Seleccione un método</option>
-                  <option v-for="metodo in metodosPago" :key="metodo.id" :value="metodo.id">
-                    {{ metodo.tipo }} - {{ metodo.detalle }}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pago-monto">Monto Pagado:</label>
-                <div class="currency-input">
-                  <span class="currency-symbol">Q</span>
-                  <input 
-                    type="number" 
-                    id="pago-monto" 
-                    v-model.number="nuevoPago.monto" 
-                    required
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                  />
-                </div>
+            <!-- Pedido dropdown -->
+            <div class="form-group">
+              <label for="pago-pedido">Pedido:</label>
+              <select 
+                id="pago-pedido" 
+                v-model="nuevoPago.id_pedido" 
+                :disabled="!clienteSeleccionadoPago || pedidosClientePago.length === 0"
+                required
+              >
+                <option value="">Seleccione un pedido</option>
+                <option 
+                  v-for="pedido in pedidosClientePago" 
+                  :key="pedido.id" 
+                  :value="pedido.id"
+                >
+                  Pedido #{{ pedido.id }} - Q{{ formatCurrency(pedido.total) }} 
+                  - {{ pedido.estado_pago === 'pagado' ? 'Pagado' : 'Pendiente' }}
+                </option>
+              </select>
+              <div v-if="clienteSeleccionadoPago && pedidosClientePago.length === 0" class="no-orders-message">
+                Este cliente no tiene pedidos pendientes de pago.
               </div>
             </div>
 
+            <!-- Método de pago dropdown -->
+            <div class="form-group">
+              <label for="pago-metodo">Método de Pago:</label>
+              <select id="pago-metodo" v-model="nuevoPago.id_metodo_pago" required>
+                <option value="">Seleccione un método</option>
+                <option v-for="metodo in metodosPago" :key="metodo.id" :value="metodo.id">
+                  {{ metodo.tipo }} - {{ metodo.detalle }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Monto pagado -->
+            <div class="form-group">
+              <label for="pago-monto">Monto Pagado:</label>
+              <div class="currency-input">
+                <span class="currency-symbol">Q</span>
+                <input 
+                  type="number" 
+                  id="pago-monto" 
+                  v-model.number="nuevoPago.monto_pagado" 
+                  required
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <!-- Observaciones -->
             <div class="form-group">
               <label for="pago-observaciones">Observaciones:</label>
               <textarea 
@@ -123,7 +125,11 @@
               ></textarea>
             </div>
 
-            <button type="submit" class="submit-button" :disabled="procesandoPago">
+            <button 
+              type="submit" 
+              class="submit-button" 
+              :disabled="procesandoPago || !clienteSeleccionadoPago || !nuevoPago.id_pedido || !nuevoPago.id_metodo_pago || !nuevoPago.monto_pagado"
+            >
               {{ procesandoPago ? 'Procesando...' : 'Registrar Pago' }}
             </button>
           </form>
@@ -133,8 +139,7 @@
         <div class="table-section">
           <h2 class="section-title">Historial de Pagos</h2>
           
-          <transactions-table
-            :type="'pagos'"
+          <PagosTable
             :data="pagosFiltrados"
             :loading="cargandoPagos"
             :filters="filtrosPagos"
@@ -144,7 +149,7 @@
         </div>
       </div>
 
-      <!-- TAB DE DEVOLUCIONES -->
+      <!-- TAB DE DEVOLUCIONES (UNTOUCHED) -->
       <div v-show="activeTab === 'devoluciones'" class="tab-content">
         <div class="form-section">
           <h2 class="section-title">Registrar Nueva Devolución</h2>
@@ -295,6 +300,7 @@
 import { ref, computed, onMounted } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
+import PagosTable from '@/components/PagosTable.vue';
 import TransactionsTable from '@/components/TransactionsTable.vue';
 import { useRouter } from 'vue-router';
 
@@ -303,6 +309,7 @@ export default {
   components: {
     HeaderComponent,
     ModalMessage,
+    PagosTable,
     TransactionsTable
   },
   setup() {
@@ -318,9 +325,7 @@ export default {
     // Datos generales
     const vendedores = ref([]);
     const clientes = ref([]);
-    const tiposLineaProducto = ref([]);
     const metodosPago = ref([]);
-    const zapatosDisponibles = ref([]);
     
     // Estados de pagos
     const pagos = ref([]);
@@ -329,20 +334,20 @@ export default {
     const clienteSearchTermPago = ref('');
     const showClienteDropdownPago = ref(false);
     const clientesFiltradosPago = ref([]);
+    const clienteSeleccionadoPago = ref(null);
+    const pedidosClientePago = ref([]);
     
     const nuevoPago = ref({
-      id_vendedor: '',
-      id_cliente: '',
-      id_tipo_linea_producto: '',
+      id_pedido: '',
       id_metodo_pago: '',
-      monto: null,
+      monto_pagado: null,
+      vuelto: null,
       observaciones: ''
     });
     
     const filtrosPagos = ref({
       cliente: '',
-      fechaDesde: '',
-      fechaHasta: ''
+      fechaPago: ''
     });
     
     // Estados de devoluciones
@@ -352,130 +357,18 @@ export default {
     const clienteSearchTermDev = ref('');
     const showClienteDropdownDev = ref(false);
     const clientesFiltradosDev = ref([]);
-    const productoSearchTermDev = ref('');
-    const showProductoDropdownDev = ref(false);
-    const productosFiltradosDev = ref([]);
     const metodosDevoluciones = ref([]);
     const clienteSeleccionadoDev = ref(null);
     const pedidosClienteDev = ref([]);
     
     const nuevaDevolucion = ref({
-      id_vendedor: '',
-      id_cliente: '',
-      id_tipo_linea_producto: '',
-      id_zapato: '',
-      id_talla: '',
-      cantidad: 1,
-      observaciones: ''
+      id_pedido: '',
+      metodo: '',
+      monto: null,
+      observaciones: '',
+      observaciones_adicionales: ''
     });
 
-    const fetchMetodosDevoluciones = async () => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:3000/api/devoluciones/metodos', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener métodos de devolución');
-        
-        const data = await response.json();
-        metodosDevoluciones.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener métodos de devolución:', err);
-      }
-    };
-
-    const fetchPedidosCliente = async (clienteId) => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch(`http://localhost:3000/api/devoluciones/pedidos-cliente/${clienteId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener pedidos del cliente');
-        
-        const data = await response.json();
-        pedidosClienteDev.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener pedidos del cliente:', err);
-        pedidosClienteDev.value = [];
-      }
-    };
-
-    const seleccionarClienteDev = async (cliente) => {
-      clienteSeleccionadoDev.value = cliente;
-      nuevaDevolucion.value.id_cliente = cliente.id;
-      clienteSearchTermDev.value = `${cliente.nombre} ${cliente.apellido}`;
-      showClienteDropdownDev.value = false;
-      clientesFiltradosDev.value = [];
-      
-      // Cargar pedidos del cliente seleccionado
-      await fetchPedidosCliente(cliente.id);
-    };
-
-    const registrarDevolucion = async () => {
-      if (!nuevaDevolucion.value.id_cliente || !nuevaDevolucion.value.id_pedido || !nuevaDevolucion.value.metodo) {
-        showMessage('Error', 'Complete todos los campos requeridos', 'error');
-        return;
-      }
-
-      procesandoDevolucion.value = true;
-      try {
-        const token = checkAuth();
-        if (!token) return;
-
-        const payload = {
-          id_pedido: nuevaDevolucion.value.id_pedido,
-          motivo: nuevaDevolucion.value.observaciones,
-          id_metodo_devolucion: metodosDevoluciones.value.find(m => m.metodo === nuevaDevolucion.value.metodo)?.id,
-          monto_devolucion: nuevaDevolucion.value.monto || null,
-          observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
-        };
-
-        const response = await fetch('http://localhost:3000/api/devoluciones', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al registrar la devolución');
-        }
-
-        showMessage('Éxito', 'Devolución registrada correctamente', 'success');
-        
-        // Limpiar formulario
-        nuevaDevolucion.value = {
-          id_cliente: '',
-          id_pedido: '',
-          metodo: '',
-          observaciones: '',
-          monto: null,
-          observaciones_adicionales: ''
-        };
-        clienteSearchTermDev.value = '';
-        clienteSeleccionadoDev.value = null;
-        pedidosClienteDev.value = [];
-        
-        // Recargar datos
-        await fetchDevoluciones();
-        
-      } catch (err) {
-        showMessage('Error', err.message, 'error');
-      } finally {
-        procesandoDevolucion.value = false;
-      }
-    };
-
-    
     const filtrosDevoluciones = ref({
       cliente: '',
       fechaDesde: '',
@@ -542,39 +435,21 @@ export default {
       }
     };
 
-    const fetchClientes = async () => {
+    const fetchClientesConPagosPendientes = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/clientes', {
+        const response = await fetch('http://localhost:3000/api/pagos/clientes-pendientes', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) throw new Error('Error al obtener clientes');
+        if (!response.ok) throw new Error('Error al obtener clientes con pagos pendientes');
         
         const data = await response.json();
         clientes.value = data.data || [];
       } catch (err) {
-        console.error('Error al obtener clientes:', err);
-      }
-    };
-
-    const fetchTiposLineaProducto = async () => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:3000/api/tipos-linea-producto', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener tipos de línea');
-        
-        const data = await response.json();
-        tiposLineaProducto.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener tipos de línea:', err);
+        console.error('Error al obtener clientes con pagos pendientes:', err);
       }
     };
 
@@ -596,21 +471,21 @@ export default {
       }
     };
 
-    const fetchZapatos = async () => {
+    const fetchMetodosDevoluciones = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/inventory', {
+        const response = await fetch('http://localhost:3000/api/devoluciones/metodos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) throw new Error('Error al obtener productos');
+        if (!response.ok) throw new Error('Error al obtener métodos de devolución');
         
         const data = await response.json();
-        zapatosDisponibles.value = data.data || [];
+        metodosDevoluciones.value = data.data || [];
       } catch (err) {
-        console.error('Error al obtener productos:', err);
+        console.error('Error al obtener métodos de devolución:', err);
       }
     };
 
@@ -643,48 +518,48 @@ export default {
       }).slice(0, 8);
     };
 
-    // Funciones de búsqueda de productos
-    const buscarProductosDev = () => {
-      if (productoSearchTermDev.value.length < 2) {
-        productosFiltradosDev.value = [];
-        return;
+    // Funciones específicas de pagos
+    const fetchPedidosClientePago = async (clienteId) => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+        
+        const response = await fetch(`http://localhost:3000/api/pagos/pedidos-cliente/${clienteId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener pedidos del cliente');
+        
+        const data = await response.json();
+        pedidosClientePago.value = data.data || [];
+      } catch (err) {
+        console.error('Error al obtener pedidos del cliente:', err);
+        pedidosClientePago.value = [];
       }
-      
-      const term = productoSearchTermDev.value.toLowerCase();
-      productosFiltradosDev.value = zapatosDisponibles.value.filter(producto => {
-        const codigo = producto.codigo?.toLowerCase() || '';
-        const nombre = producto.nombre?.toLowerCase() || '';
-        return codigo.includes(term) || nombre.includes(term);
-      }).slice(0, 8);
     };
 
-    const seleccionarClientePago = (cliente) => {
+    const seleccionarClientePago = async (cliente) => {
+      clienteSeleccionadoPago.value = cliente;
       nuevoPago.value.id_cliente = cliente.id;
       clienteSearchTermPago.value = `${cliente.nombre} ${cliente.apellido}`;
       showClienteDropdownPago.value = false;
       clientesFiltradosPago.value = [];
-    };
-
-
-
-    const seleccionarProductoDev = (producto) => {
-      nuevaDevolucion.value.id_zapato = producto.id;
-      productoSearchTermDev.value = `${producto.codigo} - ${producto.nombre}`;
-      showProductoDropdownDev.value = false;
-      productosFiltradosDev.value = [];
-    };
-
-    // Funciones específicas de devoluciones
-    const tallasDisponiblesDevolucion = computed(() => {
-      if (!nuevaDevolucion.value.id_zapato) return [];
       
-      const zapato = zapatosDisponibles.value.find(z => z.id === parseInt(nuevaDevolucion.value.id_zapato));
-      return zapato?.tallas_disponibles || [];
-    });
+      // Cargar pedidos del cliente seleccionado
+      await fetchPedidosClientePago(cliente.id);
+    };
 
-    // Funciones de registro
+    const cargarPedidosCliente = async (clienteId) => {
+      if (!clienteId) {
+        pedidosClientePago.value = [];
+        return;
+      }
+      
+      await fetchPedidosClientePago(clienteId);
+    };
+
     const registrarPago = async () => {
-      if (!nuevoPago.value.id_cliente || !nuevoPago.value.monto) {
+      if (!nuevoPago.value.id_pedido || !nuevoPago.value.id_metodo_pago || !nuevoPago.value.monto_pagado) {
         showMessage('Error', 'Complete todos los campos requeridos', 'error');
         return;
       }
@@ -708,26 +583,119 @@ export default {
           throw new Error(errorData.error || 'Error al registrar el pago');
         }
 
-        showMessage('Éxito', 'Pago registrado correctamente', 'success');
+        const result = await response.json();
+        
+        showMessage('Éxito', result.message, 'success');
         
         // Limpiar formulario
         nuevoPago.value = {
-          id_vendedor: '',
-          id_cliente: '',
-          id_tipo_linea_producto: '',
+          id_pedido: '',
           id_metodo_pago: '',
-          monto: null,
+          monto_pagado: null,
+          vuelto: null,
           observaciones: ''
         };
         clienteSearchTermPago.value = '';
+        clienteSeleccionadoPago.value = null;
+        pedidosClientePago.value = [];
         
         // Recargar datos
         await fetchPagos();
+        await fetchClientesConPagosPendientes();
         
       } catch (err) {
         showMessage('Error', err.message, 'error');
       } finally {
         procesandoPago.value = false;
+      }
+    };
+
+    // Funciones específicas de devoluciones
+    const fetchPedidosClienteDev = async (clienteId) => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+        
+        const response = await fetch(`http://localhost:3000/api/devoluciones/pedidos-cliente/${clienteId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener pedidos del cliente');
+        
+        const data = await response.json();
+        pedidosClienteDev.value = data.data || [];
+      } catch (err) {
+        console.error('Error al obtener pedidos del cliente:', err);
+        pedidosClienteDev.value = [];
+      }
+    };
+
+    const seleccionarClienteDev = async (cliente) => {
+      clienteSeleccionadoDev.value = cliente;
+      nuevaDevolucion.value.id_cliente = cliente.id;
+      clienteSearchTermDev.value = `${cliente.nombre} ${cliente.apellido}`;
+      showClienteDropdownDev.value = false;
+      clientesFiltradosDev.value = [];
+      
+      // Cargar pedidos del cliente seleccionado
+      await fetchPedidosClienteDev(cliente.id);
+    };
+
+    const registrarDevolucion = async () => {
+      if (!nuevaDevolucion.value.id_cliente || !nuevaDevolucion.value.id_pedido || !nuevaDevolucion.value.metodo) {
+        showMessage('Error', 'Complete todos los campos requeridos', 'error');
+        return;
+      }
+
+      procesandoDevolucion.value = true;
+      try {
+        const token = checkAuth();
+        if (!token) return;
+
+        const payload = {
+          id_pedido: nuevaDevolucion.value.id_pedido,
+          motivo: nuevaDevolucion.value.observaciones,
+          id_metodo_devolucion: metodosDevoluciones.value.find(m => m.metodo === nuevaDevolucion.value.metodo)?.id,
+          monto_devolucion: nuevaDevolucion.value.monto || null,
+          observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
+        };
+
+        const response = await fetch('http://localhost:3000/api/devoluciones', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al registrar la devolución');
+        }
+
+        showMessage('Éxito', 'Devolución registrada correctamente', 'success');
+        
+        // Limpiar formulario
+        nuevaDevolucion.value = {
+          id_cliente: '',
+          id_pedido: '',
+          metodo: '',
+          observaciones: '',
+          monto: null,
+          observaciones_adicionales: ''
+        };
+        clienteSearchTermDev.value = '';
+        clienteSeleccionadoDev.value = null;
+        pedidosClienteDev.value = [];
+        
+        // Recargar datos
+        await fetchDevoluciones();
+        
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      } finally {
+        procesandoDevolucion.value = false;
       }
     };
 
@@ -780,22 +748,18 @@ export default {
 
       if (filtrosPagos.value.cliente) {
         const clienteQuery = filtrosPagos.value.cliente.toLowerCase();
-        result = result.filter(pago => 
-          pago.cliente_nombre?.toLowerCase().includes(clienteQuery)
-        );
-      }
-
-      if (filtrosPagos.value.fechaDesde) {
         result = result.filter(pago => {
-          const fechaPago = new Date(pago.fecha).toISOString().split('T')[0];
-          return fechaPago >= filtrosPagos.value.fechaDesde;
+          const nombreCompleto = `${pago.cliente_nombre || ''} ${pago.cliente_apellido || ''}`.toLowerCase();
+          const empresa = pago.empresa?.toLowerCase() || '';
+          return nombreCompleto.includes(clienteQuery) || empresa.includes(clienteQuery);
         });
       }
 
-      if (filtrosPagos.value.fechaHasta) {
+      if (filtrosPagos.value.fechaPago) {
         result = result.filter(pago => {
-          const fechaPago = new Date(pago.fecha).toISOString().split('T')[0];
-          return fechaPago <= filtrosPagos.value.fechaHasta;
+          if (!pago.fecha_de_pago) return false;
+          const fechaPago = new Date(pago.fecha_de_pago).toISOString().split('T')[0];
+          return fechaPago === filtrosPagos.value.fechaPago;
         });
       }
 
@@ -840,8 +804,7 @@ export default {
     const limpiarFiltrosPagos = () => {
       filtrosPagos.value = {
         cliente: '',
-        fechaDesde: '',
-        fechaHasta: ''
+        fechaPago: ''
       };
     };
 
@@ -857,11 +820,9 @@ export default {
     onMounted(async () => {
       await Promise.all([
         fetchVendedores(),
-        fetchClientes(),
-        fetchTiposLineaProducto(),
-        fetchMetodosDevoluciones(),
+        fetchClientesConPagosPendientes(),
         fetchMetodosPago(),
-        fetchZapatos(),
+        fetchMetodosDevoluciones(),
         fetchPagos(),
         fetchDevoluciones()
       ]);
@@ -878,9 +839,7 @@ export default {
       // Datos
       vendedores,
       clientes,
-      tiposLineaProducto,
       metodosPago,
-      zapatosDisponibles,
       
       // Pagos
       pagos,
@@ -892,6 +851,8 @@ export default {
       clienteSearchTermPago,
       showClienteDropdownPago,
       clientesFiltradosPago,
+      clienteSeleccionadoPago,
+      pedidosClientePago,
       
       // Devoluciones
       devoluciones,
@@ -903,14 +864,9 @@ export default {
       clienteSearchTermDev,
       showClienteDropdownDev,
       clientesFiltradosDev,
-      productoSearchTermDev,
-      showProductoDropdownDev,
-      productosFiltradosDev,
-      tallasDisponiblesDevolucion,
       metodosDevoluciones,
       clienteSeleccionadoDev,
       pedidosClienteDev,
-      fetchPedidosCliente,
       
       // Funciones
       showMessage,
@@ -919,10 +875,9 @@ export default {
       formatCurrency,
       buscarClientesPago,
       buscarClientesDev,
-      buscarProductosDev,
       seleccionarClientePago,
       seleccionarClienteDev,
-      seleccionarProductoDev,
+      cargarPedidosCliente,
       registrarPago,
       registrarDevolucion,
       actualizarFiltrosPagos,
@@ -934,379 +889,6 @@ export default {
 }
 </script>
 
-<style scoped>
-.pagos-devoluciones-container {
-  width: 100%;
-  min-height: 100vh;
-  box-sizing: border-box;
-  overflow-x: hidden;
-}
+<style scoped src="../styles/pagosYdevoluciones/pagosDevoluciones.css">
 
-.content-section {
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  margin-top: 60px;
-}
-
-.page-title {
-  font-size: clamp(20px, 4vw, 24px);
-  font-weight: bold;
-  margin-bottom: 20px;
-  text-align: center;
-  color: #333;
-  width: 100%;
-  word-wrap: break-word;
-}
-
-.tabs-navigation {
-  display: flex;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  padding: 4px;
-  margin-bottom: 30px;
-  width: 100%;
-  max-width: min(600px, 100vw - 30px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  box-sizing: border-box;
-}
-
-.tab-button {
-  flex: 1;
-  padding: 12px 8px;
-  border: none;
-  background-color: transparent;
-  color: #6c757d;
-  font-weight: 500;
-  font-size: clamp(12px, 3vw, 14px);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.tab-button:hover {
-  background-color: #e9ecef;
-  color: #495057;
-}
-
-.tab-button.active {
-  background-color: #007bff;
-  color: white;
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-}
-
-.tab-content {
-  width: 100%;
-  max-width: min(1200px, 100vw - 30px);
-  animation: fadeIn 0.3s ease-in-out;
-  box-sizing: border-box;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.form-section {
-  background-color: white;
-  border-radius: 8px;
-  padding: clamp(15px, 4vw, 25px);
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border: 1px solid #e9ecef;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.section-title {
-  font-size: clamp(18px, 4vw, 20px);
-  font-weight: bold;
-  color: #2c3e50;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #e9ecef;
-  word-wrap: break-word;
-}
-
-.payment-form,
-.return-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 15px;
-  width: 100%;
-}
-
-@media (min-width: 768px) {
-  .form-row {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-}
-
-.form-group label {
-  font-weight: 600;
-  color: #495057;
-  font-size: clamp(12px, 3vw, 14px);
-  word-wrap: break-word;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: 12px;
-  border: 2px solid #e9ecef;
-  border-radius: 6px;
-  font-size: clamp(12px, 3vw, 14px);
-  transition: border-color 0.2s ease;
-  background-color: white;
-  width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.form-group input:disabled,
-.form-group select:disabled {
-  background-color: #f8f9fa;
-  color: #6c757d;
-  cursor: not-allowed;
-}
-
-.currency-input {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.currency-symbol {
-  position: absolute;
-  left: 12px;
-  font-weight: bold;
-  color: #28a745;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.currency-input input {
-  padding-left: 30px;
-}
-
-.cliente-search-container,
-.producto-search-container {
-  position: relative;
-  width: 100%;
-}
-
-.cliente-dropdown,
-.producto-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background-color: white;
-  border: 2px solid #e9ecef;
-  border-top: none;
-  border-radius: 0 0 6px 6px;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 1000;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.cliente-option,
-.producto-option {
-  padding: 12px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  border-bottom: 1px solid #f1f3f4;
-}
-
-.cliente-option:last-child,
-.producto-option:last-child {
-  border-bottom: none;
-}
-
-.cliente-option:hover,
-.producto-option:hover {
-  background-color: #f8f9fa;
-}
-
-.cliente-info,
-.producto-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cliente-info strong,
-.producto-info strong {
-  font-size: clamp(12px, 3vw, 14px);
-  color: #2c3e50;
-}
-
-.cliente-info span,
-.producto-info span {
-  font-size: clamp(11px, 3vw, 13px);
-  color: #6c757d;
-}
-
-.empresa-tag {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-  align-self: flex-start;
-}
-
-.submit-button {
-  background-color: #28a745;
-  color: white;
-  padding: 14px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: clamp(14px, 3vw, 16px);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-top: 10px;
-  width: 100%;
-  max-width: 300px;
-  align-self: center;
-}
-
-.submit-button:hover:not(:disabled) {
-  background-color: #218838;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
-}
-
-.submit-button:disabled {
-  background-color: #6c757d;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.table-section {
-  background-color: white;
-  border-radius: 8px;
-  padding: clamp(15px, 4vw, 25px);
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border: 1px solid #e9ecef;
-  width: 100%;
-  box-sizing: border-box;
-  overflow-x: auto;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .content-section {
-    padding: 10px;
-    margin-top: 50px;
-  }
-  
-  .tabs-navigation {
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .tab-button {
-    width: 100%;
-  }
-  
-  .form-section,
-  .table-section {
-    padding: 15px;
-  }
-  
-  .submit-button {
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    padding: 10px;
-  }
-  
-  .cliente-option,
-  .producto-option {
-    padding: 10px;
-  }
-}
-
-.no-orders-message {
-  background-color: #fff3cd;
-  border: 1px solid #ffecb5;
-  border-radius: 6px;
-  padding: 15px;
-  color: #856404;
-  text-align: center;
-  margin-top: 10px;
-}
-
-.no-orders-message small {
-  display: block;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #6c757d;
-}
-
-.submit-button:disabled {
-  background-color: #6c757d !important;
-  cursor: not-allowed !important;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-.currency-input small {
-  display: block;
-  margin-top: 5px;
-  font-size: 12px;
-  color: #6c757d;
-  font-style: italic;
-}
 </style>
