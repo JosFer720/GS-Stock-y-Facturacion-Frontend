@@ -28,91 +28,80 @@
           <h2 class="section-title">Registrar Nuevo Pago</h2>
           
           <form @submit.prevent="registrarPago" class="payment-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pago-vendedor">Vendedor:</label>
-                <select id="pago-vendedor" v-model="nuevoPago.id_vendedor" required>
-                  <option value="">Seleccione un vendedor</option>
-                  <option v-for="vendedor in vendedores" :key="vendedor.id" :value="vendedor.id">
-                    {{ vendedor.nombre_completo }} - {{ vendedor.ruta }}
-                  </option>
-                </select>
-              </div>
+            <!-- Cliente dropdown -->
+            <div class="form-group">
+              <label for="pago-cliente">Cliente:</label>
+              <select 
+                id="pago-cliente" 
+                v-model="nuevoPago.id_cliente" 
+                @change="cargarPedidosCliente(nuevoPago.id_cliente)"
+                required
+              >
+                <option value="">Seleccione un cliente</option>
+                <option 
+                  v-for="cliente in clientes" 
+                  :key="cliente.id" 
+                  :value="cliente.id"
+                >
+                  {{ cliente.nombre }} {{ cliente.apellido }} 
+                  <span v-if="cliente.empresa">- {{ cliente.empresa }}</span>
+                </option>
+              </select>
+            </div>
 
-              <div class="form-group">
-                <label for="pago-cliente">Cliente:</label>
-                <div class="cliente-search-container">
-                  <input 
-                    type="text"
-                    id="pago-cliente"
-                    v-model="clienteSearchTermPago"
-                    @input="buscarClientesPago"
-                    @focus="showClienteDropdownPago = true"
-                    @blur="() => setTimeout(() => showClienteDropdownPago = false, 200)"
-                    placeholder="Buscar cliente..."
-                    required
-                  />
-                  
-                  <div 
-                    v-if="showClienteDropdownPago && clientesFiltradosPago.length > 0" 
-                    class="cliente-dropdown"
-                  >
-                    <div 
-                      v-for="cliente in clientesFiltradosPago" 
-                      :key="cliente.id"
-                      @click="seleccionarClientePago(cliente)"
-                      class="cliente-option"
-                    >
-                      <div class="cliente-info">
-                        <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
-                        <span v-if="cliente.empresa" class="empresa-tag">{{ cliente.empresa }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <!-- Pedido dropdown -->
+            <div class="form-group">
+              <label for="pago-pedido">Pedido:</label>
+              <select 
+                id="pago-pedido" 
+                v-model="nuevoPago.id_pedido" 
+                :disabled="!nuevoPago.id_cliente || pedidosClientePago.length === 0"
+                required
+              >
+                <option value="">Seleccione un pedido</option>
+                <option 
+                  v-for="pedido in pedidosClientePago" 
+                  :key="pedido.id" 
+                  :value="pedido.id"
+                >
+                  Pedido #{{ pedido.id }} - Q{{ formatCurrency(pedido.total) }} 
+                  - {{ pedido.estado_pago === 'pagado' ? 'Pagado' : 'Pendiente' }}
+                </option>
+              </select>
+              <div v-if="nuevoPago.id_cliente && pedidosClientePago.length === 0" class="no-orders-message">
+                Este cliente no tiene pedidos pendientes de pago.
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pago-linea">Línea de Producto:</label>
-                <select id="pago-linea" v-model="nuevoPago.id_tipo_linea_producto" required>
-                  <option value="">Seleccione una línea</option>
-                  <option v-for="tipo in tiposLineaProducto" :key="tipo.id" :value="tipo.id">
-                    {{ tipo.nombre }}
-                  </option>
-                </select>
-              </div>
+            <!-- Método de pago dropdown -->
+            <div class="form-group">
+              <label for="pago-metodo">Método de Pago:</label>
+              <select id="pago-metodo" v-model="nuevoPago.id_metodo_pago" required>
+                <option value="">Seleccione un método</option>
+                <option v-for="metodo in metodosPago" :key="metodo.id" :value="metodo.id">
+                  {{ metodo.tipo }} - {{ metodo.detalle }}
+                </option>
+              </select>
+            </div>
 
-              <div class="form-group">
-                <label for="pago-metodo">Método de Pago:</label>
-                <select id="pago-metodo" v-model="nuevoPago.id_metodo_pago" required>
-                  <option value="">Seleccione un método</option>
-                  <option v-for="metodo in metodosPago" :key="metodo.id" :value="metodo.id">
-                    {{ metodo.tipo }} - {{ metodo.detalle }}
-                  </option>
-                </select>
+            <!-- Monto pagado -->
+            <div class="form-group">
+              <label for="pago-monto">Monto Pagado:</label>
+              <div class="currency-input">
+                <span class="currency-symbol">Q</span>
+                <input 
+                  type="number" 
+                  id="pago-monto" 
+                  v-model.number="nuevoPago.monto_pagado" 
+                  required
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                />
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pago-monto">Monto Pagado:</label>
-                <div class="currency-input">
-                  <span class="currency-symbol">Q</span>
-                  <input 
-                    type="number" 
-                    id="pago-monto" 
-                    v-model.number="nuevoPago.monto" 
-                    required
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-            </div>
-
+            <!-- Observaciones -->
             <div class="form-group">
               <label for="pago-observaciones">Observaciones:</label>
               <textarea 
@@ -123,7 +112,11 @@
               ></textarea>
             </div>
 
-            <button type="submit" class="submit-button" :disabled="procesandoPago">
+            <button 
+              type="submit" 
+              class="submit-button" 
+              :disabled="procesandoPago || !nuevoPago.id_cliente || !nuevoPago.id_pedido || !nuevoPago.id_metodo_pago || !nuevoPago.monto_pagado"
+            >
               {{ procesandoPago ? 'Procesando...' : 'Registrar Pago' }}
             </button>
           </form>
@@ -133,8 +126,7 @@
         <div class="table-section">
           <h2 class="section-title">Historial de Pagos</h2>
           
-          <transactions-table
-            :type="'pagos'"
+          <PagosTable
             :data="pagosFiltrados"
             :loading="cargandoPagos"
             :filters="filtrosPagos"
@@ -144,7 +136,7 @@
         </div>
       </div>
 
-      <!-- TAB DE DEVOLUCIONES -->
+      <!-- TAB DE DEVOLUCIONES (UNTOUCHED) -->
       <div v-show="activeTab === 'devoluciones'" class="tab-content">
         <div class="form-section">
           <h2 class="section-title">Registrar Nueva Devolución</h2>
@@ -291,10 +283,12 @@
   </div>
 </template>
 
+
 <script>
 import { ref, computed, onMounted } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
+import PagosTable from '@/components/PagosTable.vue';
 import TransactionsTable from '@/components/TransactionsTable.vue';
 import { useRouter } from 'vue-router';
 
@@ -303,6 +297,7 @@ export default {
   components: {
     HeaderComponent,
     ModalMessage,
+    PagosTable,
     TransactionsTable
   },
   setup() {
@@ -318,9 +313,7 @@ export default {
     // Datos generales
     const vendedores = ref([]);
     const clientes = ref([]);
-    const tiposLineaProducto = ref([]);
     const metodosPago = ref([]);
-    const zapatosDisponibles = ref([]);
     
     // Estados de pagos
     const pagos = ref([]);
@@ -329,20 +322,20 @@ export default {
     const clienteSearchTermPago = ref('');
     const showClienteDropdownPago = ref(false);
     const clientesFiltradosPago = ref([]);
+    const clienteSeleccionadoPago = ref(null);
+    const pedidosClientePago = ref([]);
     
     const nuevoPago = ref({
-      id_vendedor: '',
-      id_cliente: '',
-      id_tipo_linea_producto: '',
+      id_pedido: '',
       id_metodo_pago: '',
-      monto: null,
+      monto_pagado: null,
+      vuelto: null,
       observaciones: ''
     });
     
     const filtrosPagos = ref({
       cliente: '',
-      fechaDesde: '',
-      fechaHasta: ''
+      fechaPago: ''
     });
     
     // Estados de devoluciones
@@ -352,130 +345,18 @@ export default {
     const clienteSearchTermDev = ref('');
     const showClienteDropdownDev = ref(false);
     const clientesFiltradosDev = ref([]);
-    const productoSearchTermDev = ref('');
-    const showProductoDropdownDev = ref(false);
-    const productosFiltradosDev = ref([]);
     const metodosDevoluciones = ref([]);
     const clienteSeleccionadoDev = ref(null);
     const pedidosClienteDev = ref([]);
     
     const nuevaDevolucion = ref({
-      id_vendedor: '',
-      id_cliente: '',
-      id_tipo_linea_producto: '',
-      id_zapato: '',
-      id_talla: '',
-      cantidad: 1,
-      observaciones: ''
+      id_pedido: '',
+      metodo: '',
+      monto: null,
+      observaciones: '',
+      observaciones_adicionales: ''
     });
 
-    const fetchMetodosDevoluciones = async () => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:3000/api/devoluciones/metodos', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener métodos de devolución');
-        
-        const data = await response.json();
-        metodosDevoluciones.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener métodos de devolución:', err);
-      }
-    };
-
-    const fetchPedidosCliente = async (clienteId) => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch(`http://localhost:3000/api/devoluciones/pedidos-cliente/${clienteId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener pedidos del cliente');
-        
-        const data = await response.json();
-        pedidosClienteDev.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener pedidos del cliente:', err);
-        pedidosClienteDev.value = [];
-      }
-    };
-
-    const seleccionarClienteDev = async (cliente) => {
-      clienteSeleccionadoDev.value = cliente;
-      nuevaDevolucion.value.id_cliente = cliente.id;
-      clienteSearchTermDev.value = `${cliente.nombre} ${cliente.apellido}`;
-      showClienteDropdownDev.value = false;
-      clientesFiltradosDev.value = [];
-      
-      // Cargar pedidos del cliente seleccionado
-      await fetchPedidosCliente(cliente.id);
-    };
-
-    const registrarDevolucion = async () => {
-      if (!nuevaDevolucion.value.id_cliente || !nuevaDevolucion.value.id_pedido || !nuevaDevolucion.value.metodo) {
-        showMessage('Error', 'Complete todos los campos requeridos', 'error');
-        return;
-      }
-
-      procesandoDevolucion.value = true;
-      try {
-        const token = checkAuth();
-        if (!token) return;
-
-        const payload = {
-          id_pedido: nuevaDevolucion.value.id_pedido,
-          motivo: nuevaDevolucion.value.observaciones,
-          id_metodo_devolucion: metodosDevoluciones.value.find(m => m.metodo === nuevaDevolucion.value.metodo)?.id,
-          monto_devolucion: nuevaDevolucion.value.monto || null,
-          observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
-        };
-
-        const response = await fetch('http://localhost:3000/api/devoluciones', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al registrar la devolución');
-        }
-
-        showMessage('Éxito', 'Devolución registrada correctamente', 'success');
-        
-        // Limpiar formulario
-        nuevaDevolucion.value = {
-          id_cliente: '',
-          id_pedido: '',
-          metodo: '',
-          observaciones: '',
-          monto: null,
-          observaciones_adicionales: ''
-        };
-        clienteSearchTermDev.value = '';
-        clienteSeleccionadoDev.value = null;
-        pedidosClienteDev.value = [];
-        
-        // Recargar datos
-        await fetchDevoluciones();
-        
-      } catch (err) {
-        showMessage('Error', err.message, 'error');
-      } finally {
-        procesandoDevolucion.value = false;
-      }
-    };
-
-    
     const filtrosDevoluciones = ref({
       cliente: '',
       fechaDesde: '',
@@ -560,24 +441,6 @@ export default {
       }
     };
 
-    const fetchTiposLineaProducto = async () => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:3000/api/tipos-linea-producto', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener tipos de línea');
-        
-        const data = await response.json();
-        tiposLineaProducto.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener tipos de línea:', err);
-      }
-    };
-
     const fetchMetodosPago = async () => {
       try {
         const token = checkAuth();
@@ -596,21 +459,21 @@ export default {
       }
     };
 
-    const fetchZapatos = async () => {
+    const fetchMetodosDevoluciones = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/inventory', {
+        const response = await fetch('http://localhost:3000/api/devoluciones/metodos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) throw new Error('Error al obtener productos');
+        if (!response.ok) throw new Error('Error al obtener métodos de devolución');
         
         const data = await response.json();
-        zapatosDisponibles.value = data.data || [];
+        metodosDevoluciones.value = data.data || [];
       } catch (err) {
-        console.error('Error al obtener productos:', err);
+        console.error('Error al obtener métodos de devolución:', err);
       }
     };
 
@@ -643,48 +506,38 @@ export default {
       }).slice(0, 8);
     };
 
-    // Funciones de búsqueda de productos
-    const buscarProductosDev = () => {
-      if (productoSearchTermDev.value.length < 2) {
-        productosFiltradosDev.value = [];
-        return;
+    // Funciones específicas de pagos
+    const fetchPedidosClientePago = async (clienteId) => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+        
+        const response = await fetch(`http://localhost:3000/api/pagos/pedidos-cliente/${clienteId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener pedidos del cliente');
+        
+        const data = await response.json();
+        pedidosClientePago.value = data.data || [];
+      } catch (err) {
+        console.error('Error al obtener pedidos del cliente:', err);
+        pedidosClientePago.value = [];
       }
-      
-      const term = productoSearchTermDev.value.toLowerCase();
-      productosFiltradosDev.value = zapatosDisponibles.value.filter(producto => {
-        const codigo = producto.codigo?.toLowerCase() || '';
-        const nombre = producto.nombre?.toLowerCase() || '';
-        return codigo.includes(term) || nombre.includes(term);
-      }).slice(0, 8);
     };
 
-    const seleccionarClientePago = (cliente) => {
-      nuevoPago.value.id_cliente = cliente.id;
+    const seleccionarClientePago = async (cliente) => {
+      clienteSeleccionadoPago.value = cliente;
       clienteSearchTermPago.value = `${cliente.nombre} ${cliente.apellido}`;
       showClienteDropdownPago.value = false;
       clientesFiltradosPago.value = [];
-    };
-
-
-
-    const seleccionarProductoDev = (producto) => {
-      nuevaDevolucion.value.id_zapato = producto.id;
-      productoSearchTermDev.value = `${producto.codigo} - ${producto.nombre}`;
-      showProductoDropdownDev.value = false;
-      productosFiltradosDev.value = [];
-    };
-
-    // Funciones específicas de devoluciones
-    const tallasDisponiblesDevolucion = computed(() => {
-      if (!nuevaDevolucion.value.id_zapato) return [];
       
-      const zapato = zapatosDisponibles.value.find(z => z.id === parseInt(nuevaDevolucion.value.id_zapato));
-      return zapato?.tallas_disponibles || [];
-    });
+      // Cargar pedidos del cliente seleccionado
+      await fetchPedidosClientePago(cliente.id);
+    };
 
-    // Funciones de registro
     const registrarPago = async () => {
-      if (!nuevoPago.value.id_cliente || !nuevoPago.value.monto) {
+      if (!nuevoPago.value.id_pedido || !nuevoPago.value.id_metodo_pago || !nuevoPago.value.monto_pagado) {
         showMessage('Error', 'Complete todos los campos requeridos', 'error');
         return;
       }
@@ -712,14 +565,15 @@ export default {
         
         // Limpiar formulario
         nuevoPago.value = {
-          id_vendedor: '',
-          id_cliente: '',
-          id_tipo_linea_producto: '',
+          id_pedido: '',
           id_metodo_pago: '',
-          monto: null,
+          monto_pagado: null,
+          vuelto: null,
           observaciones: ''
         };
         clienteSearchTermPago.value = '';
+        clienteSeleccionadoPago.value = null;
+        pedidosClientePago.value = [];
         
         // Recargar datos
         await fetchPagos();
@@ -728,6 +582,95 @@ export default {
         showMessage('Error', err.message, 'error');
       } finally {
         procesandoPago.value = false;
+      }
+    };
+
+    // Funciones específicas de devoluciones
+    const fetchPedidosClienteDev = async (clienteId) => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+        
+        const response = await fetch(`http://localhost:3000/api/devoluciones/pedidos-cliente/${clienteId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al obtener pedidos del cliente');
+        
+        const data = await response.json();
+        pedidosClienteDev.value = data.data || [];
+      } catch (err) {
+        console.error('Error al obtener pedidos del cliente:', err);
+        pedidosClienteDev.value = [];
+      }
+    };
+
+    const seleccionarClienteDev = async (cliente) => {
+      clienteSeleccionadoDev.value = cliente;
+      nuevaDevolucion.value.id_cliente = cliente.id;
+      clienteSearchTermDev.value = `${cliente.nombre} ${cliente.apellido}`;
+      showClienteDropdownDev.value = false;
+      clientesFiltradosDev.value = [];
+      
+      // Cargar pedidos del cliente seleccionado
+      await fetchPedidosClienteDev(cliente.id);
+    };
+
+    const registrarDevolucion = async () => {
+      if (!nuevaDevolucion.value.id_cliente || !nuevaDevolucion.value.id_pedido || !nuevaDevolucion.value.metodo) {
+        showMessage('Error', 'Complete todos los campos requeridos', 'error');
+        return;
+      }
+
+      procesandoDevolucion.value = true;
+      try {
+        const token = checkAuth();
+        if (!token) return;
+
+        const payload = {
+          id_pedido: nuevaDevolucion.value.id_pedido,
+          motivo: nuevaDevolucion.value.observaciones,
+          id_metodo_devolucion: metodosDevoluciones.value.find(m => m.metodo === nuevaDevolucion.value.metodo)?.id,
+          monto_devolucion: nuevaDevolucion.value.monto || null,
+          observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
+        };
+
+        const response = await fetch('http://localhost:3000/api/devoluciones', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al registrar la devolución');
+        }
+
+        showMessage('Éxito', 'Devolución registrada correctamente', 'success');
+        
+        // Limpiar formulario
+        nuevaDevolucion.value = {
+          id_cliente: '',
+          id_pedido: '',
+          metodo: '',
+          observaciones: '',
+          monto: null,
+          observaciones_adicionales: ''
+        };
+        clienteSearchTermDev.value = '';
+        clienteSeleccionadoDev.value = null;
+        pedidosClienteDev.value = [];
+        
+        // Recargar datos
+        await fetchDevoluciones();
+        
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      } finally {
+        procesandoDevolucion.value = false;
       }
     };
 
@@ -780,22 +723,18 @@ export default {
 
       if (filtrosPagos.value.cliente) {
         const clienteQuery = filtrosPagos.value.cliente.toLowerCase();
-        result = result.filter(pago => 
-          pago.cliente_nombre?.toLowerCase().includes(clienteQuery)
-        );
-      }
-
-      if (filtrosPagos.value.fechaDesde) {
         result = result.filter(pago => {
-          const fechaPago = new Date(pago.fecha).toISOString().split('T')[0];
-          return fechaPago >= filtrosPagos.value.fechaDesde;
+          const nombreCompleto = `${pago.cliente_nombre || ''} ${pago.cliente_apellido || ''}`.toLowerCase();
+          const empresa = pago.empresa?.toLowerCase() || '';
+          return nombreCompleto.includes(clienteQuery) || empresa.includes(clienteQuery);
         });
       }
 
-      if (filtrosPagos.value.fechaHasta) {
+      if (filtrosPagos.value.fechaPago) {
         result = result.filter(pago => {
-          const fechaPago = new Date(pago.fecha).toISOString().split('T')[0];
-          return fechaPago <= filtrosPagos.value.fechaHasta;
+          if (!pago.fecha_de_pago) return false;
+          const fechaPago = new Date(pago.fecha_de_pago).toISOString().split('T')[0];
+          return fechaPago === filtrosPagos.value.fechaPago;
         });
       }
 
@@ -840,8 +779,7 @@ export default {
     const limpiarFiltrosPagos = () => {
       filtrosPagos.value = {
         cliente: '',
-        fechaDesde: '',
-        fechaHasta: ''
+        fechaPago: ''
       };
     };
 
@@ -858,10 +796,8 @@ export default {
       await Promise.all([
         fetchVendedores(),
         fetchClientes(),
-        fetchTiposLineaProducto(),
-        fetchMetodosDevoluciones(),
         fetchMetodosPago(),
-        fetchZapatos(),
+        fetchMetodosDevoluciones(),
         fetchPagos(),
         fetchDevoluciones()
       ]);
@@ -878,9 +814,7 @@ export default {
       // Datos
       vendedores,
       clientes,
-      tiposLineaProducto,
       metodosPago,
-      zapatosDisponibles,
       
       // Pagos
       pagos,
@@ -892,6 +826,8 @@ export default {
       clienteSearchTermPago,
       showClienteDropdownPago,
       clientesFiltradosPago,
+      clienteSeleccionadoPago,
+      pedidosClientePago,
       
       // Devoluciones
       devoluciones,
@@ -903,14 +839,9 @@ export default {
       clienteSearchTermDev,
       showClienteDropdownDev,
       clientesFiltradosDev,
-      productoSearchTermDev,
-      showProductoDropdownDev,
-      productosFiltradosDev,
-      tallasDisponiblesDevolucion,
       metodosDevoluciones,
       clienteSeleccionadoDev,
       pedidosClienteDev,
-      fetchPedidosCliente,
       
       // Funciones
       showMessage,
@@ -919,10 +850,8 @@ export default {
       formatCurrency,
       buscarClientesPago,
       buscarClientesDev,
-      buscarProductosDev,
       seleccionarClientePago,
       seleccionarClienteDev,
-      seleccionarProductoDev,
       registrarPago,
       registrarDevolucion,
       actualizarFiltrosPagos,
