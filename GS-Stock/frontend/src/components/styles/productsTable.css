@@ -1,0 +1,293 @@
+.products-table-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.card-view {
+  display: block;
+  width: 100%;
+}
+
+.product-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  padding: 15px;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.product-card:hover {
+  background-color: #f8f8f8;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  flex: 1;
+}
+
+.codigo {
+  background-color: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #666;
+  margin-left: 10px;
+}
+
+.card-row {
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.card-row strong {
+  margin-right: 5px;
+  min-width: 80px;
+}
+
+.tallas-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+}
+
+.table-responsive {
+  display: none;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.products-table th,
+.products-table td {
+  border: 1px solid #ddd;
+  padding: 10px 8px;
+  text-align: left;
+}
+
+.products-table th {
+  background-color: #f8f8f8;
+  position: sticky;
+  top: 0;
+  font-weight: bold;
+}
+
+.products-table tr:hover {
+  background-color: #f1f1f1;
+}
+
+.tallas-summary {
+  text-align: center;
+}
+
+.tallas-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.tallas-count {
+  font-size: 12px;
+  color: #666;
+}
+
+.ver-tallas-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ver-tallas-btn:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.ver-tallas-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.ver-tallas-btn.small {
+  font-size: 11px;
+  padding: 3px 6px;
+}
+
+.select-btn {
+  padding: 8px 12px;
+  font-size: 14px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 8px;
+  text-align: center;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.select-btn:hover {
+  background-color: #45a049;
+}
+
+.precio {
+  font-weight: bold;
+  color: #2e7d32;
+}
+
+.stock-cell {
+  text-align: center;
+}
+
+.stock-normal {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.stock-bajo {
+  color: #f57c00;
+  font-weight: bold;
+}
+
+.stock-agotado {
+  color: #d32f2f;
+  font-weight: bold;
+}
+
+.status-disponible {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.status-agotado {
+  color: #d32f2f;
+  font-weight: bold;
+}
+
+.status-sin-registrar {
+  color: #666;
+  font-style: italic;
+}
+
+.status-default {
+  color: #333;
+}
+
+.pagination {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.pagination button {
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  min-width: 40px;
+  transition: background-color 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #f0f0f0;
+}
+
+.pagination button.active {
+  background: #333;
+  color: white;
+  font-weight: bold;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-nav {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+@media (min-width: 768px) {
+  .table-responsive {
+    display: block;
+  }
+  
+  .card-view {
+    display: none;
+  }
+  
+  .products-table th,
+  .products-table td {
+    text-align: center;
+  }
+  
+  .products-table {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 350px) {
+  .product-card {
+    padding: 10px;
+  }
+  
+  .card-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .codigo {
+    margin-left: 0;
+    margin-top: 5px;
+  }
+}

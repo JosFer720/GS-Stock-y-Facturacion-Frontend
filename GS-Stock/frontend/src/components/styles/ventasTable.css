@@ -1,0 +1,256 @@
+.sales-table-container {
+  width: 100%;
+  overflow-x: auto;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6c757d;
+  font-style: italic;
+  font-size: 18px;
+  background-color: white;
+  border-radius: 8px;
+  border: 2px dashed #dee2e6;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: white;
+}
+
+.sales-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  min-width: 1000px;
+}
+
+.sales-table th,
+.sales-table td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+  vertical-align: middle;
+}
+
+.sales-table th {
+  background-color: #343a40;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 2px solid #495057;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sales-table tbody tr {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sales-table tbody tr:hover {
+  background-color: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.selected-row {
+  background-color: #e3f2fd !important;
+  border-left: 4px solid #2196F3;
+}
+
+.selected-row:hover {
+  background-color: #e3f2fd !important;
+}
+
+.id-cell {
+  font-weight: bold;
+  color: #495057;
+  font-size: 14px;
+  width: 80px;
+}
+
+.cliente-cell {
+  min-width: 150px;
+}
+
+.cliente-info strong {
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.empresa-cell {
+  min-width: 120px;
+}
+
+.empresa-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: #6c757d;
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.vendedor-cell {
+  min-width: 130px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.fecha-cell {
+  min-width: 120px;
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.metodo-cell {
+  min-width: 100px;
+}
+
+.metodo-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: #17a2b8;
+  color: white;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.estado-cell {
+  min-width: 130px;
+}
+
+.total-cell {
+  min-width: 100px;
+  text-align: right;
+  color: #28a745;
+  font-size: 15px;
+}
+
+.actions-cell {
+  width: 60px;
+  text-align: center;
+}
+
+.action-btn {
+  background: none;
+  border: 1px solid #dee2e6;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.details-btn:hover {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: white;
+}
+
+.status-select {
+  padding: 6px 10px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background-color: white;
+  min-width: 110px;
+  text-align: center;
+}
+
+.status-select:focus {
+  outline: none;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+
+.status-completed {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-pending {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.status-cancelled {
+  background-color: #dc3545;
+  color: white;
+}
+
+.status-processing {
+  background-color: #007bff;
+  color: white;
+}
+
+.status-default {
+  background-color: #6c757d;
+  color: white;
+}
+
+@media (max-width: 1200px) {
+  .sales-table {
+    min-width: 900px;
+  }
+  
+  .sales-table th,
+  .sales-table td {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sales-table-container {
+    padding: 5px;
+  }
+  
+  .sales-table {
+    min-width: 800px;
+  }
+  
+  .sales-table th,
+  .sales-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  
+  .cliente-cell,
+  .vendedor-cell {
+    min-width: 100px;
+  }
+  
+  .empresa-cell {
+    min-width: 80px;
+  }
+}
+
+@media (max-width: 576px) {
+  .sales-table {
+    font-size: 11px;
+    min-width: 700px;
+  }
+  
+  .sales-table th,
+  .sales-table td {
+    padding: 6px 4px;
+  }
+  
+  .no-data-message {
+    font-size: 16px;
+    padding: 40px 15px;
+  }
+}
