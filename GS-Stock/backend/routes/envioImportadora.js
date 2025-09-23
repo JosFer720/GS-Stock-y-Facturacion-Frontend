@@ -41,7 +41,6 @@ async function crearPDFEnvioImportadora(datosEnvio) {
             });
 
             const chunks = [];
-            
             doc.on('data', (chunk) => chunks.push(chunk));
             doc.on('end', () => {
                 const pdfBuffer = Buffer.concat(chunks);
@@ -51,7 +50,7 @@ async function crearPDFEnvioImportadora(datosEnvio) {
                     success: true
                 });
             });
-            
+
             doc.on('error', (error) => {
                 reject(error);
             });
@@ -60,15 +59,22 @@ async function crearPDFEnvioImportadora(datosEnvio) {
             const pageHeight = 595.28; // A4 landscape height in points
             const margin = 30;
 
-            // --- Logo GENSER ---
             const logoX = pageWidth - 180; // Posición en esquina superior derecha
             const logoY = margin;
-            
+
             try {
-                // Ruta exacta del logo
-                const logoPath = path.join(__dirname, '..', '..', 'frontend/src/assets/images/logo-without-back-letters.png');
-                
-                if (fs.existsSync(logoPath)) {
+                // Buscar primero en backend/public/images (disponible en contenedor)
+                const logoBackendPath = path.join(__dirname, '..', 'public', 'images', 'logo-without-back-letters.png');
+                const logoFrontendPath = path.join(__dirname, '..', '..', 'frontend', 'src', 'assets', 'images', 'logo-without-back-letters.png');
+                let logoPath = null;
+
+                if (fs.existsSync(logoBackendPath)) {
+                    logoPath = logoBackendPath;
+                } else if (fs.existsSync(logoFrontendPath)) {
+                    logoPath = logoFrontendPath;
+                }
+
+                if (logoPath) {
                     doc.image(logoPath, logoX, logoY, {
                         width: 150,
                         align: 'right'

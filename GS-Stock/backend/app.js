@@ -61,15 +61,31 @@ app.use('/api/pagos', pagosRoutes);
 
 // Ruta adicional para debug
 app.get('/api/envios/test', (req, res) => {
-    res.json({
-        success: true,
-        message: 'Rutas de envío funcionando correctamente',
-        rutas_disponibles: [
-            '/api/envios/nacional',
-            '/api/envios/nacionales', 
-            '/api/envios/importadora'
-        ]
-    });
+  // Agregar comprobación de rutas del logo para debugging rápido
+  const fs = require('fs');
+  const path = require('path');
+  const backendLogo = path.join(__dirname, 'public', 'images', 'logo-without-back-letters.png');
+  const frontendLogo = path.join(__dirname, '..', 'frontend', 'src', 'assets', 'images', 'logo-without-back-letters.png');
+
+  res.json({
+    success: true,
+    message: 'Rutas de envío funcionando correctamente',
+    rutas_disponibles: [
+      '/api/envios/nacional',
+      '/api/envios/nacionales', 
+      '/api/envios/importadora'
+    ],
+    logo_checks: {
+      backendLogo: {
+        path: backendLogo,
+        exists: fs.existsSync(backendLogo)
+      },
+      frontendLogo: {
+        path: frontendLogo,
+        exists: fs.existsSync(frontendLogo)
+      }
+    }
+  });
 });
 
 app.get('/health', async (req, res) => {

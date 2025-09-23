@@ -47,6 +47,7 @@ async function crearPDFEnvioNacional(datosEnvio) {
       });
       doc.on('error', reject);
 
+// BUSCA esta sección en tu código (línea aprox 55-65):
       const primaryColor = '#2c3e50';
       const secondaryColor = '#3498db';
 
@@ -54,7 +55,47 @@ async function crearPDFEnvioNacional(datosEnvio) {
       doc.fontSize(20).fillColor(primaryColor).text('ZAPATERIA', 50, 50, { width: 200 });
       doc.fontSize(14).fillColor(secondaryColor).text('LÍNEA NACIONAL', 50, 75);
 
-      // Fecha y número
+      // AGREGAR LOGO AQUÍ - DESPUÉS DEL ENCABEZADO Y ANTES DE FECHA:
+      // --- Logo GENSER ---
+      const pageWidth = doc.page.width; // A4 landscape width
+      const margin = doc.page.margins.top || 50;
+      const logoX = pageWidth - doc.page.margins.right - 160; // Posición en esquina superior derecha
+      const logoY = margin;
+      
+      try {
+        const path = require('path');
+        const fs = require('fs');
+
+        // Buscar primero en backend/public/images (disponible en contenedor)
+        const logoBackendPath = path.join(__dirname, '..', 'public', 'images', 'logo-without-back-letters.png');
+        const logoFrontendPath = path.join(__dirname, '..', '..', 'frontend', 'src', 'assets', 'images', 'logo-without-back-letters.png');
+        let logoPath = null;
+
+        if (fs.existsSync(logoBackendPath)) {
+          logoPath = logoBackendPath;
+        } else if (fs.existsSync(logoFrontendPath)) {
+          logoPath = logoFrontendPath;
+        }
+
+        if (logoPath) {
+          doc.image(logoPath, logoX, logoY, {
+            width: 140,
+            align: 'right'
+          });
+          console.log('✅ Logo cargado desde:', logoPath);
+        } else {
+          // Texto alternativo si no encuentra el logo
+          doc.fontSize(14).fillColor('#000000').text('GENSER', logoX + 20, logoY + 5);
+          doc.fontSize(8).text('DISTRIBUIDORES AUTORIZADOS', logoX - 10, logoY + 25, { width: 170, align: 'center' });
+          console.log('⚠️ Logo no encontrado, usando texto alternativo');
+        }
+      } catch (error) {
+        doc.fontSize(14).fillColor('#000000').text('GENSER', logoX + 20, logoY + 5);
+        doc.fontSize(8).text('DISTRIBUIDORES AUTORIZADOS', logoX - 10, logoY + 25, { width: 170, align: 'center' });
+        console.log('⚠️ Error cargando logo:', error.message);
+      }
+
+      // Fecha y número (ESTE CÓDIGO YA LO TIENES)
       doc.fontSize(12).fillColor('#000')
         .text('FECHA', 400, 50)
         .rect(450, 47, 100, 20).stroke()
@@ -211,11 +252,7 @@ async function crearPDFEnvioNacional(datosEnvio) {
     doc.fontSize(12).fillColor('#000')
       .text('TOTAL', 450, totalY)
       .rect(520, totalY - 5, 70, 25).stroke()
-      .text(`Q${Number((datosEnvio.total ?? totalGeneral)).toFixed(2)}`, 525, totalY);
-
-      // Nota
-    doc.fontSize(10).fillColor(secondaryColor)
-      .text('* ENTREGA ESTIMADA: 1-3 DÍAS HÁBILES', 50, totalY + 40);
+      .text(`Q${Number((datosEnvio.total ?? totalGeneral)).toFixed(2)}`, 525, totalY);   
 
       doc.end();
     } catch (err) {
