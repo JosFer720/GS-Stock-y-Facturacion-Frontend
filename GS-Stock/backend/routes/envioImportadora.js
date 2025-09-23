@@ -128,7 +128,7 @@ async function crearPDFEnvioImportadora(datosEnvio) {
 
             // --- Product Table ---
             const tableTop = transportY + 65;
-            const tableWidth = pageWidth - 60;
+            const tableWidth = pageWidth - 2 * margin;
             const col1W = 60;   // CANTIDAD
             const col2W = 60;   // COLOR
             const col3W = 80;   // ESTILO  
@@ -142,7 +142,6 @@ async function crearPDFEnvioImportadora(datosEnvio) {
             const col4X = col3X + col3W;
             const col5X = col4X + col4W;
             const col6X = col5X + col5W;
-            const rowHeight = 250; 
 
             // Headers
             doc.rect(col1X, tableTop, col1W, 20).stroke();
@@ -161,54 +160,97 @@ async function crearPDFEnvioImportadora(datosEnvio) {
                .text('PRECIO/U', col5X, tableTop + 6, { width: col5W, align: 'center' })
                .text('TOTAL', col6X, tableTop + 6, { width: col6W, align: 'center' });
 
-            // Fila de contenido única
+            // Build rows dynamically to fit description
             const contentY = tableTop + 20;
-            doc.rect(col1X, contentY, col1W, rowHeight).stroke();
-            doc.rect(col2X, contentY, col2W, rowHeight).stroke();
-            doc.rect(col3X, contentY, col3W, rowHeight).stroke();
-            doc.rect(col4X, contentY, col4W, rowHeight).stroke();
-            doc.rect(col5X, contentY, col5W, rowHeight).stroke();
-            doc.rect(col6X, contentY, col6W, rowHeight).stroke();
+            let currentY = contentY;
+            const pageBottom = doc.page.height - doc.page.margins.bottom;
 
-            // Insertar el contenido en las celdas
             if (datosEnvio.productos && datosEnvio.productos.length > 0) {
-                // ... (no se listan productos individualmente para mantener el diseño 6x2)
+                datosEnvio.productos.forEach((p) => {
+                    const desc = String(p.nombre || '');
+                    const descHeight = doc.heightOfString(desc, { width: col4W - 10 });
+                    const minRow = 25;
+                    const rowH = Math.max(minRow, Math.ceil(descHeight + 10));
+
+                    if (currentY + rowH + 60 > pageBottom) {
+                        doc.addPage();
+                        currentY = doc.page.margins.top;
+                    }
+
+                    doc.rect(col1X, currentY, col1W, rowH).stroke();
+                    doc.rect(col2X, currentY, col2W, rowH).stroke();
+                    doc.rect(col3X, currentY, col3W, rowH).stroke();
+                    doc.rect(col4X, currentY, col4W, rowH).stroke();
+                    doc.rect(col5X, currentY, col5W, rowH).stroke();
+                    doc.rect(col6X, currentY, col6W, rowH).stroke();
+
+                    doc.fontSize(10)
+                       .text(String(p.cantidad || ''), col1X + 5, currentY + 5, { width: col1W - 10, align: 'center' })
+                       .text('', col2X + 5, currentY + 5, { width: col2W - 10 })
+                       .text(p.codigo || '', col3X + 5, currentY + 5, { width: col3W - 10 })
+                       .text(desc, col4X + 5, currentY + 5, { width: col4W - 10 })
+                       .text(`Q${(p.precio_unitario || 0).toFixed(2)}`, col5X + 5, currentY + 5, { width: col5W - 10, align: 'right' })
+                       .text(`Q${((p.cantidad || 0) * (p.precio_unitario || 0)).toFixed(2)}`, col6X + 5, currentY + 5, { width: col6W - 10, align: 'right' });
+
+                    currentY += rowH;
+                });
+            } else {
+                // placeholder rows
+                for (let i = 0; i < 4; i++) {
+                    const ph = 25;
+                    doc.rect(col1X, currentY, col1W, ph).stroke();
+                    doc.rect(col2X, currentY, col2W, ph).stroke();
+                    doc.rect(col3X, currentY, col3W, ph).stroke();
+                    doc.rect(col4X, currentY, col4W, ph).stroke();
+                    doc.rect(col5X, currentY, col5W, ph).stroke();
+                    doc.rect(col6X, currentY, col6W, ph).stroke();
+                    currentY += ph;
+                }
             }
 
             // --- Cuadro de información dentro de la columna de DESCRIPCION ---
-            const infoBoxX = col4X + 50; 
-            const infoBoxY = contentY + 120; // Ajuste para moverlo más abajo
-            const infoBoxWidth = col4W - 100;
-            const infoBoxHeight = 110;
+            const infoBoxX = col4X + 20; 
+            const infoBoxY = currentY + 20; // position after table rows
+            const infoBoxWidth = col4W - 40;
+            // Calculate dynamic height needed for info box content
+            const infoLines = [
+                'NOMBRE ___________________________________',
+                'FIRMA _____________________________________',
+                'REVISADO:_________________________________',
+                'FECHA RECIBIDO: __________________________',
+                'CARGO POR ENVÍO Q.________________________',
+                'GUÍA No.__________________________________'
+            ];
+            const infoTextHeight = infoLines.reduce((acc, line) => acc + doc.heightOfString(line, { width: infoBoxWidth - 20 }), 0);
+            const infoBoxHeight = Math.max(80, Math.ceil(infoTextHeight + 20));
+            // Ensure it fits in the page
+            if (infoBoxY + infoBoxHeight + 120 > pageBottom) {
+                doc.addPage();
+                // recompute positions on new page
+            }
             doc.rect(infoBoxX, infoBoxY, infoBoxWidth, infoBoxHeight).stroke();
 
-            doc.fontSize(8).fillColor('#000000')
-               .text('NOMBRE ___________________________________', infoBoxX + 10, infoBoxY + 8)
-               .text('FIRMA _____________________________________', infoBoxX + 10, infoBoxY + 20)
-               .text('REVISADO:_________________________________', infoBoxX + 10, infoBoxY + 32)
-               .text('FECHA RECIBIDO: __________________________', infoBoxX + 10, infoBoxY + 44)
-               .text('CARGO POR ENVÍO Q.________________________', infoBoxX + 10, infoBoxY + 56)
-               .text('GUÍA No.__________________________________', infoBoxX + 10, infoBoxY + 68);
+            let infoY = infoBoxY + 8;
+            doc.fontSize(8).fillColor('#000000');
+            infoLines.forEach((line) => {
+                doc.text(line, infoBoxX + 10, infoY, { width: infoBoxWidth - 20 });
+                infoY += doc.heightOfString(line, { width: infoBoxWidth - 20 }) + 6;
+            });
 
-            doc.fontSize(7)
-               .text('DESCUENTO 0 A 30 DÍAS -15%', infoBoxX + 15, infoBoxY + 80)
-               .text('DESCUENTO 31 A 60 DÍAS -10%', infoBoxX + 15, infoBoxY + 88);
-
-            doc.fontSize(8).fillColor('#000000')
-               .text('CARGO POR CHEQUE RECHAZADO Q. 75.00', infoBoxX + 10, infoBoxY + 98);
+            // Discount lines
+            doc.fontSize(7).text('DESCUENTO 0 A 30 DÍAS -15%', infoBoxX + 15, infoY, { width: infoBoxWidth - 30 });
+            infoY += doc.heightOfString('DESCUENTO 0 A 30 DÍAS -15%', { width: infoBoxWidth - 30 }) + 4;
+            doc.text('DESCUENTO 31 A 60 DÍAS -10%', infoBoxX + 15, infoY, { width: infoBoxWidth - 30 });
 
             // --- TOTAL Box ---
             const totalBoxWidth = col6W;
             const totalBoxHeight = 25;
             const totalBoxX = col6X;
-            const totalBoxY = contentY + rowHeight - totalBoxHeight - 10;
+            const totalBoxY = infoBoxY + infoBoxHeight + 10;
 
             doc.fontSize(10).fillColor('#000000').text('TOTAL', totalBoxX, totalBoxY - 15, { width: totalBoxWidth, align: 'center' });
             doc.rect(totalBoxX, totalBoxY, totalBoxWidth, totalBoxHeight).stroke();
-            
-            doc.fillColor('#000000')
-               .fontSize(12)
-               .text(`Q${(datosEnvio.total).toFixed(2)}`, totalBoxX, totalBoxY + 8, { width: totalBoxWidth, align: 'center' });
+            doc.fillColor('#000000').fontSize(12).text(`Q${(datosEnvio.total).toFixed(2)}`, totalBoxX, totalBoxY + 8, { width: totalBoxWidth, align: 'center' });
 
             doc.end();
 

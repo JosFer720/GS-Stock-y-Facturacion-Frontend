@@ -31,6 +31,7 @@ async function crearPDFEnvioNacional(datosEnvio) {
     try {
       const doc = new PDFDocument({
         size: 'A4',
+        layout: 'landscape',
         margins: { top: 50, bottom: 50, left: 50, right: 50 }
       });
 
@@ -67,94 +68,154 @@ async function crearPDFEnvioNacional(datosEnvio) {
       doc.fontSize(16).fillColor(primaryColor).text('GENSER', 480, 120)
         .fontSize(8).text('DISTRIBUIDORES AUTORIZADOS', 465, 140);
 
-      // Cliente / Vendedor / Transporte / Dirección
-      doc.fontSize(12).fillColor('#000').text('CLIENTE', 50, 110);
-      doc.rect(50, 127, 300, 20).stroke().text(datosEnvio.cliente_nombre || '', 55, 132);
+  // Cliente / Vendedor / Transporte / Dirección
+      doc.fontSize(12).fillColor('#000');
+      const fieldX = 50;
+      let fieldY = 110;
+      const fieldLabelOffset = 0; // label drawn at fieldY
+      const fieldPadding = 5;
 
-      doc.text('VENDEDOR', 50, 160);
-      doc.rect(50, 177, 540, 20).stroke().text(datosEnvio.vendedor_nombre || '', 55, 182);
+      // Helper to draw a labeled box that grows with content
+      const drawLabeledBox = (label, text, boxWidth) => {
+        doc.fontSize(12).fillColor('#000').text(label, fieldX, fieldY + fieldLabelOffset);
+        const content = String(text || '');
+        const contentWidth = boxWidth - (fieldPadding * 2);
+        // Use same font size as set (12)
+        const textHeight = content ? doc.heightOfString(content, { width: contentWidth }) : doc.heightOfString(' ', { width: contentWidth });
+        const boxHeight = Math.max(20, Math.ceil(textHeight + (fieldPadding * 2)));
+        const rectY = fieldY + 17;
+        doc.rect(fieldX, rectY, boxWidth, boxHeight).stroke();
+        doc.fontSize(12).fillColor('#000').text(content, fieldX + fieldPadding, rectY + fieldPadding, { width: contentWidth });
+        // advance fieldY for the next field (spacing 10)
+        fieldY = rectY + boxHeight + 10;
+      };
 
-      doc.text('TRANSPORTE', 50, 210);
-      doc.rect(50, 227, 540, 20).stroke().text(datosEnvio.transporte || 'Por definir', 55, 232);
+      // CLIENTE (narrow)
+      drawLabeledBox('CLIENTE', datosEnvio.cliente_nombre || '', 300);
 
-      doc.text('DIRECCIÓN:', 50, 260);
-      doc.rect(50, 277, 540, 20).stroke().text(datosEnvio.cliente_direccion || '', 55, 282);
+  // VENDEDOR (full width) - use usable width based on page size (landscape)
+  const vendedorLabelY = fieldY;
+  doc.fontSize(12).fillColor('#000').text('VENDEDOR', fieldX, vendedorLabelY);
+  // compute vendedor box using page measurements
+  const pageUsableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const vendedorContent = String(datosEnvio.vendedor_nombre || '');
+  const vendedorContentWidth = pageUsableWidth - (fieldX - doc.page.margins.left) - (fieldPadding * 2);
+  const vendedorTextHeight = vendedorContent ? doc.heightOfString(vendedorContent, { width: vendedorContentWidth }) : doc.heightOfString(' ', { width: vendedorContentWidth });
+  const vendedorBoxHeight = Math.max(20, Math.ceil(vendedorTextHeight + (fieldPadding * 2)));
+  const vendedorRectY = vendedorLabelY + 17;
+  doc.rect(fieldX, vendedorRectY, vendedorContentWidth + (fieldPadding * 2), vendedorBoxHeight).stroke();
+  doc.fontSize(12).fillColor('#000').text(vendedorContent, fieldX + fieldPadding, vendedorRectY + fieldPadding, { width: vendedorContentWidth });
+  fieldY = vendedorRectY + vendedorBoxHeight + 10;
 
-      // Tabla productos (sin “cuadro de información” adicional)
-      const tableTop = 320;
-      const col1X = 50;  // CANTIDAD
-      const col2X = 100; // COLOR
-      const col3X = 150; // ESTILO
-      const col4X = 250; // DESCRIPCIÓN
-      const col5X = 450; // PRECIO/U
-      const col6X = 520; // TOTAL
+      // TRANSPORTE
+      drawLabeledBox('TRANSPORTE', datosEnvio.transporte || 'Por definir', 540);
 
-      // Headers
-      doc.rect(col1X, tableTop, 50, 25)
-         .rect(col2X, tableTop, 50, 25)
-         .rect(col3X, tableTop, 100, 25)
-         .rect(col4X, tableTop, 200, 25)
-         .rect(col5X, tableTop, 70, 25)
-         .rect(col6X, tableTop, 70, 25)
-         .stroke();
+      // DIRECCIÓN
+      drawLabeledBox('DIRECCIÓN:', datosEnvio.cliente_direccion || '', 540);
 
-      doc.fontSize(10)
-         .text('CANTIDAD', col1X + 5, tableTop + 8)
-         .text('COLOR', col2X + 10, tableTop + 8)
-         .text('ESTILO', col3X + 30, tableTop + 8)
-         .text('DESCRIPCIÓN', col4X + 70, tableTop + 8)
-         .text('PRECIO/U', col5X + 10, tableTop + 8)
-         .text('TOTAL', col6X + 20, tableTop + 8);
+    // Tabla productos (sin “cuadro de información” adicional)
+    const tableTop = Math.max(fieldY + 20, 320);
+    // compute column widths based on usable page width
+    const pageUsableWidth2 = doc.page.width - doc.page.margins.left - doc.page.margins.right - (fieldX - doc.page.margins.left);
+    const col1W = 60; // CANTIDAD
+    const col2W = 60; // COLOR
+    const col3W = 120; // ESTILO
+    const col5W = 80; // PRECIO/U
+    const col6W = 80; // TOTAL
+    const col4W = Math.max(120, pageUsableWidth2 - (col1W + col2W + col3W + col5W + col6W)); // DESCRIPCIÓN gets remaining
 
-      // Filas
-      let currentY = tableTop + 25;
-      const rowHeight = 25;
+    const col1X = fieldX;
+    const col2X = col1X + col1W;
+    const col3X = col2X + col2W;
+    const col4X = col3X + col3W;
+    const col5X = col4X + col4W;
+    const col6X = col5X + col5W;
+
+    // Headers
+    doc.rect(col1X, tableTop, col1W, 25)
+      .rect(col2X, tableTop, col2W, 25)
+      .rect(col3X, tableTop, col3W, 25)
+      .rect(col4X, tableTop, col4W, 25)
+      .rect(col5X, tableTop, col5W, 25)
+      .rect(col6X, tableTop, col6W, 25)
+      .stroke();
+
+    doc.fontSize(10)
+      .text('CANTIDAD', col1X + 5, tableTop + 8)
+      .text('COLOR', col2X + 10, tableTop + 8)
+      .text('ESTILO', col3X + 10, tableTop + 8)
+      .text('DESCRIPCIÓN', col4X + 5, tableTop + 8)
+      .text('PRECIO/U', col5X + 5, tableTop + 8)
+      .text('TOTAL', col6X + 5, tableTop + 8);
+
+    // Filas: calcular altura dinámica por fila para ajustarse al contenido
+    let currentY = tableTop + 25;
       let totalGeneral = 0;
+
+      const pageBottom = doc.page.height - doc.page.margins.bottom;
 
       if (datosEnvio.productos?.length) {
         datosEnvio.productos.forEach((p) => {
           const subtotal = (p.cantidad * p.precio_unitario) || 0;
           totalGeneral += subtotal;
 
-          doc.rect(col1X, currentY, 50, rowHeight)
-             .rect(col2X, currentY, 50, rowHeight)
-             .rect(col3X, currentY, 100, rowHeight)
-             .rect(col4X, currentY, 200, rowHeight)
-             .rect(col5X, currentY, 70, rowHeight)
-             .rect(col6X, currentY, 70, rowHeight)
+          // calcular altura necesaria para la descripción
+          const descText = String(p.nombre || '');
+          const descWidth = 200 - (fieldPadding * 2);
+          const descHeight = doc.heightOfString(descText, { width: descWidth, align: 'left' });
+          const minRowHeight = 25;
+          const rowHeightDynamic = Math.max(minRowHeight, Math.ceil(descHeight + fieldPadding * 2));
+
+          // Salto de página si es necesario
+          if (currentY + rowHeightDynamic + 80 > pageBottom) {
+            doc.addPage();
+            currentY = doc.page.margins.top;
+          }
+
+          doc.rect(col1X, currentY, 50, rowHeightDynamic)
+             .rect(col2X, currentY, 50, rowHeightDynamic)
+             .rect(col3X, currentY, 100, rowHeightDynamic)
+             .rect(col4X, currentY, 200, rowHeightDynamic)
+             .rect(col5X, currentY, 70, rowHeightDynamic)
+             .rect(col6X, currentY, 70, rowHeightDynamic)
              .stroke();
 
-          doc.text(String(p.cantidad ?? ''), col1X + 15, currentY + 8)
-             .text('', col2X + 10, currentY + 8)
-             .text(p.codigo || '', col3X + 5, currentY + 8)
-             .text(p.nombre || '', col4X + 5, currentY + 8)
-             .text(`Q${Number(p.precio_unitario || 0).toFixed(2)}`, col5X + 5, currentY + 8)
-             .text(`Q${subtotal.toFixed(2)}`, col6X + 5, currentY + 8);
+          doc.fontSize(10)
+             .text(String(p.cantidad ?? ''), col1X + 5, currentY + fieldPadding, { width: 50 - fieldPadding * 2, align: 'center' })
+             .text('', col2X + 5, currentY + fieldPadding, { width: 50 - fieldPadding * 2 })
+             .text(p.codigo || '', col3X + 5, currentY + fieldPadding, { width: 100 - fieldPadding * 2 })
+             .text(descText, col4X + 5, currentY + fieldPadding, { width: 200 - fieldPadding * 2 })
+             .text(`Q${Number(p.precio_unitario || 0).toFixed(2)}`, col5X + 5, currentY + fieldPadding, { width: 70 - fieldPadding * 2, align: 'right' })
+             .text(`Q${subtotal.toFixed(2)}`, col6X + 5, currentY + fieldPadding, { width: 70 - fieldPadding * 2, align: 'right' });
 
-          currentY += rowHeight;
+          currentY += rowHeightDynamic;
         });
       } else {
-        for (let i = 0; i < 5; i++) {
-          doc.rect(col1X, currentY, 50, rowHeight)
-             .rect(col2X, currentY, 50, rowHeight)
-             .rect(col3X, currentY, 100, rowHeight)
-             .rect(col4X, currentY, 200, rowHeight)
-             .rect(col5X, currentY, 70, rowHeight)
-             .rect(col6X, currentY, 70, rowHeight)
+        // placeholder rows
+        const placeholderRows = 5;
+        const placeholderRowHeight = 25;
+        for (let i = 0; i < placeholderRows; i++) {
+          doc.rect(col1X, currentY, 50, placeholderRowHeight)
+             .rect(col2X, currentY, 50, placeholderRowHeight)
+             .rect(col3X, currentY, 100, placeholderRowHeight)
+             .rect(col4X, currentY, 200, placeholderRowHeight)
+             .rect(col5X, currentY, 70, placeholderRowHeight)
+             .rect(col6X, currentY, 70, placeholderRowHeight)
              .stroke();
-          currentY += rowHeight;
+          currentY += placeholderRowHeight;
         }
       }
 
-      // Total (simple)
-      doc.fontSize(12).fillColor('#000')
-         .text('TOTAL', 450, currentY + 20)
-         .rect(520, currentY + 15, 70, 25).stroke()
-         .text(`Q${Number((datosEnvio.total ?? totalGeneral)).toFixed(2)}`, 525, currentY + 22);
+    // Total (simple)
+    const totalY = currentY + 20;
+    doc.fontSize(12).fillColor('#000')
+      .text('TOTAL', 450, totalY)
+      .rect(520, totalY - 5, 70, 25).stroke()
+      .text(`Q${Number((datosEnvio.total ?? totalGeneral)).toFixed(2)}`, 525, totalY);
 
       // Nota
-      doc.fontSize(10).fillColor(secondaryColor)
-         .text('* ENTREGA ESTIMADA: 1-3 DÍAS HÁBILES', 50, currentY + 60);
+    doc.fontSize(10).fillColor(secondaryColor)
+      .text('* ENTREGA ESTIMADA: 1-3 DÍAS HÁBILES', 50, totalY + 40);
 
       doc.end();
     } catch (err) {

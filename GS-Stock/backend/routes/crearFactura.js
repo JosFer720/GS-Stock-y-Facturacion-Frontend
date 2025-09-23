@@ -306,17 +306,22 @@ async function generarPDF(factura, items, clienteData) {
       
       // Tabla de productos
       const tableTop = doc.y;
-      doc.fontSize(10).font('Helvetica-Bold');
-      
-      // Encabezados de tabla
-      doc.text('Cant.', 50, tableTop);
-      doc.text('Descripción', 100, tableTop);
-      doc.text('Precio Unit.', 350, tableTop);
-      doc.text('Total', 450, tableTop);
-      
-      // Línea separadora
-      doc.moveTo(50, tableTop + 15).lineTo(520, tableTop + 15).stroke();
-      
+      const tableLeft = 50;
+      const colDescX = 100;
+      const colPriceX = 350;
+      const colTotalX = 450;
+
+      const drawTableHeader = (y) => {
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Cant.', tableLeft, y);
+        doc.text('Descripción', colDescX, y);
+        doc.text('Precio Unit.', colPriceX, y);
+        doc.text('Total', colTotalX, y);
+        doc.moveTo(tableLeft, y + 15).lineTo(520, y + 15).stroke();
+      };
+
+      drawTableHeader(tableTop);
+
       let yPos = tableTop + 25;
       doc.font('Helvetica');
       
@@ -327,33 +332,39 @@ async function generarPDF(factura, items, clienteData) {
       
       // Items de productos
       items.forEach((item, index) => {
-        // Si no hay precio unitario, usar el promedio o calcular proporcionalmente
         let precio = item.precio_unitario || 0;
         if (precio === 0 && subtotalNum > 0) {
           precio = precioPromedio;
         }
-        
         const total_item = item.cantidad * precio;
-        
+
+        const descText = `${item.codigo || 'COD'} - ${item.nombre || 'Producto'}`;
+        const descWidth = 240; // same width used previously
+        const descHeight = doc.heightOfString(descText, { width: descWidth });
+        const rowHeight = Math.max(20, Math.ceil(descHeight) + 6);
+
+        // Verificar si necesitamos una nueva página (reserve space for footer)
+        if (yPos + rowHeight > doc.page.height - 150) {
+          doc.addPage();
+          yPos = doc.page.margins.top || 50;
+          drawTableHeader(yPos);
+          yPos += 25;
+        }
+
         console.log(`Item ${index + 1}:`, {
           cantidad: item.cantidad,
           nombre: item.nombre,
           precio,
-          total: total_item
+          total: total_item,
+          rowHeight
         });
-        
-        doc.text(item.cantidad.toString(), 50, yPos);
-        doc.text(`${item.codigo || 'COD'} - ${item.nombre || 'Producto'}`, 100, yPos, { width: 240 });
-        doc.text(`Q${precio.toFixed(2)}`, 350, yPos);
-        doc.text(`Q${total_item.toFixed(2)}`, 450, yPos);
-        
-        yPos += 20;
-        
-        // Verificar si necesitamos una nueva página
-        if (yPos > doc.page.height - 150) {
-          doc.addPage();
-          yPos = 50;
-        }
+
+        doc.text(item.cantidad.toString(), 50, yPos, { width: 40, align: 'center' });
+        doc.text(descText, colDescX, yPos, { width: descWidth });
+        doc.text(`Q${precio.toFixed(2)}`, colPriceX, yPos, { width: 80, align: 'right' });
+        doc.text(`Q${total_item.toFixed(2)}`, colTotalX, yPos, { width: 80, align: 'right' });
+
+        yPos += rowHeight;
       });
       
       // Línea separadora antes de totales
