@@ -18,7 +18,7 @@
           :class="{ active: activeTab === 'historial' }"
           @click="activeTab = 'historial'"
         >
-          Historial de Facturas
+          Historial Ventas
         </button>
       </div>
 
@@ -100,6 +100,7 @@
 
       <div v-show="activeTab === 'historial'" class="tab-content">
         <historial-facturas 
+          :estados-pedidos="estadosPedidos"
           @factura-seleccionada="handleFacturaSeleccionada"
           @ver-detalles="handleVerDetalles"
           @descargar-factura="handleDescargarFactura"
