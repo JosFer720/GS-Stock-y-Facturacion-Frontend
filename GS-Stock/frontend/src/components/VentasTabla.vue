@@ -10,9 +10,9 @@
             <th>ID Pedido</th>
             <th>Cliente</th>
             <th>Empresa</th>
+            <th>Línea</th>
             <th>Vendedor</th>
             <th>Fecha</th>
-            <th>Método Pago</th>
             <th>Estado</th>
             <th>Total</th>
             <th>Acciones</th>
@@ -34,11 +34,9 @@
             <td class="empresa-cell">
               <span class="empresa-badge">{{ sale.empresa || 'Sin empresa' }}</span>
             </td>
+            <td class="linea-cell">{{ sale.tipo_linea_producto || 'N/D' }}</td>
             <td class="vendedor-cell">{{ sale.vendedor_nombre || 'N/A' }}</td>
             <td class="fecha-cell">{{ formatDate(sale.fecha) }}</td>
-            <td class="metodo-cell">
-              <span class="metodo-badge">{{ sale.metodo_pago || 'N/A' }}</span>
-            </td>
             <td class="estado-cell">
               <select 
                 v-model="sale.estado_pedido"
@@ -67,6 +65,13 @@
               >
                 👁️
               </button>
+              <button
+                @click.stop="downloadEnvio(sale)"
+                class="action-btn pdf-btn"
+                title="Generar PDF de Envío"
+              >
+                📄
+              </button>
             </td>
           </tr>
         </tbody>
@@ -92,7 +97,7 @@ export default {
       default: () => []
     }
   },
-  emits: ['sale-selected', 'status-updated', 'view-details'],
+  emits: ['sale-selected', 'status-updated', 'view-details', 'download-envio'],
   setup(props, { emit }) {
     const selectedSale = ref(null);
 
@@ -113,7 +118,13 @@ export default {
     };
 
     const viewDetails = (sale) => {
+      console.log('Ver detalles de venta:', sale.id);
       emit('view-details', sale);
+    };
+
+    const downloadEnvio = (sale) => {
+      // Emit to parent to handle PDF generation/download
+      emit('download-envio', sale);
     };
 
     const formatDate = (dateString) => {
@@ -137,18 +148,10 @@ export default {
       if (!status) return 'status-default';
       
       switch (status.toLowerCase()) {
-        case 'completado':
-        case 'entregado':
-          return 'status-completed';
-        case 'en bodega':
         case 'pendiente':
           return 'status-pending';
-        case 'cancelado':
-          return 'status-cancelled';
-        case 'procesando':
-        case 'empacado':
-        case 'en ruta':
-          return 'status-processing';
+        case 'despachado':
+          return 'status-completed';
         default:
           return 'status-default';
       }
@@ -159,6 +162,7 @@ export default {
       selectSale,
       updateOrderStatus,
       viewDetails,
+      downloadEnvio,
       formatDate,
       formatCurrency,
       getStatusClass

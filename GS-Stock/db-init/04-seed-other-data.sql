@@ -192,10 +192,8 @@ ON CONFLICT DO NOTHING;
 
 -- Estados de Pedidos
 INSERT INTO Estados_Pedidos (Estado) VALUES
-('En Bodega'),
-('Empacado'),
-('En Ruta'),
-('Entregado')
+('Pendiente'),
+('Despachado')
 ON CONFLICT DO NOTHING;
 
 -- Pedidos

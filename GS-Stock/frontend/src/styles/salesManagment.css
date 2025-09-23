@@ -1442,3 +1442,54 @@ input, select, textarea {
     padding: 8px;
   }
 }
+
+/* Pagination styles (horizontal, reuse UserManagement look) */
+.pagination {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.pagination button {
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  min-width: 40px;
+  transition: background-color 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #f0f0f0;
+}
+
+.pagination button.active {
+  background: #333;
+  color: white;
+  font-weight: bold;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-nav {
+  font-weight: bold;
+  font-size: 18px;
+}

@@ -41,15 +41,19 @@
 }
 
 .sales-table th {
-  background-color: #343a40;
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  border-bottom: 2px solid #495057;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  background-color: #343a40 !important; /* Fondo oscuro */
+  color: white !important; /* Texto blanco */
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  border-bottom: 2px solid #495057 !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  padding: 15px 12px !important;
+  text-align: center !important; /* Centrar texto de headers */
+  border-right: 1px solid #495057 !important; /* Separador entre headers */
 }
+
 
 .sales-table tbody tr {
   cursor: pointer;
@@ -252,5 +256,181 @@
   .no-data-message {
     font-size: 16px;
     padding: 40px 15px;
+  }
+}
+
+/* AGREGAR estos estilos al archivo ventasTable.css */
+
+/* Estilos para la tabla de ventas */
+.sales-table-container {
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+.sales-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 14px;
+  min-width: 800px;
+}
+
+.sales-table th,
+.sales-table td {
+  border: 1px solid #ddd;
+  padding: 12px 8px;
+  text-align: left;
+}
+
+.sales-table th {
+  background-color: #f8f8f8;
+  position: sticky;
+  top: 0;
+  font-weight: bold;
+}
+
+.sales-table tr:hover {
+  background-color: #f1f1f1;
+}
+
+.selected-row {
+  background-color: #e3f2fd !important;
+}
+
+/* Estilos para el select de estado */
+.status-select {
+  border: none;
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  min-width: 120px;
+  text-align: center;
+}
+
+.status-select:hover {
+  opacity: 0.8;
+}
+
+.status-select:focus {
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* Clases de estado - NUEVAS */
+.status-pending {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.status-completed {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-default {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* Estilos para las celdas */
+.id-cell {
+  font-weight: bold;
+  color: #495057;
+}
+
+.cliente-cell {
+  min-width: 150px;
+}
+
+.cliente-info strong {
+  color: #2c3e50;
+}
+
+.empresa-cell {
+  min-width: 120px;
+}
+
+.empresa-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: #17a2b8;
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vendedor-cell {
+  min-width: 120px;
+}
+
+.fecha-cell {
+  color: #6c757d;
+  font-size: 13px;
+  min-width: 130px;
+}
+
+.estado-cell {
+  text-align: center;
+  min-width: 140px;
+}
+
+.total-cell {
+  text-align: right;
+  color: #28a745;
+  font-size: 15px;
+  font-weight: bold;
+  min-width: 100px;
+}
+
+.actions-cell {
+  text-align: center;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.action-btn {
+  background: none;
+  border: 1px solid #dee2e6;
+  padding: 6px 12px;
+  margin: 0 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+}
+
+.details-btn:hover {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: white;
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6c757d;
+  font-size: 18px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sales-table {
+    font-size: 12px;
+    min-width: 600px;
+  }
+  
+  .sales-table th,
+  .sales-table td {
+    padding: 8px 6px;
+  }
+  
+  .status-select {
+    min-width: 100px;
+    font-size: 10px;
   }
 }

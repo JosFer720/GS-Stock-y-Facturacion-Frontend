@@ -74,7 +74,28 @@
           :estados-pedidos="estadosPedidos"
           @sale-selected="handleSaleSelection"
           @status-updated="handleStatusUpdate"
+          @view-details="handleViewDetails"
+          @download-envio="handleDownloadEnvio"
         />
+
+
+        <!-- Paginación (reutiliza estilos de UserManagement) -->
+        <div class="pagination" v-if="total > 0">
+          <button @click="previousPage" :disabled="currentPage === 1" class="pagination-nav">‹</button>
+
+          <div class="page-numbers">
+            <button
+              v-for="pageNum in displayedPageNumbers"
+              :key="pageNum"
+              @click="currentPage = pageNum"
+              :class="{ active: currentPage === pageNum }"
+            >
+              {{ pageNum }}
+            </button>
+          </div>
+
+          <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-nav">›</button>
+        </div>
       </div>
 
       <div v-show="activeTab === 'historial'" class="tab-content">
@@ -377,9 +398,45 @@
             <p><strong>Estado:</strong> {{ selectedSale.estado_pedido }}</p>
             <p><strong>Línea de Producto:</strong> {{ selectedSale.tipo_linea_producto }}</p>
           </div>
+          
+          <!-- NUEVA SECCIÓN DE PRODUCTOS -->
+          <div class="detail-section">
+            <h3>Productos del Pedido</h3>
+            <div v-if="loadingDetails" class="loading-products">
+              Cargando productos...
+            </div>
+            <div v-else-if="saleProducts.length > 0" class="products-list">
+              <div v-for="product in saleProducts" :key="product.id" class="product-item">
+                <div class="product-header">
+                  <h4>{{ product.codigo }} - {{ product.nombre }}</h4>
+            <span class="product-price">Q{{ formatCurrency(product.precio_par) }}</span>
+            <span class="product-linea" v-if="product.tipo_linea">{{ product.tipo_linea }}</span>
+                </div>
+                <div class="tallas-info">
+                  <div v-for="talla in product.tallas" :key="talla.id" class="talla-item">
+                    <span class="talla-detail">
+                      <strong>Talla:</strong> EU {{ talla.talla_eu }} / US {{ talla.talla_us }}
+                      <strong>Cantidad:</strong> {{ talla.cantidad }}
+                      <strong>Subtotal:</strong> Q{{ formatCurrency(talla.cantidad * product.precio_par) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="product-total">
+                  <strong>Total Producto: Q{{ formatCurrency(product.subtotal) }}</strong>
+                </div>
+              </div>
+            </div>
+            <div v-else class="no-products">
+              No se encontraron productos para este pedido
+            </div>
+          </div>
+          
           <div class="detail-section">
             <h3>Totales</h3>
-            <p><strong>Total:</strong> Q{{ formatCurrency(selectedSale.total) }}</p>
+            <div class="totals-breakdown">
+              <p><strong>Subtotal Productos:</strong> Q{{ formatCurrency(calculateProductsSubtotal()) }}</p>
+              <p class="total-final"><strong>TOTAL PEDIDO:</strong> Q{{ formatCurrency(selectedSale.total) }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -410,7 +467,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import VentasTabla from '@/components/VentasTabla.vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
@@ -427,7 +484,9 @@ export default {
   },
   setup() {
     const router = useRouter();
-    
+
+    const saleProducts = ref([]);
+    const loadingDetails = ref(false);
     const sales = ref([]);
     const loading = ref(true);
     const error = ref(null);
@@ -455,6 +514,12 @@ export default {
     const searchTimeout = ref(null);
     const tiposLineaProducto = ref([]);
     const vendedorActual = ref(null); // NUEVO
+  // Pagination state
+  const currentPage = ref(1);
+  const perPage = ref(10);
+  const total = ref(0);
+  const totalPages = ref(1);
+  const isMobile = ref(false);
     
     const filters = ref({
       date: '',
@@ -554,6 +619,11 @@ export default {
         console.error('Error al obtener tipos de línea:', err);
         showMessage('Error', 'No se pudieron cargar los tipos de línea de producto', 'error');
       }
+    };
+
+    const checkScreenSize = () => {
+      isMobile.value = window.innerWidth < 768;
+      perPage.value = isMobile.value ? 5 : 10; // default per page (matches backend limit default)
     };
 
     const handleFacturaSeleccionada = (factura) => {
@@ -728,9 +798,16 @@ export default {
         if (!response.ok) throw new Error('Error al obtener estados de pedidos');
         
         const data = await response.json();
-        estadosPedidos.value = data.data || [];
+        console.log('Estados de pedidos cargados:', data.data); // Debug
+        
+        // Verificar que los estados sean "Pendiente" y "Despachado"
+        if (data.success && Array.isArray(data.data)) {
+          estadosPedidos.value = data.data;
+          console.log('Estados disponibles:', estadosPedidos.value.map(e => e.estado));
+        }
       } catch (err) {
         console.error('Error al obtener estados de pedidos:', err);
+        showMessage('Error', 'No se pudieron cargar los estados de pedidos', 'error');
       }
     };
 
@@ -1037,30 +1114,90 @@ export default {
       }
     };
 
+    const handleDownloadEnvio = async (sale) => {
+      try {
+        const token = checkAuth();
+        if (!token) return;
+
+        showMessage('Generando PDF', `Generando PDF de envío para pedido #${sale.id}...`, 'info');
+
+        // Decide endpoint based on sale.tipo_linea_producto (fallback to nacional)
+        const endpoint = (sale.tipo_linea_producto && sale.tipo_linea_producto.toLowerCase().includes('import'))
+          ? 'http://localhost:3000/api/envios/importadora'
+          : 'http://localhost:3000/api/envios/nacional';
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+          },
+          body: JSON.stringify({ pedido_id: sale.id })
+        });
+
+        if (!res.ok) {
+          let err = 'No se pudo generar el PDF';
+          try { const e = await res.json(); if (e && e.error) err = e.error; } catch (_) {}
+          showMessage('Error', err, 'error');
+          return;
+        }
+
+        const blob = await res.blob();
+        const cd = res.headers.get('Content-Disposition') || '';
+        const m = /filename="([^\"]+)"/i.exec(cd);
+        const fileName = m?.[1] || `envio_pedido_${sale.id}.pdf`;
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        showMessage('Descarga lista', `Se descargó ${fileName}`, 'success');
+      } catch (e) {
+        console.error('handleDownloadEnvio error', e);
+        showMessage('Error', 'No se pudo generar el PDF', 'error');
+      }
+    };
+
 
     const fetchSales = async () => {
       const token = checkAuth();
       if (!token) return;
-      
+
       loading.value = true;
       error.value = null;
-      
+
       try {
-        const response = await fetch('http://localhost:3000/api/ventas/pedidos', {
+        // Build paginated URL
+        const params = new URLSearchParams();
+        params.set('limit', String(perPage.value));
+        params.set('page', String(currentPage.value));
+
+        const url = `http://localhost:3000/api/ventas/pedidos?${params.toString()}`;
+
+        const response = await fetch(url, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-        
+
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.message || 'Error al cargar las ventas');
         }
-        
+
         const data = await response.json();
         sales.value = data.data || [];
-        
+        total.value = data.total || 0;
+        currentPage.value = data.page || currentPage.value;
+        perPage.value = data.perPage || perPage.value;
+        totalPages.value = data.totalPages || Math.max(1, Math.ceil((data.total || 0) / perPage.value));
+
       } catch (err) {
         error.value = `Error: ${err.message}`;
         console.error('Error al obtener ventas:', err);
@@ -1113,12 +1250,78 @@ export default {
       }
     };
 
-    const viewSaleDetails = () => {
-      if (!selectedSale.value) {
-        showMessage('Error', 'No hay ninguna venta seleccionada', 'error');
-        return;
+    // Pagination helpers
+    const displayedPageNumbers = computed(() => {
+      const maxVisibleButtons = isMobile.value ? 3 : 5;
+      const tp = totalPages.value || 1;
+
+      if (tp <= maxVisibleButtons) {
+        return Array.from({ length: tp }, (_, i) => i + 1);
       }
-      showDetailsModal.value = true;
+
+      let start = Math.max(1, currentPage.value - Math.floor(maxVisibleButtons / 2));
+      const end = Math.min(tp, start + maxVisibleButtons - 1);
+
+      if (end === tp) {
+        start = Math.max(1, tp - maxVisibleButtons + 1);
+      }
+
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    });
+
+    const previousPage = () => {
+      if (currentPage.value > 1) currentPage.value--;
+    };
+
+    const nextPage = () => {
+      if (currentPage.value < totalPages.value) currentPage.value++;
+    };
+
+    const viewSaleDetails = async (sale) => {
+      try {
+        selectedSale.value = sale;
+        showDetailsModal.value = true;
+        loadingDetails.value = true;
+        saleProducts.value = [];
+        
+        console.log('Cargando detalles del pedido:', sale.id);
+        
+        const token = localStorage.getItem('jwtToken');
+        
+        // Cargar productos del pedido
+        const response = await fetch(`http://localhost:3000/api/ventas/pedidos/${sale.id}/productos`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Productos del pedido cargados:', data);
+        
+        saleProducts.value = data.productos || [];
+        loadingDetails.value = false;
+        
+      } catch (error) {
+        console.error('Error al cargar detalles del pedido:', error);
+        loadingDetails.value = false;
+        showMessage('Error al cargar los detalles del pedido', 'error');
+      }
+    };
+
+    const handleViewDetails = (sale) => {
+      viewSaleDetails(sale);
+    };
+
+    const calculateProductsSubtotal = () => {
+      return saleProducts.value.reduce((total, product) => {
+        return total + (product.subtotal || 0);
+      }, 0);
     };
 
     const applyFilters = () => {
@@ -1141,6 +1344,17 @@ export default {
     const handleStatusUpdate = async ({ pedido_id, nuevo_estado }) => {
       try {
         const token = checkAuth();
+        if (!token) return;
+
+        // Mostrar loading temporal
+        const saleIndex = sales.value.findIndex(sale => sale.id === pedido_id);
+        if (saleIndex !== -1) {
+          // Deshabilitar temporalmente el select (opcional)
+          const originalState = sales.value[saleIndex].estado_pedido;
+        }
+
+        console.log('Actualizando estado:', { pedido_id, nuevo_estado }); // Debug
+
         const response = await fetch(`http://localhost:3000/api/ventas/pedidos/${pedido_id}/estado`, {
           method: 'PUT',
           headers: {
@@ -1151,19 +1365,34 @@ export default {
         });
 
         if (!response.ok) {
-          throw new Error('Error al actualizar estado');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al actualizar estado');
         }
 
-        sales.value = sales.value.map(sale => {
-          if (sale.id === pedido_id) {
-            return { ...sale, estado_pedido: nuevo_estado };
-          }
-          return sale;
-        });
+        const data = await response.json();
+        console.log('Respuesta del servidor:', data); // Debug
 
-        showMessage('Éxito', 'Estado actualizado correctamente', 'success');
+        // Actualizar el estado en el frontend SOLO si la BD se actualizó correctamente
+        if (data.success) {
+          const saleToUpdate = sales.value.find(sale => sale.id === pedido_id);
+          if (saleToUpdate) {
+            saleToUpdate.estado_pedido = nuevo_estado;
+          }
+
+          showMessage('Estado Actualizado', 
+            `El pedido #${pedido_id} ahora está en estado: ${nuevo_estado}`, 
+            'success'
+          );
+        }
+
       } catch (err) {
-        showMessage('Error', err.message, 'error');
+        console.error('Error al actualizar estado:', err);
+        showMessage('Error al Actualizar', 
+          `No se pudo actualizar el estado: ${err.message}`, 
+          'error'
+        );
+        
+        // Recargar datos para asegurar consistencia
         await fetchSales();
       }
     };
@@ -1190,11 +1419,29 @@ export default {
 
     onMounted(async () => {
       await fetchVendedorActual(); // NUEVO: Cargar vendedor actual al montar
-      fetchSales();
+      checkScreenSize();
+      window.addEventListener('resize', checkScreenSize);
+      await fetchSales();
       fetchEstadosPedidos();
     });
 
+    // Watch pagination changes
+    watch([currentPage, perPage], () => {
+      fetchSales();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
     return {
+      // pagination
+      currentPage,
+      perPage,
+      total,
+      totalPages,
+      isMobile,
+      // pagination helpers
+      displayedPageNumbers,
+      previousPage,
+      nextPage,
       sales,
       loading,
       error,
@@ -1260,8 +1507,14 @@ export default {
       lastPedidoId,
       lastTipoLinea,
       downloadingEnvio,
-      descargarEnvio
-    };;
+      descargarEnvio,
+      handleDownloadEnvio,
+      saleProducts,          
+      loadingDetails, 
+      viewSaleDetails,       
+      handleViewDetails,      
+      calculateProductsSubtotal,
+    };
   }
 }
 </script>

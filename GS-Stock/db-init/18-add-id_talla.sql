@@ -26,3 +26,5 @@ CREATE INDEX IF NOT EXISTS idx_detalle_pedidos_id_talla
   ON detalle_pedidos(id_talla);
 
 COMMIT;
+
+ALTER TABLE Pedidos ALTER COLUMN Id_Estado_Pedido SET DEFAULT 1;

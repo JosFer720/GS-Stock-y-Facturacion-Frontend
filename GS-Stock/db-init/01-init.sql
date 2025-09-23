@@ -191,7 +191,7 @@ CREATE TABLE Detalle_Pedidos (
 -- Tabla de Estados de Pedidos
 CREATE TABLE Estados_Pedidos (
     Id SERIAL PRIMARY KEY,
-    Estado VARCHAR(50) NOT NULL UNIQUE CHECK (Estado IN ('En Bodega', 'Empacado', 'En Ruta', 'Entregado'))
+    Estado VARCHAR(50) NOT NULL UNIQUE CHECK (Estado IN ('Pendiente', 'Despachado'))
 );
 
 -- Tabla de Estados Pedido Histórico

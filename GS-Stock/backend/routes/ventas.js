@@ -222,7 +222,15 @@ router.post('/pedidos', auth, async (req, res) => {
 
 router.get('/pedidos', auth, async (req, res) => {
   try {
-    const result = await pool.query(`
+    // Pagination: accept ?limit and ?page (defaults)
+    const userRole = req.user?.rol;
+    const userId = req.user?.id;
+
+    const limitParam = Math.min(Number(req.query.limit) || 10, 100); // cap max 100
+    const pageParam = Math.max(Number(req.query.page) || 1, 1);
+    const offsetParam = (pageParam - 1) * limitParam;
+
+    let query = `
       SELECT 
         p.*,
         c.nombre || ' ' || c.apellido as cliente_nombre,
@@ -237,13 +245,43 @@ router.get('/pedidos', auth, async (req, res) => {
       LEFT JOIN Metodos_De_Pago mp ON p.id_metodo_de_pago = mp.id
       LEFT JOIN Estados_Pedidos ep ON p.id_estado_pedido = ep.id
       LEFT JOIN Tipos_Linea_Producto tlp ON p.id_tipo_linea_producto = tlp.id
-      ORDER BY p.fecha DESC
-    `);
+    `;
+
+    // Build params for count and data queries
+    let params = [];
+    let countParams = [];
+    let whereClause = '';
+
+    if (userRole === 'Vendedor' && userId) {
+      whereClause = ` WHERE p.id_vendedor = $1 `;
+      params.push(userId);
+      countParams.push(userId);
+    }
+
+    const countQuery = `SELECT COUNT(*) AS total FROM Pedidos p ${whereClause}`;
+    const countResult = await pool.query(countQuery, countParams);
+    const total = Number(countResult.rows[0].total || 0);
+
+    // Append ORDER BY, LIMIT and OFFSET using parameterized values
+    if (whereClause) {
+      // if we already used $1 for userId, next params are $2 and $3
+      query += whereClause + ` ORDER BY p.fecha DESC LIMIT $2 OFFSET $3 `;
+      params.push(limitParam, offsetParam);
+    } else {
+      // no where clause, limit/offset are $1 and $2
+      query += ` ORDER BY p.fecha DESC LIMIT $1 OFFSET $2 `;
+      params = [limitParam, offsetParam];
+    }
+
+    const result = await pool.query(query, params);
 
     res.json({
       success: true,
       data: result.rows,
-      total: result.rows.length,
+      total,
+      page: pageParam,
+      perPage: limitParam,
+      totalPages: Math.ceil(total / limitParam),
       message: 'Pedidos obtenidos correctamente'
     });
   } catch (error) {
@@ -502,6 +540,68 @@ router.get('/estados-pedidos', auth, async (req, res) => {
       message: 'Error al obtener estados de pedidos',
       error: error.message
     });
+  }
+});
+
+// Obtener productos de un pedido (detalles)
+router.get('/pedidos/:id/productos', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Obtener filas del detalle del pedido con info de zapato y talla
+    const result = await pool.query(
+      `SELECT dp.id AS detalle_id, dp.id_zapato, dp.id_talla, dp.cantidad, dp.precio_unitario,
+        z.codigo, z.nombre, z.precio_par,
+        t.talla_eu, t.talla_us,
+        tlp.nombre as tipo_linea_producto
+       FROM Detalle_Pedidos dp
+       JOIN Zapatos z ON dp.id_zapato = z.id
+       LEFT JOIN Inventarios i ON z.id = i.id_zapatos
+       LEFT JOIN Tipos_Linea_Producto tlp ON i.id_tipo_linea_producto = tlp.id
+       LEFT JOIN Tallas t ON dp.id_talla = t.id
+       WHERE dp.id_pedido = $1
+       ORDER BY z.id, t.talla_eu`
+    , [id]);
+
+    const rows = result.rows || [];
+
+    // Agrupar por zapato
+    const productsMap = new Map();
+
+    for (const row of rows) {
+      const zapatoId = row.id_zapato;
+
+      if (!productsMap.has(zapatoId)) {
+        productsMap.set(zapatoId, {
+          id: zapatoId,
+          codigo: row.codigo,
+          nombre: row.nombre,
+          precio_par: row.precio_par || row.precio_unitario || 0,
+          tipo_linea: row.tipo_linea_producto || null,
+          tallas: [],
+          subtotal: 0
+        });
+      }
+
+      const prod = productsMap.get(zapatoId);
+
+      const tallaObj = {
+        id: row.id_talla,
+        talla_eu: row.talla_eu,
+        talla_us: row.talla_us,
+        cantidad: row.cantidad
+      };
+
+      prod.tallas.push(tallaObj);
+      prod.subtotal += (Number(row.precio_unitario || prod.precio_par || 0) * Number(row.cantidad || 0));
+    }
+
+    const productos = Array.from(productsMap.values());
+
+    return res.json({ success: true, productos });
+  } catch (error) {
+    console.error('Error al obtener productos del pedido:', error);
+    return res.status(500).json({ success: false, error: 'Error al obtener productos del pedido' });
   }
 });
 
