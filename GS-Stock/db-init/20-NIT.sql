@@ -7,13 +7,20 @@ CREATE TABLE IF NOT EXISTS nits (
 );
 
 -- 2. Crear índice para optimizar búsquedas por NIT
-CREATE INDEX idx_nits_nit ON nits(nit);
+CREATE INDEX IF NOT EXISTS idx_nits_nit ON nits(nit);
 
--- 3. Eliminar la columna nit de clientes si existe
+-- 3. PRIMERO: Eliminar la vista que depende de la columna nit
+DROP VIEW IF EXISTS vista_pedidos_envios CASCADE;
+
+-- 4. AHORA SÍ: Eliminar la columna nit de clientes
 ALTER TABLE clientes DROP COLUMN IF EXISTS nit;
 
--- 4. Agregar la columna id_nit a la tabla clientes
-ALTER TABLE clientes ADD COLUMN id_nit INTEGER REFERENCES nits(id) ON DELETE SET NULL;
+-- 5. Agregar la columna id_nit a la tabla clientes
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS id_nit INTEGER REFERENCES nits(id) ON DELETE SET NULL;
 
--- 5. Crear índice para la relación
-CREATE INDEX idx_clientes_id_nit ON clientes(id_nit);
+-- 6. Crear índice para la relación
+CREATE INDEX IF NOT EXISTS idx_clientes_id_nit ON clientes(id_nit);
+
+-- 7. TEMPORAL: La vista se recreará después manualmente
+-- Busca en 09-moddify-envios.sql la definición original de vista_pedidos_envios
+-- y créala sin usar la columna nit
