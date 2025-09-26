@@ -57,7 +57,7 @@ export default {
       
       const permissions = {
         'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
-        'Secretaria': ['dashboard', 'inventario', 'ventas', 'pagosydevoluciones'],
+        'Secretaria': ['dashboard', 'inventario'],
         'Vendedor': ['dashboard', 'inventario', 'ventas', 'pagosydevoluciones'],
         'Encargado de Inventario': ['dashboard', 'inventario']
       };

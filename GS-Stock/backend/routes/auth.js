@@ -17,100 +17,175 @@ const pool = new Pool({
 const JWT_SECRET = process.env.JWT_SECRET || 'fba7a07f4174d84d67ad67aedf16422a';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1h';
 
-// Endpoint de registro de usuario
+// Endpoint de registro de usuario - MEJORADO
 router.post('/register', async (req, res) => {
   try {
     const { nombre, usuario, email, contrasena } = req.body;
     
+    console.log('=== REGISTRO DE USUARIO ===');
+    console.log('Datos recibidos:', { nombre, usuario, email: email?.toLowerCase().trim(), contrasena: '***' });
+    
+    // Validaciones básicas
+    if (!nombre?.trim() || !usuario?.trim() || !email?.trim() || !contrasena) {
+      console.log('❌ Campos obligatorios faltantes');
+      return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+    }
+    
+    if (contrasena.length < 8) {
+      console.log('❌ Contraseña muy corta');
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+    }
+    
+    // Normalizar datos
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedUsuario = usuario.trim();
+    const normalizedNombre = nombre.trim();
+    
     // Verificar si el usuario ya existe
     const userCheck = await pool.query(
-      'SELECT * FROM cuentas_usuarios WHERE usuario = $1',
-      [usuario]
+      'SELECT usuario FROM cuentas_usuarios WHERE LOWER(TRIM(usuario)) = $1',
+      [normalizedUsuario.toLowerCase()]
     );
     
     if (userCheck.rows.length > 0) {
+      console.log('❌ Usuario ya existe:', normalizedUsuario);
       return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
     }
     
-    // Verificar si el email ya existe
-    const emailCheck = await pool.query(
-      'SELECT * FROM cuentas_usuarios WHERE email = $1',
-      [email]
+    // Verificar si el email ya existe en usuarios
+    const emailCheckUsuarios = await pool.query(
+      'SELECT email FROM usuarios WHERE LOWER(TRIM(email)) = $1',
+      [normalizedEmail]
     );
     
-    if (emailCheck.rows.length > 0) {
+    if (emailCheckUsuarios.rows.length > 0) {
+      console.log('❌ Email ya existe en usuarios:', normalizedEmail);
+      return res.status(400).json({ error: 'El email ya está registrado' });
+    }
+    
+    // Verificar si el email ya existe en cuentas_usuarios
+    const emailCheckCuentas = await pool.query(
+      'SELECT email FROM cuentas_usuarios WHERE LOWER(TRIM(email)) = $1',
+      [normalizedEmail]
+    );
+    
+    if (emailCheckCuentas.rows.length > 0) {
+      console.log('❌ Email ya existe en cuentas:', normalizedEmail);
       return res.status(400).json({ error: 'El email ya está registrado' });
     }
     
     // Hash de la contraseña
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(contrasena, salt);
     
     // Iniciar transacción
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      console.log('🚀 Transacción de registro iniciada');
       
       const rolDefault = 2; // Asumiendo 2 para usuario normal, 1 para admin
       const userResult = await client.query(
-        'INSERT INTO usuarios (nombre, apellido, id_roles) VALUES ($1, $2, $3) RETURNING id',
-        [nombre, '', rolDefault] 
+        'INSERT INTO usuarios (nombre, apellido, email, id_roles, estado) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [normalizedNombre, '', rolDefault, true] 
       );
       
       const userId = userResult.rows[0].id;
+      console.log('👤 Usuario creado en tabla usuarios:', userId);
       
       await client.query(
         'INSERT INTO cuentas_usuarios (usuario, email, contrasena, id_usuarios) VALUES ($1, $2, $3, $4)',
-        [usuario, email, hashedPassword, userId]
+        [normalizedUsuario, normalizedEmail, hashedPassword, userId]
       );
       
+      console.log('🔑 Cuenta creada en cuentas_usuarios');
+      
       await client.query('COMMIT');
+      console.log('✅ Registro completado exitosamente');
       
       res.status(201).json({ 
         message: 'Usuario registrado correctamente',
         user: {
           id: userId,
-          nombre: nombre,
-          usuario: usuario,
-          email: email
+          nombre: normalizedNombre,
+          usuario: normalizedUsuario,
+          email: normalizedEmail
         }
       });
-    } catch (err) {
+    } catch (transactionError) {
       await client.query('ROLLBACK');
-      throw err;
+      console.error('💥 Error en transacción de registro:', transactionError);
+      throw transactionError;
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error('Error en registro:', err);
+    console.error('💀 Error general en registro:', err);
+    
+    // Manejar errores específicos de PostgreSQL
+    if (err.code === '23505') { // Unique constraint violation
+      if (err.detail && err.detail.toLowerCase().includes('email')) {
+        return res.status(400).json({ error: 'El email ya está registrado' });
+      } else if (err.detail && err.detail.toLowerCase().includes('usuario')) {
+        return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
+      }
+    }
+    
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
-// Endpoint de login
+// Endpoint de login - VERSIÓN MEJORADA
 router.post('/login', async (req, res) => {
   try {
     const { usuario, contrasena } = req.body;
 
+    console.log('=== INTENTO DE LOGIN ===');
+    console.log('Usuario:', usuario);
+
+    if (!usuario?.trim() || !contrasena) {
+      console.log('❌ Credenciales faltantes');
+      return res.status(400).json({ error: 'Usuario y contraseña son obligatorios' });
+    }
+
+    // Consulta mejorada con normalización
     const result = await pool.query(
-      `SELECT u.id, u.nombre, u.apellido, r.rol, cu.contrasena 
-      FROM cuentas_usuarios cu
-      JOIN usuarios u ON cu.id_usuarios = u.id
-      JOIN roles r ON u.id_roles = r.id
-      WHERE cu.usuario = $1`,
-      [usuario]
+      `SELECT u.id, u.nombre, u.apellido, u.estado, r.rol, cu.contrasena, cu.usuario
+       FROM cuentas_usuarios cu
+       JOIN usuarios u ON cu.id_usuarios = u.id
+       JOIN roles r ON u.id_roles = r.id
+       WHERE LOWER(TRIM(cu.usuario)) = LOWER(TRIM($1))`,
+      [usuario.trim()]
     );
 
     if (result.rows.length === 0) {
+      console.log('❌ Usuario no encontrado:', usuario);
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
     const user = result.rows[0];
+    console.log('👤 Usuario encontrado:', {
+      id: user.id,
+      nombre: user.nombre,
+      estado: user.estado,
+      rol: user.rol
+    });
+
+    if (!user.estado) {
+      console.log('❌ Usuario desactivado');
+      return res.status(401).json({ 
+        error: 'Error al ingresar. Contacta al administrador.' 
+      });
+    }
+
     const validPassword = await bcrypt.compare(contrasena, user.contrasena);
 
     if (!validPassword) {
+      console.log('❌ Contraseña inválida');
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
+
+    console.log('✅ Login exitoso');
 
     const token = jwt.sign({
       id: user.id,
@@ -125,11 +200,12 @@ router.post('/login', async (req, res) => {
         id: user.id,
         nombre: user.nombre,
         apellido: user.apellido,
-        rol: user.rol
+        rol: user.rol,
+        estado: user.estado 
       }
     });
   } catch (err) {
-    console.error('Error en login:', err);
+    console.error('💀 Error en login:', err);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
@@ -139,34 +215,44 @@ router.post('/logout', (req, res) => {
   res.json({ message: 'Sesión cerrada correctamente' });
 });
 
-// Endpoint recuperación de contraseña 
+// Endpoint recuperación de contraseña - MEJORADO
 const { sendPasswordResetEmail } = require('../services/emailService'); 
 
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
 
-  if (!email) {
+  console.log('=== RECUPERACIÓN DE CONTRASEÑA ===');
+  console.log('Email recibido:', email);
+
+  if (!email?.trim()) {
+    console.log('❌ Email faltante');
     return res.status(400).json({ message: 'El correo es requerido' });
   }
 
   try {
-    // Corregir la consulta SQL - el email está en la tabla usuarios, no en cuentas_usuarios
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Consulta mejorada con normalización
     const result = await pool.query(
       `SELECT u.id, u.nombre, u.email FROM usuarios u 
        JOIN cuentas_usuarios cu ON u.id = cu.id_usuarios 
-       WHERE u.email = $1`,
-      [email]
+       WHERE LOWER(TRIM(u.email)) = $1`,
+      [normalizedEmail]
     );
 
     if (result.rowCount === 0) {
+      console.log('❌ Usuario no encontrado para email:', normalizedEmail);
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     const user = result.rows[0];
+    console.log('👤 Usuario encontrado:', user.nombre);
 
     // Generar token de recuperación
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    console.log('🔑 Token generado, guardando en BD...');
 
     // Guardar token en la base de datos
     await pool.query(
@@ -177,17 +263,18 @@ router.post('/forgot-password', async (req, res) => {
 
     const resetLink = `${process.env.FRONTEND_URL}/cambiar?token=${token}`;
 
-    await sendPasswordResetEmail(email, user.nombre, resetLink);
+    await sendPasswordResetEmail(normalizedEmail, user.nombre, resetLink);
 
+    console.log('✅ Email de recuperación enviado');
     res.status(200).json({ message: 'Correo de recuperación enviado con éxito' });
 
   } catch (err) {
-    console.error('Error en forgot-password:', err);
+    console.error('💀 Error en forgot-password:', err);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
 
-// Endpoint para cambiar contraseña
+// Endpoint para cambiar contraseña - VERSIÓN MEJORADA
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
   
@@ -197,19 +284,19 @@ router.post('/reset-password', async (req, res) => {
   
   try {
     // Validar datos de entrada
-    if (!token || !newPassword) {
-      console.log('Datos faltantes:', { token: !!token, newPassword: !!newPassword });
+    if (!token?.trim() || !newPassword) {
+      console.log('❌ Datos faltantes:', { token: !!token, newPassword: !!newPassword });
       return res.status(400).json({ error: 'Token y nueva contraseña son requeridos' });
     }
     
     // Validar longitud mínima de contraseña
     if (newPassword.length < 8) {
-      console.log('Contraseña muy corta:', newPassword.length);
+      console.log('❌ Contraseña muy corta:', newPassword.length);
       return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
     }
     
-    console.log('Validaciones básicas pasadas');
-    console.log('Buscando token en la base de datos...');
+    console.log('✅ Validaciones básicas pasadas');
+    console.log('🔍 Buscando token en la base de datos...');
     
     // Buscar token válido en la base de datos
     const tokenResult = await pool.query(
@@ -217,18 +304,18 @@ router.post('/reset-password', async (req, res) => {
        FROM password_reset_tokens prt
        JOIN usuarios u ON prt.user_id = u.id
        WHERE prt.token = $1`,
-      [token]
+      [token.trim()]
     );
     
-    console.log('Resultados de búsqueda de token:', tokenResult.rows.length);
+    console.log('📊 Resultados de búsqueda de token:', tokenResult.rows.length);
     
     if (tokenResult.rows.length === 0) {
-      console.log('Token no encontrado en la base de datos');
+      console.log('❌ Token no encontrado en la base de datos');
       return res.status(400).json({ error: 'Token inválido.' });
     }
     
     const resetData = tokenResult.rows[0];
-    console.log('Datos del token encontrado:', {
+    console.log('📋 Datos del token encontrado:', {
       id: resetData.id,
       user_id: resetData.user_id,
       used: resetData.used,
@@ -238,7 +325,7 @@ router.post('/reset-password', async (req, res) => {
     
     // Verificar si el token ya fue usado
     if (resetData.used) {
-      console.log('Token ya fue usado');
+      console.log('❌ Token ya fue usado');
       return res.status(400).json({ error: 'Este enlace ya fue utilizado.' });
     }
     
@@ -246,79 +333,79 @@ router.post('/reset-password', async (req, res) => {
     const now = new Date();
     const expiresAt = new Date(resetData.expires_at);
     if (expiresAt < now) {
-      console.log('Token expirado:', { expiresAt: expiresAt.toISOString(), now: now.toISOString() });
+      console.log('❌ Token expirado:', { expiresAt: expiresAt.toISOString(), now: now.toISOString() });
       return res.status(400).json({ error: 'El enlace ha expirado. Solicita uno nuevo.' });
     }
     
-    console.log('Token válido y no expirado');
-    console.log('Iniciando proceso de cambio de contraseña...');
+    console.log('✅ Token válido y no expirado');
+    console.log('🚀 Iniciando proceso de cambio de contraseña...');
     
     // Iniciar transacción
     const client = await pool.connect();
-    console.log('Conexión a base de datos establecida');
+    console.log('🔌 Conexión a base de datos establecida');
     
     try {
       await client.query('BEGIN');
-      console.log('Transacción iniciada');
+      console.log('🚀 Transacción iniciada');
       
       // Generar hash de la nueva contraseña
       const saltRounds = 12; 
-      console.log('Generando hash de contraseña...');
+      console.log('🔐 Generando hash de contraseña...');
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-      console.log('Hash de contraseña generado');
+      console.log('✅ Hash de contraseña generado');
       
       // Verificar que el usuario existe en cuentas_usuarios
-      console.log('Verificando existencia del usuario...');
+      console.log('👤 Verificando existencia del usuario...');
       const userExists = await client.query(
-        'SELECT id FROM cuentas_usuarios WHERE id_usuarios = $1',
+        'SELECT id, usuario FROM cuentas_usuarios WHERE id_usuarios = $1',
         [resetData.user_id]
       );
       
-      console.log('Usuario encontrado en cuentas_usuarios:', userExists.rows.length);
+      console.log('📊 Usuario encontrado en cuentas_usuarios:', userExists.rows.length);
       
       if (userExists.rows.length === 0) {
-        console.log('Usuario no encontrado en cuentas_usuarios');
+        console.log('❌ Usuario no encontrado en cuentas_usuarios');
         throw new Error('Usuario no encontrado en el sistema.');
       }
       
       // Actualizar contraseña del usuario
-      console.log('Actualizando contraseña...');
+      console.log('🔄 Actualizando contraseña...');
       const updateResult = await client.query(
         'UPDATE cuentas_usuarios SET contrasena = $1 WHERE id_usuarios = $2',
         [hashedPassword, resetData.user_id]
       );
       
-      console.log('Resultado de actualización:', {
+      console.log('📊 Resultado de actualización:', {
         rowCount: updateResult.rowCount,
         command: updateResult.command
       });
       
       if (updateResult.rowCount === 0) {
-        console.log('No se actualizó ninguna fila');
+        console.log('❌ No se actualizó ninguna fila');
         throw new Error('No se pudo actualizar la contraseña. Usuario no encontrado.');
       }
       
       // Marcar el token como usado
-      console.log('Marcando token como usado...');
+      console.log('✅ Marcando token como usado...');
       const markUsedResult = await client.query(
         'UPDATE password_reset_tokens SET used = TRUE WHERE id = $1',
         [resetData.id]
       );
       
-      console.log('Token marcado como usado:', markUsedResult.rowCount);
+      console.log('📊 Token marcado como usado:', markUsedResult.rowCount);
       
       // Limpiar otros tokens del usuario (opcional pero recomendado)
-      console.log('Limpiando tokens antiguos...');
+      console.log('🧹 Limpiando tokens antiguos...');
       const deleteResult = await client.query(
         'DELETE FROM password_reset_tokens WHERE user_id = $1 AND id != $2 AND (used = TRUE OR expires_at < NOW())',
         [resetData.user_id, resetData.id]
       );
-      console.log('Tokens antiguos eliminados:', deleteResult.rowCount);
+      console.log('📊 Tokens antiguos eliminados:', deleteResult.rowCount);
       
       await client.query('COMMIT');
-      console.log('Transacción confirmada exitosamente');
+      console.log('✅ Transacción confirmada exitosamente');
       
-      console.log(`ÉXITO: Contraseña actualizada para usuario: ${resetData.nombre} (ID: ${resetData.user_id})`);
+      console.log(`🎉 ÉXITO: Contraseña actualizada para usuario: ${resetData.nombre} (ID: ${resetData.user_id})`);
       
       res.json({ 
         message: 'Contraseña actualizada correctamente. Ya puedes iniciar sesión con tu nueva contraseña.',
@@ -327,15 +414,15 @@ router.post('/reset-password', async (req, res) => {
       
     } catch (transactionError) {
       await client.query('ROLLBACK');
-      console.error('Error en la transacción, rollback realizado:', transactionError);
+      console.error('💥 Error en la transacción, rollback realizado:', transactionError);
       throw transactionError;
     } finally {
       client.release();
-      console.log('Conexión liberada');
+      console.log('🔌 Conexión liberada');
     }
     
   } catch (err) {
-    console.error('ERROR COMPLETO EN RESET-PASSWORD:', err);
+    console.error('💀 ERROR COMPLETO EN RESET-PASSWORD:', err);
     console.error('Stack trace:', err.stack);
     console.error('Error details:', {
       message: err.message,
@@ -365,6 +452,7 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// Endpoint para validar token de reset
 router.post('/validate-reset-token', async (req, res) => {
   const { token } = req.body;
   
@@ -372,7 +460,7 @@ router.post('/validate-reset-token', async (req, res) => {
   console.log('Token recibido:', token ? 'presente' : 'ausente');
   
   try {
-    if (!token) {
+    if (!token?.trim()) {
       return res.status(400).json({ error: 'Token es requerido', valid: false });
     }
     
@@ -381,13 +469,13 @@ router.post('/validate-reset-token', async (req, res) => {
        FROM password_reset_tokens prt
        JOIN usuarios u ON prt.user_id = u.id
        WHERE prt.token = $1`,
-      [token]
+      [token.trim()]
     );
     
-    console.log('Resultado validación token:', tokenResult.rows.length);
+    console.log('📊 Resultado validación token:', tokenResult.rows.length);
     
     if (tokenResult.rows.length === 0) {
-      console.log('oken no encontrado');
+      console.log('❌ Token no encontrado');
       return res.status(400).json({ 
         error: 'Token inválido o expirado',
         valid: false 
@@ -395,7 +483,7 @@ router.post('/validate-reset-token', async (req, res) => {
     }
     
     const resetData = tokenResult.rows[0];
-    console.log('Validando datos del token:', {
+    console.log('📋 Validando datos del token:', {
       used: resetData.used,
       expires_at: resetData.expires_at,
       now: new Date().toISOString()
@@ -403,14 +491,14 @@ router.post('/validate-reset-token', async (req, res) => {
     
     // Verificar si está usado o expirado
     if (resetData.used || new Date(resetData.expires_at) < new Date()) {
-      console.log('Token usado o expirado');
+      console.log('❌ Token usado o expirado');
       return res.status(400).json({ 
         error: 'Token inválido o expirado',
         valid: false 
       });
     }
     
-    console.log('Token válido');
+    console.log('✅ Token válido');
     
     res.json({ 
       valid: true,
@@ -420,7 +508,7 @@ router.post('/validate-reset-token', async (req, res) => {
     });
     
   } catch (err) {
-    console.error('Error validando token:', err);
+    console.error('💀 Error validando token:', err);
     res.status(500).json({ 
       error: 'Error interno del servidor',
       valid: false 
