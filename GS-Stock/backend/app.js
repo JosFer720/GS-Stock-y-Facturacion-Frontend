@@ -23,6 +23,8 @@ const envioImportadoraRoutes = require('./routes/envioImportadora');
 const devolucionesRoutes = require('./routes/devoluciones');
 const pagosRoutes = require('./routes/pagos');
 
+const graphicsRoutes = require('./routes/Routesforgraphics/graphics');
+
 const { Pool } = require('pg');
 
 const app = express();
@@ -57,6 +59,7 @@ app.use('/api/envios/nacional', envioNacionalRoutes);
 app.use('/api/envios/importadora', envioImportadoraRoutes);
 app.use('/api/devoluciones', devolucionesRoutes);
 app.use('/api/pagos', pagosRoutes);
+app.use('/api/graphics', graphicsRoutes);
 
 
 // Ruta adicional para debug
