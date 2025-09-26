@@ -53,7 +53,12 @@ const routes = [
     component: () => import('../views/PagosDevolucionesView.vue'),
     meta: { requiresAuth: true, allowedRoles: ['Administrador','Vendedor'] }
   },
-
+  {
+    path: '/rendimiento',
+    name: 'Rendimiento',
+    component: () => import('../views/Rendimiento/Rendimiento.vue'),
+    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria'] }
+  }
 ]
 
 const router = createRouter({
