@@ -2,38 +2,45 @@ version: "3.8"
 
 services:
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: ${DOCKERFILE_FRONTEND:-Dockerfile.prod}
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-3001}:${FRONTEND_INTERNAL_PORT:-80}"
     volumes:
-      - ./frontend:/app
+      - ${FRONTEND_VOLUMES:-./frontend:/app}
       - /app/node_modules
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend  # Solo esperar a que el backend esté iniciado, no necesariamente saludable
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - app-network
 
   backend:
     build: ./backend
     ports:
-      - "3000:3000"
+      - "3000:3000"  # Mantener expuesto para debugging si es necesario
     volumes:
-      - ./backend:/app
+      - ${BACKEND_VOLUMES:-./backend:/app}
       - /app/node_modules
     environment:
       - DB_HOST=postgres
       - DB_USER=admin
-      - DB_PASSWORD=secret
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
       - DB_NAME=mydb
       - DB_PORT=5432
       - PORT=3000
-      - JWT_SECRET=fba7a07f4174d84d67ad67aedf16422a
-      - JWT_EXPIRES_IN=1h
-      - FRONTEND_URL=http://localhost:5173
-      - EMAIL_USER=distribuidoragenser@gmail.com
-      - EMAIL_PASSWORD=glls fzzd lcvx fwut
-      - EMAIL_FROM=GS Stock <distribuidoragenser@gmail.com>
+      - JWT_SECRET=${JWT_SECRET:-fba7a07f4174d84d67ad67aedf16422a}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1h}
+      - FRONTEND_URL=${FRONTEND_URL:-https://importadoragenser.com}
+      - EMAIL_USER=${EMAIL_USER:-distribuidoragenser@gmail.com}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD:-glls fzzd lcvx fwut}
+      - EMAIL_FROM=${EMAIL_FROM:-GS Stock <distribuidoragenser@gmail.com>}
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,19 +52,21 @@ services:
       start_period: 60s
     networks:
       - app-network
-
+    restart: ${RESTART_POLICY:-unless-stopped}
+    # Remover el comando de migración que está causando el fallo
+    # command: sh -c "npm run migrate && node index.js"
 
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secret
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
       POSTGRES_DB: mydb
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d
     ports:
-      - "5434:5432"
+      - "${POSTGRES_PORT:-5434}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d mydb"]
       interval: 5s
@@ -65,6 +74,22 @@ services:
       retries: 5
     networks:
       - app-network
+    restart: ${RESTART_POLICY:-unless-stopped}
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl  # Asegúrate de que este directorio existe
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - app-network
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
 
 volumes:
   postgres-data:
