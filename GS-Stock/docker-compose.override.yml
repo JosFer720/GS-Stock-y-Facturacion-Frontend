@@ -15,4 +15,5 @@ services:
   # Deshabilitar nginx para desarrollo local
   nginx:
     profiles:
+    
       - production
