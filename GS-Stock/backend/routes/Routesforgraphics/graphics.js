@@ -358,4 +358,201 @@ router.get('/analytics/performance-stats', auth, async (req, res) => {
   }
 });
 
+// NEW ENDPOINT: Vendedor Performance
+router.get('/analytics/vendedor-performance', auth, async (req, res) => {
+  try {
+    const { vendedor_id, period = 'month', year = new Date().getFullYear(), month, week } = req.query;
+    
+    let whereClause = 'WHERE 1=1';
+    let dateGrouping = '';
+    let orderClause = '';
+    const queryParams = [];
+    let paramCount = 0;
+
+    if (vendedor_id) {
+      paramCount++;
+      whereClause += ` AND v.Id = $${paramCount}`;
+      queryParams.push(vendedor_id);
+    }
+
+    // Date filtering and grouping based on period
+    if (period === 'week') {
+      paramCount++;
+      whereClause += ` AND EXTRACT(YEAR FROM p.Fecha) = $${paramCount}`;
+      queryParams.push(year);
+      
+      if (month) {
+        paramCount++;
+        whereClause += ` AND EXTRACT(MONTH FROM p.Fecha) = $${paramCount}`;
+        queryParams.push(month);
+      }
+      
+      dateGrouping = `
+        EXTRACT(WEEK FROM p.Fecha) as periodo_numero,
+        'Semana ' || EXTRACT(WEEK FROM p.Fecha) as periodo_display,
+        TO_CHAR(p.Fecha, 'YYYY-"W"WW') as periodo_key
+      `;
+      orderClause = 'ORDER BY EXTRACT(YEAR FROM p.Fecha), EXTRACT(WEEK FROM p.Fecha), vendedor_nombre';
+    } else {
+      paramCount++;
+      whereClause += ` AND EXTRACT(YEAR FROM p.Fecha) = $${paramCount}`;
+      queryParams.push(year);
+      
+      dateGrouping = `
+        EXTRACT(MONTH FROM p.Fecha) as periodo_numero,
+        TO_CHAR(p.Fecha, 'Month') as periodo_display,
+        TO_CHAR(p.Fecha, 'YYYY-MM') as periodo_key
+      `;
+      orderClause = 'ORDER BY EXTRACT(YEAR FROM p.Fecha), EXTRACT(MONTH FROM p.Fecha), vendedor_nombre';
+    }
+
+    const query = `
+      SELECT 
+        v.Id as vendedor_id,
+        u.Nombre || ' ' || u.Apellido as vendedor_nombre,
+        ${dateGrouping},
+        COUNT(p.Id) as total_pedidos,
+        COALESCE(SUM(p.Total), 0) as ventas_totales,
+        COALESCE(AVG(p.Total), 0) as promedio_venta,
+        COUNT(DISTINCT p.Id_Cliente) as clientes_unicos
+      FROM Pedidos p
+      JOIN Vendedores v ON p.Id_Vendedor = v.Id
+      JOIN Usuarios u ON v.Id_Usuarios = u.Id
+      ${whereClause}
+      GROUP BY 
+        v.Id, u.Nombre, u.Apellido,
+        EXTRACT(YEAR FROM p.Fecha),
+        EXTRACT(${period === 'week' ? 'WEEK' : 'MONTH'} FROM p.Fecha),
+        periodo_numero, periodo_display, periodo_key
+      ${orderClause}
+    `;
+
+    const result = await pool.query(query, queryParams);
+    
+    res.json({
+      success: true,
+      data: result.rows,
+      period: period,
+      message: 'Rendimiento de vendedores obtenido exitosamente'
+    });
+  } catch (error) {
+    console.error('Error obteniendo rendimiento de vendedores:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+});
+
+// NEW ENDPOINT: Sales Performance (General Sales Analytics)
+router.get('/analytics/sales-performance', auth, async (req, res) => {
+  try {
+    const { period = 'month', year = new Date().getFullYear(), month } = req.query;
+    
+    let whereClause = `WHERE EXTRACT(YEAR FROM p.Fecha) = $1`;
+    let dateGrouping = '';
+    let orderClause = '';
+    const queryParams = [year];
+
+    // Date filtering and grouping based on period
+    if (period === 'week') {
+      if (month) {
+        whereClause += ` AND EXTRACT(MONTH FROM p.Fecha) = $2`;
+        queryParams.push(month);
+      }
+      
+      dateGrouping = `
+        EXTRACT(WEEK FROM p.Fecha) as periodo_numero,
+        'Semana ' || EXTRACT(WEEK FROM p.Fecha) as periodo_display,
+        TO_CHAR(p.Fecha, 'YYYY-"W"WW') as periodo_key,
+        DATE_TRUNC('week', p.Fecha) as fecha_inicio_periodo
+      `;
+      orderClause = 'ORDER BY EXTRACT(YEAR FROM p.Fecha), EXTRACT(WEEK FROM p.Fecha)';
+    } else {
+      dateGrouping = `
+        EXTRACT(MONTH FROM p.Fecha) as periodo_numero,
+        TO_CHAR(p.Fecha, 'Month') as periodo_display,
+        TO_CHAR(p.Fecha, 'YYYY-MM') as periodo_key,
+        DATE_TRUNC('month', p.Fecha) as fecha_inicio_periodo
+      `;
+      orderClause = 'ORDER BY EXTRACT(YEAR FROM p.Fecha), EXTRACT(MONTH FROM p.Fecha)';
+    }
+
+    const query = `
+      SELECT 
+        ${dateGrouping},
+        COUNT(p.Id) as total_pedidos,
+        COALESCE(SUM(p.Total), 0) as ventas_totales,
+        COALESCE(AVG(p.Total), 0) as promedio_pedido,
+        COUNT(DISTINCT p.Id_Cliente) as clientes_unicos,
+        COUNT(DISTINCT p.Id_Vendedor) as vendedores_activos,
+        -- Breakdown by product line
+        COALESCE(SUM(CASE WHEN tlp.Nombre = 'Linea Nacional' THEN p.Total ELSE 0 END), 0) as ventas_nacional,
+        COALESCE(SUM(CASE WHEN tlp.Nombre = 'Linea Importadora' THEN p.Total ELSE 0 END), 0) as ventas_importadora,
+        COUNT(CASE WHEN tlp.Nombre = 'Linea Nacional' THEN p.Id ELSE NULL END) as pedidos_nacional,
+        COUNT(CASE WHEN tlp.Nombre = 'Linea Importadora' THEN p.Id ELSE NULL END) as pedidos_importadora
+      FROM Pedidos p
+      JOIN Tipos_Linea_Producto tlp ON p.Id_Tipo_Linea_Producto = tlp.Id
+      ${whereClause}
+      GROUP BY 
+        EXTRACT(YEAR FROM p.Fecha),
+        EXTRACT(${period === 'week' ? 'WEEK' : 'MONTH'} FROM p.Fecha),
+        periodo_numero, periodo_display, periodo_key, fecha_inicio_periodo
+      ${orderClause}
+    `;
+
+    const result = await pool.query(query, queryParams);
+    
+    res.json({
+      success: true,
+      data: result.rows,
+      period: period,
+      message: 'Rendimiento de ventas obtenido exitosamente'
+    });
+  } catch (error) {
+    console.error('Error obteniendo rendimiento de ventas:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+});
+
+// NEW ENDPOINT: Get All Vendedores (for filter dropdown)
+router.get('/analytics/vendedores-list', auth, async (req, res) => {
+  try {
+    const query = `
+      SELECT DISTINCT
+        v.Id as vendedor_id,
+        u.Nombre || ' ' || u.Apellido as vendedor_nombre,
+        u.Nombre as nombre,
+        u.Apellido as apellido,
+        COUNT(p.Id) as total_pedidos
+      FROM Vendedores v
+      JOIN Usuarios u ON v.Id_Usuarios = u.Id
+      LEFT JOIN Pedidos p ON v.Id = p.Id_Vendedor
+      GROUP BY v.Id, u.Nombre, u.Apellido
+      HAVING COUNT(p.Id) > 0
+      ORDER BY vendedor_nombre
+    `;
+
+    const result = await pool.query(query);
+    
+    res.json({
+      success: true,
+      data: result.rows,
+      message: 'Lista de vendedores obtenida exitosamente'
+    });
+  } catch (error) {
+    console.error('Error obteniendo lista de vendedores:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

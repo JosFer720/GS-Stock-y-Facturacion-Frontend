@@ -265,17 +265,17 @@
 }
 
 .nav-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 10px;
   justify-content: center;
-  flex-wrap: wrap;
 }
 
 .nav-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 15px;
+  padding: 12px 15px;
   border: 1px solid #ddd;
   background: white;
   color: #666;
@@ -284,19 +284,41 @@
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 14px;
-  flex: 1;
   justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
 }
 
 .nav-btn:hover {
   border-color: #333;
   color: #333;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-btn:hover::before {
+  left: 100%;
 }
 
 .nav-btn.active {
   background: #333;
   color: white;
   border-color: #333;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(51, 51, 51, 0.3);
 }
 
 /* Chart Container */
@@ -311,6 +333,18 @@
   border: 1px solid #ddd;
   width: 100%;
   box-sizing: border-box;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chart-header {
@@ -331,12 +365,18 @@
   font-size: 12px;
   color: #666;
   margin: 0;
+  font-style: italic;
 }
 
 .chart-wrapper {
   position: relative;
   height: 300px;
   margin: 0 auto;
+}
+
+/* Additional Chart Specific Styles */
+#vendedorChart, #ventasChart {
+  max-height: 400px;
 }
 
 /* Data Section */
@@ -354,10 +394,12 @@
   display: flex;
   background: #f8f9fa;
   border-bottom: 1px solid #ddd;
+  overflow-x: auto;
 }
 
 .tab-button {
   flex: 1;
+  min-width: 120px;
   padding: 15px;
   background: none;
   border: none;
@@ -368,6 +410,7 @@
   font-size: 14px;
   text-align: center;
   position: relative;
+  white-space: nowrap;
 }
 
 .tab-button:hover {
@@ -410,6 +453,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+  min-width: 600px;
 }
 
 .data-table th {
@@ -420,12 +464,14 @@
   color: #333;
   border-bottom: 2px solid #ddd;
   white-space: nowrap;
+  font-size: 13px;
 }
 
 .data-table td {
   padding: 12px 8px;
   border-bottom: 1px solid #eee;
   vertical-align: middle;
+  font-size: 13px;
 }
 
 .data-table tbody tr:hover {
@@ -442,7 +488,7 @@
   align-items: center;
   padding: 4px 8px;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -456,6 +502,18 @@
 .line-badge.importadora {
   background: rgba(76, 175, 80, 0.1);
   color: #388E3C;
+}
+
+.vendedor-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 152, 0, 0.1);
+  color: #F57C00;
+  border: 1px solid rgba(255, 152, 0, 0.2);
 }
 
 .rank-badge {
@@ -495,6 +553,7 @@
   border-radius: 4px;
   font-size: 12px;
   color: #495057;
+  border: 1px solid #e9ecef;
 }
 
 /* Empty States */
@@ -524,6 +583,12 @@
 }
 
 /* Responsive Design */
+@media (min-width: 480px) {
+  .nav-buttons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (min-width: 576px) {
   .content-section {
     padding: 20px;
@@ -547,12 +612,7 @@
   }
   
   .nav-buttons {
-    justify-content: center;
-  }
-  
-  .nav-btn {
-    flex: none;
-    min-width: 180px;
+    grid-template-columns: repeat(2, 1fr);
   }
   
   .chart-wrapper {
@@ -578,7 +638,7 @@
   }
   
   .filters-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
   
   .summary-grid {
@@ -587,6 +647,16 @@
   
   .summary-value {
     font-size: 20px;
+  }
+  
+  .nav-buttons {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+  }
+  
+  .nav-btn {
+    padding: 15px 10px;
+    font-size: 13px;
   }
   
   .chart-wrapper {
@@ -601,6 +671,15 @@
   .data-table td {
     padding: 15px 12px;
   }
+  
+  .tabs-navigation {
+    overflow-x: visible;
+  }
+  
+  .tab-button {
+    min-width: auto;
+    flex: 1;
+  }
 }
 
 @media (min-width: 992px) {
@@ -608,7 +687,99 @@
     max-width: 1400px;
   }
   
+  .filters-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
   .chart-wrapper {
     height: 450px;
+  }
+  
+  .nav-btn {
+    font-size: 14px;
+    padding: 15px 20px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .filters-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  
+  .nav-buttons {
+    justify-content: center;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+}
+
+/* Print styles */
+@media print {
+  .rendimiento-view {
+    background: white;
+  }
+  
+  .chart-navigation,
+  .filters-section,
+  .refresh-btn {
+    display: none;
+  }
+  
+  .chart-wrapper {
+    height: 300px;
+    page-break-inside: avoid;
+  }
+  
+  .data-section {
+    page-break-inside: avoid;
+  }
+}
+
+/* Accessibility improvements */
+.nav-btn:focus,
+.filter-select:focus,
+.tab-button:focus {
+  outline: 2px solid #2196F3;
+  outline-offset: 2px;
+}
+
+.nav-btn:focus:not(:focus-visible),
+.filter-select:focus:not(:focus-visible),
+.tab-button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* High contrast support */
+@media (prefers-contrast: high) {
+  .nav-btn {
+    border-width: 2px;
+  }
+  
+  .nav-btn.active {
+    border-width: 3px;
+  }
+  
+  .line-badge,
+  .vendedor-badge,
+  .rank-badge {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .chart-card,
+  .nav-btn,
+  .summary-card {
+    animation: none;
+    transition: none;
+  }
+  
+  .loading-spinner {
+    animation: none;
+  }
+  
+  .nav-btn::before {
+    transition: none;
   }
 }
