@@ -53,7 +53,13 @@ const routes = [
     component: () => import('../views/PagosDevolucionesView.vue'),
     meta: { requiresAuth: true, allowedRoles: ['Administrador','Secretaria', 'Vendedor'] }
   },
-
+  // NEW ROUTE: Performance Dashboard
+  {
+    path: '/rendimiento',
+    name: 'Rendimiento',
+    component: () => import('../views/Rendimiento/Rendimiento.vue'),
+    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria'] }
+  }
 ]
 
 const router = createRouter({
