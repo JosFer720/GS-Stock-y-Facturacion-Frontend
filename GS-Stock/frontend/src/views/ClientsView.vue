@@ -893,7 +893,7 @@ export default {
         loading.value = true;
         error.value = null;
 
-        const searchResponse = await fetch(`http://localhost:3000/api/clientes/buscar/${encodeURIComponent(termino)}`, {
+        const searchResponse = await fetch(`/api/clientes/buscar/${encodeURIComponent(termino)}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -912,7 +912,7 @@ export default {
           const clientsWithDetails = await Promise.all(
             searchData.data.map(async client => {
               try {
-                const detailResponse = await fetch(`http://localhost:3000/api/clientes/${client.id}`, {
+                const detailResponse = await fetch(`/api/clientes/${client.id}`, {
                   method: 'GET',
                   headers: {
                     'Authorization': `Bearer ${token}`,
@@ -956,7 +956,7 @@ export default {
       error.value = null;
 
       try {
-        const response = await fetch('http://localhost:3000/api/clientes', {
+        const response = await fetch('/api/clientes', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -1010,7 +1010,7 @@ export default {
           }
         }
 
-        const response = await fetch('http://localhost:3000/api/clientes', {
+        const response = await fetch('/api/clientes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1099,7 +1099,7 @@ export default {
           telefonos: telefonosValidos
         };
 
-        const response = await fetch(`http://localhost:3000/api/clientes/${selectedClient.value.id}`, {
+        const response = await fetch(`/api/clientes/${selectedClient.value.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -1145,7 +1145,7 @@ export default {
         
         for (const clientId of clientsToProcess) {
           try {
-            const response = await fetch(`http://localhost:3000/api/clientes/${clientId}`, {
+            const response = await fetch(`/api/clientes/${clientId}`, {
               method: 'DELETE',
               headers: {
                 'Authorization': `Bearer ${token}`
@@ -1220,7 +1220,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
-        const response = await fetch(`http://localhost:3000/api/clientes/${client.id}/cuentas-por-cobrar`, {
+        const response = await fetch(`/api/clientes/${client.id}/cuentas-por-cobrar`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,

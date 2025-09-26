@@ -576,7 +576,7 @@ export default {
         
         for (const userId of usersToProcess) {
           try {
-            const response = await fetch(`http://localhost:3000/api/usuarios/${userId}/activate`, {
+            const response = await fetch(`/api/usuarios/${userId}/activate`, {
               method: 'PUT',
               headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -653,7 +653,7 @@ export default {
         
         for (const userId of usersToProcess) {
           try {
-            const response = await fetch(`http://localhost:3000/api/usuarios/${userId}/deactivate`, {
+            const response = await fetch(`/api/usuarios/${userId}/deactivate`, {
               method: 'PUT',
               headers: {
                 'Authorization': `Bearer ${token}`
@@ -750,7 +750,7 @@ export default {
       
       try {
         console.log('Cargando usuarios desde el servidor...');
-        const response = await fetch('http://localhost:3000/api/usuarios', {
+        const response = await fetch('/api/usuarios', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -999,7 +999,7 @@ export default {
       });
       
       try {
-        const response = await fetch('http://localhost:3000/api/usuarios/create-with-account', {
+        const response = await fetch('/api/usuarios/create-with-account', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1088,7 +1088,7 @@ export default {
       }
       
       try {
-        const response = await fetch(`http://localhost:3000/api/usuarios/${editingUser.value.id}`, {
+        const response = await fetch(`/api/usuarios/${editingUser.value.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

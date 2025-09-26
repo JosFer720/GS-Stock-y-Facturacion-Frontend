@@ -435,7 +435,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/vendedores', {
+        const response = await fetch('/api/ventas/vendedores', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -454,7 +454,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/clientes', {
+        const response = await fetch('/api/ventas/clientes', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -475,7 +475,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/metodos-pago', {
+        const response = await fetch('/api/ventas/metodos-pago', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -493,7 +493,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/devoluciones/metodos', {
+        const response = await fetch('/api/devoluciones/metodos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -551,7 +551,7 @@ export default {
         
         console.log(`Obteniendo pedidos para cliente ID: ${clienteId}`);
         
-        const response = await fetch(`http://localhost:3000/api/pagos/pedidos-cliente/${clienteId}`, {
+        const response = await fetch(`/api/pagos/pedidos-cliente/${clienteId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -611,7 +611,7 @@ export default {
 
         console.log('Registrando pago:', nuevoPago.value);
 
-        const response = await fetch('http://localhost:3000/api/pagos', {
+        const response = await fetch('/api/pagos', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -657,7 +657,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch(`http://localhost:3000/api/devoluciones/pedidos-cliente/${clienteId}`, {
+        const response = await fetch(`/api/devoluciones/pedidos-cliente/${clienteId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -701,7 +701,7 @@ export default {
           observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
         };
 
-        const response = await fetch('http://localhost:3000/api/devoluciones', {
+        const response = await fetch('/api/devoluciones', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -747,7 +747,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/pagos', {
+        const response = await fetch('/api/pagos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -768,7 +768,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/devoluciones', {
+        const response = await fetch('/api/devoluciones', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
