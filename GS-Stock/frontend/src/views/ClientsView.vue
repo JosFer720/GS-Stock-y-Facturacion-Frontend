@@ -522,7 +522,7 @@ export default {
         
         for (const clientId of clientsToProcess) {
           try {
-            const response = await fetch(`http://localhost:3000/api/clientes/${clientId}`, {
+            const response = await fetch(`/api/clientes/${clientId}`, {
               method: 'DELETE',
               headers: {
                 'Authorization': `Bearer ${token}`
@@ -691,7 +691,7 @@ export default {
       } else {
         const termino = searchQuery.value.nombre.trim();
         try {
-          const searchResponse = await fetch(`http://localhost:3000/api/clientes/buscar/${termino}`, {
+          const searchResponse = await fetch(`/api/clientes/buscar/${termino}`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
@@ -703,7 +703,7 @@ export default {
           
           const clientsWithDetails = await Promise.all(
             searchData.data.map(async client => {
-              const detailResponse = await fetch(`http://localhost:3000/api/clientes/${client.id}`, {
+              const detailResponse = await fetch(`/api/clientes/${client.id}`, {
                 method: 'GET',
                 headers: {
                   'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
@@ -745,7 +745,7 @@ export default {
       error.value = null;
 
       try {
-        const response = await fetch('http://localhost:3000/api/clientes', {
+        const response = await fetch('/api/clientes', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -792,7 +792,7 @@ export default {
           throw new Error('Debe proporcionar al menos un teléfono válido');
         }
 
-        const response = await fetch('http://localhost:3000/api/clientes', {
+        const response = await fetch('/api/clientes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -850,7 +850,7 @@ export default {
           throw new Error('Debe proporcionar al menos un teléfono válido');
         }
 
-        const response = await fetch(`http://localhost:3000/api/clientes/${selectedClient.value.id}`, {
+        const response = await fetch(`/api/clientes/${selectedClient.value.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

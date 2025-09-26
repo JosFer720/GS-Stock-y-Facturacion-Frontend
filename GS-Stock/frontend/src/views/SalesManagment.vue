@@ -573,7 +573,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
-        const response = await fetch('http://localhost:3000/api/ventas/vendedor-actual', {
+        const response = await fetch('/api/ventas/vendedor-actual', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -606,7 +606,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
-        const response = await fetch('http://localhost:3000/api/ventas/tipos-linea-producto', {
+        const response = await fetch('/api/ventas/tipos-linea-producto', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -700,7 +700,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/clientes', {
+        const response = await fetch('/api/ventas/clientes', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -719,7 +719,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/inventory', {
+        const response = await fetch('/api/inventory', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -737,7 +737,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/metodos-pago', {
+        const response = await fetch('/api/ventas/metodos-pago', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -792,7 +792,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/estados-pedidos', {
+        const response = await fetch('/api/ventas/estados-pedidos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -1016,7 +1016,7 @@ export default {
 
         console.log('Sending pedido data:', pedidoData); // Debug log
 
-        const response = await fetch('http://localhost:3000/api/ventas/pedidos', {
+        const response = await fetch('/api/ventas/pedidos', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1072,8 +1072,8 @@ export default {
         downloadingEnvio.value = true;
 
         const endpoint = (lastTipoLinea.value === 'Linea Nacional')
-          ? 'http://localhost:3000/api/envios/nacional'
-          : 'http://localhost:3000/api/envios/importadora';
+          ? '/api/envios/nacional'
+          : '/api/envios/importadora';
 
         const res = await fetch(endpoint, {
           method: 'POST',
@@ -1124,8 +1124,8 @@ export default {
 
         // Decide endpoint based on sale.tipo_linea_producto (fallback to nacional)
         const endpoint = (sale.tipo_linea_producto && sale.tipo_linea_producto.toLowerCase().includes('import'))
-          ? 'http://localhost:3000/api/envios/importadora'
-          : 'http://localhost:3000/api/envios/nacional';
+          ? '/api/envios/importadora'
+          : '/api/envios/nacional';
 
         const res = await fetch(endpoint, {
           method: 'POST',
@@ -1178,7 +1178,7 @@ export default {
         params.set('limit', String(perPage.value));
         params.set('page', String(currentPage.value));
 
-        const url = `http://localhost:3000/api/ventas/pedidos?${params.toString()}`;
+        const url = `/api/ventas/pedidos?${params.toString()}`;
 
         const response = await fetch(url, {
           method: 'GET',
@@ -1290,7 +1290,7 @@ export default {
         const token = localStorage.getItem('jwtToken');
         
         // Cargar productos del pedido
-        const response = await fetch(`http://localhost:3000/api/ventas/pedidos/${sale.id}/productos`, {
+        const response = await fetch(`/api/ventas/pedidos/${sale.id}/productos`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -1356,7 +1356,7 @@ export default {
 
         console.log('Actualizando estado:', { pedido_id, nuevo_estado }); // Debug
 
-        const response = await fetch(`http://localhost:3000/api/ventas/pedidos/${pedido_id}/estado`, {
+        const response = await fetch(`/api/ventas/pedidos/${pedido_id}/estado`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

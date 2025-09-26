@@ -1,0 +1,18 @@
+# Este archivo sobrescribe automáticamente docker-compose.yml para desarrollo
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile  # Usar Dockerfile de desarrollo
+    ports:
+      - "3001:5173"  # Vite dev server
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3000
+
+  # Deshabilitar nginx para desarrollo local
+  nginx:
+    profiles:
+      - production

@@ -73,7 +73,7 @@ export default {
         const token = localStorage.getItem('jwtToken');
         if (!token) throw new Error('No has iniciado sesión');
 
-        const res = await fetch('http://localhost:3000/api/facturas', {
+        const res = await fetch('/api/facturas', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 

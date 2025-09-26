@@ -389,7 +389,7 @@ export default {
         
         for (const userId of usersToProcess) {
           try {
-            const response = await fetch(`http://localhost:3000/api/usuarios/${userId}/activate`, {
+            const response = await fetch(`/api/usuarios/${userId}/activate`, {
               method: 'PUT',
               headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -555,7 +555,7 @@ export default {
       
       for (const userId of usersToProcess) {
         try {
-          const response = await fetch(`http://localhost:3000/api/usuarios/${userId}/deactivate`, {
+          const response = await fetch(`/api/usuarios/${userId}/deactivate`, {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -651,7 +651,7 @@ export default {
       error.value = null;
       
       try {
-        const response = await fetch('http://localhost:3000/api/usuarios', {
+        const response = await fetch('/api/usuarios', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -757,7 +757,7 @@ export default {
       }
       
       try {
-        const response = await fetch('http://localhost:3000/api/usuarios', {
+        const response = await fetch('/api/usuarios', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -818,7 +818,7 @@ export default {
       }
       
       try {
-        const response = await fetch(`http://localhost:3000/api/usuarios/${editingUser.value.id}`, {
+        const response = await fetch(`/api/usuarios/${editingUser.value.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -926,7 +926,7 @@ export default {
       
       try {
         if (deleteCompletely.value) {
-          const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}`, {
+          const response = await fetch(`/api/usuarios/${selectedUser.value.id}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -938,7 +938,7 @@ export default {
             throw new Error(errorData.error || 'Error al eliminar el usuario');
           }
         } else {
-          const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}/deactivate`, {
+          const response = await fetch(`/api/usuarios/${selectedUser.value.id}/deactivate`, {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`
