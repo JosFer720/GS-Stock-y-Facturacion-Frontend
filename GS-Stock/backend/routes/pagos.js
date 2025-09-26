@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
@@ -18,9 +17,9 @@ router.get('/clientes-pendientes', auth, async (req, res) => {
     const query = `
       SELECT DISTINCT c.* 
       FROM Clientes c
-      INNER JOIN Pedidos p ON c.Id = p.Id_Cliente
-      WHERE p.Id_Pedido_Estado_Pago = 1
-      ORDER BY c.Nombre, c.Apellido
+      INNER JOIN Pedidos p ON c.id = p.id_cliente
+      WHERE p.id_pedido_estado_pago = 1
+      ORDER BY c.nombre, c.apellido
     `;
     
     const result = await pool.query(query);
@@ -37,27 +36,32 @@ router.get('/clientes-pendientes', auth, async (req, res) => {
   }
 });
 
-// Get pending orders for a specific client (id_pedido_estado_pago = 1)
+// CORREGIDO: Get ALL pending orders for a specific client (id_pedido_estado_pago = 1)
 router.get('/pedidos-cliente/:clienteId', auth, async (req, res) => {
   try {
     const { clienteId } = req.params;
     
+    console.log(`Buscando pedidos pendientes para cliente ID: ${clienteId}`);
+    
     const query = `
       SELECT 
-        p.Id,
-        p.Total,
-        p.Fecha,
-        pep.Estado as estado_pago,
-        CONCAT(c.Nombre, ' ', c.Apellido) as cliente_nombre,
-        c.Empresa
+        p.id,
+        p.total,
+        p.fecha,
+        pep.estado as estado_pago,
+        CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
+        c.empresa
       FROM Pedidos p
-      INNER JOIN Clientes c ON p.Id_Cliente = c.Id
-      INNER JOIN pedidos_estado_pago pep ON p.Id_Pedido_Estado_Pago = pep.Id
-      WHERE p.Id_Cliente = $1 AND p.Id_Pedido_Estado_Pago = 1
-      ORDER BY p.Fecha DESC
+      INNER JOIN Clientes c ON p.id_cliente = c.id
+      INNER JOIN pedidos_estado_pago pep ON p.id_pedido_estado_pago = pep.id
+      WHERE p.id_cliente = $1 AND p.id_pedido_estado_pago = 1
+      ORDER BY p.fecha DESC
     `;
     
     const result = await pool.query(query, [clienteId]);
+    
+    console.log(`Encontrados ${result.rows.length} pedidos pendientes para cliente ${clienteId}`);
+    
     res.json({
       success: true,
       data: result.rows
@@ -80,11 +84,13 @@ router.post('/', auth, async (req, res) => {
     
     const { id_pedido, id_metodo_pago, monto_pagado, observaciones } = req.body;
     
+    console.log('Registrando pago:', { id_pedido, id_metodo_pago, monto_pagado });
+    
     // Get the order details including the current total from pedidos
     const orderQuery = `
-      SELECT p.Total, p.Id_Cliente, p.Id_Pedido_Estado_Pago
+      SELECT p.total, p.id_cliente, p.id_pedido_estado_pago
       FROM Pedidos p
-      WHERE p.Id = $1
+      WHERE p.id = $1
     `;
     
     const orderResult = await client.query(orderQuery, [id_pedido]);
@@ -104,8 +110,8 @@ router.post('/', auth, async (req, res) => {
     const latestPaymentQuery = `
       SELECT total_pedido 
       FROM pagos_pedidos 
-      WHERE Id_Pedido = $1 
-      ORDER BY Id DESC 
+      WHERE id_pedido = $1 
+      ORDER BY id DESC 
       LIMIT 1
     `;
     
@@ -130,7 +136,7 @@ router.post('/', auth, async (req, res) => {
     // Insert payment record with the NEW balance (after this payment)
     const insertPaymentQuery = `
       INSERT INTO pagos_pedidos 
-        (Id_Pedido, total_pedido, Id_Metodos_De_Pago, Monto_Pagado, Vuelto, Observaciones, Fecha_De_Pago)
+        (id_pedido, total_pedido, id_metodos_de_pago, monto_pagado, vuelto, observaciones, fecha_de_pago)
       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
       RETURNING *
     `;
@@ -152,8 +158,8 @@ router.post('/', auth, async (req, res) => {
     
     const updateOrderStatusQuery = `
       UPDATE Pedidos 
-      SET Id_Pedido_Estado_Pago = $1
-      WHERE Id = $2
+      SET id_pedido_estado_pago = $1
+      WHERE id = $2
     `;
     
     await client.query(updateOrderStatusQuery, [paymentStatus, id_pedido]);
@@ -183,33 +189,32 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Get payment history
+// CORREGIDO: Get payment history with proper table names
 router.get('/', auth, async (req, res) => {
   try {
     const query = `
       SELECT 
-        pp.Id,
-        pp.Id_Pedido,
+        pp.id,
+        pp.id_pedido,
         pp.total_pedido as remaining_balance,
-        pp.Monto_Pagado,
-        pp.Vuelto,
-        pp.Observaciones,
-        pp.Fecha_De_Pago,
-        mdp.Tipo as metodo_pago,
-        p.Total as pedido_original_total,
-        CONCAT(c.Nombre, ' ', c.Apellido) as cliente_nombre,
-        c.Apellido as cliente_apellido,
-        c.Empresa,
-        CONCAT(u.Nombre, ' ', u.Apellido) as vendedor_nombre,
-        pep.Estado as estado_pago
+        pp.monto_pagado,
+        pp.vuelto,
+        pp.observaciones,
+        pp.fecha_de_pago,
+        mdp.tipo as metodo_pago,
+        p.total as pedido_original_total,
+        CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
+        c.apellido as cliente_apellido,
+        c.empresa,
+        CONCAT(u.nombre, ' ', u.apellido) as vendedor_nombre,
+        pep.estado as estado_pago
       FROM pagos_pedidos pp
-      INNER JOIN Pedidos p ON pp.Id_Pedido = p.Id
-      INNER JOIN Clientes c ON p.Id_Cliente = c.Id
-      INNER JOIN Vendedores v ON p.Id_Vendedor = v.Id
-      INNER JOIN Usuarios u ON v.Id_Usuarios = u.Id
-      INNER JOIN Metodos_De_Pago mdp ON pp.Id_Metodos_De_Pago = mdp.Id
-      INNER JOIN pedidos_estado_pago pep ON p.Id_Pedido_Estado_Pago = pep.Id
-      ORDER BY pp.Fecha_De_Pago DESC
+      INNER JOIN Pedidos p ON pp.id_pedido = p.id
+      INNER JOIN Clientes c ON p.id_cliente = c.id
+      INNER JOIN Usuarios u ON p.id_vendedor = u.id
+      INNER JOIN metodos_de_pago mdp ON pp.id_metodos_de_pago = mdp.id
+      INNER JOIN pedidos_estado_pago pep ON p.id_pedido_estado_pago = pep.id
+      ORDER BY pp.fecha_de_pago DESC
     `;
     
     const result = await pool.query(query);
@@ -225,6 +230,5 @@ router.get('/', auth, async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;

@@ -12,7 +12,25 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// NUEVO ENDPOINT: Obtener tipos de línea de producto
+// ENDPOINT: Obtener métodos de pago
+router.get('/metodos-pago', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM Metodos_De_Pago ORDER BY tipo');
+    res.json({
+      success: true,
+      data: result.rows,
+      message: 'Métodos de pago obtenidos correctamente'
+    });
+  } catch (error) {
+    console.error('Error al obtener métodos de pago:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al obtener métodos de pago' 
+    });
+  }
+});
+
+// ENDPOINT: Obtener tipos de línea de producto
 router.get('/tipos-linea-producto', auth, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM Tipos_Linea_Producto ORDER BY nombre');
@@ -36,12 +54,11 @@ router.post('/pedidos', auth, async (req, res) => {
   try {
     const { 
       id_cliente, 
-      id_tipo_linea_producto, 
-      id_metodo_de_pago, 
+      id_tipo_linea_producto,
       productos
     } = req.body;
 
-    // MEJORA: Obtener vendedor automáticamente según usuario logueado
+    // Obtener vendedor automáticamente según usuario logueado
     const vendedorResult = await client.query(`
       SELECT u.id as vendedor_id, u.nombre, u.apellido, r.rol 
       FROM Usuarios u
@@ -59,9 +76,9 @@ router.post('/pedidos', auth, async (req, res) => {
     const id_vendedor = vendedorResult.rows[0].vendedor_id;
 
     // Validaciones básicas
-    if (!id_cliente || !id_tipo_linea_producto || !id_metodo_de_pago || !productos || productos.length === 0) {
+    if (!id_cliente || !id_tipo_linea_producto || !productos || productos.length === 0) {
       return res.status(400).json({ 
-        error: 'Faltan campos requeridos: id_cliente, id_tipo_linea_producto, id_metodo_de_pago, productos' 
+        error: 'Faltan campos requeridos: id_cliente, id_tipo_linea_producto, productos' 
       });
     }
 
@@ -125,17 +142,24 @@ router.post('/pedidos', auth, async (req, res) => {
       WHERE c.id = $1
     `, [id_cliente]);
 
-    const descuento = Number(rows?.[0]?.descuento ?? 0.0); // guardas fracción: 0.05 = 5%
+    const descuento = Number(rows?.[0]?.descuento ?? 0.0);
     const montoDescuento = subtotal * descuento;
     const total = subtotal - montoDescuento;
 
-
-    // FIXED: Crear el pedido con subtotal y total (matching database schema)
+    // CORREGIDO: Crear el pedido con id_pedido_estado_pago = 1 por defecto
     const pedidoResult = await client.query(`
-      INSERT INTO Pedidos (id_cliente, id_vendedor, id_metodo_de_pago, id_tipo_linea_producto, subtotal, total, id_estado_pedido)
+      INSERT INTO Pedidos (
+        id_cliente, 
+        id_vendedor, 
+        id_tipo_linea_producto, 
+        subtotal, 
+        total, 
+        id_estado_pedido, 
+        id_pedido_estado_pago
+      )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [id_cliente, id_vendedor, id_metodo_de_pago, id_tipo_linea_producto, subtotal, total, 1]);
+    `, [id_cliente, id_vendedor, id_tipo_linea_producto, subtotal, total, 1, 1]);
 
     const pedidoId = pedidoResult.rows[0].id;
 
@@ -222,32 +246,31 @@ router.post('/pedidos', auth, async (req, res) => {
 
 router.get('/pedidos', auth, async (req, res) => {
   try {
-    // Pagination: accept ?limit and ?page (defaults)
     const userRole = req.user?.rol;
     const userId = req.user?.id;
 
-    const limitParam = Math.min(Number(req.query.limit) || 10, 100); // cap max 100
+    const limitParam = Math.min(Number(req.query.limit) || 10, 100);
     const pageParam = Math.max(Number(req.query.page) || 1, 1);
     const offsetParam = (pageParam - 1) * limitParam;
 
+    // Query actualizada para incluir el estado de pago
     let query = `
       SELECT 
         p.*,
         c.nombre || ' ' || c.apellido as cliente_nombre,
         c.empresa,
         u.nombre || ' ' || u.apellido as vendedor_nombre,
-        mp.tipo as metodo_pago,
         ep.estado as estado_pedido,
-        tlp.nombre as tipo_linea_producto
+        tlp.nombre as tipo_linea_producto,
+        pep.estado as estado_pago
       FROM Pedidos p
       LEFT JOIN Clientes c ON p.id_cliente = c.id
       LEFT JOIN Usuarios u ON p.id_vendedor = u.id
-      LEFT JOIN Metodos_De_Pago mp ON p.id_metodo_de_pago = mp.id
       LEFT JOIN Estados_Pedidos ep ON p.id_estado_pedido = ep.id
       LEFT JOIN Tipos_Linea_Producto tlp ON p.id_tipo_linea_producto = tlp.id
+      LEFT JOIN pedidos_estado_pago pep ON p.id_pedido_estado_pago = pep.id
     `;
 
-    // Build params for count and data queries
     let params = [];
     let countParams = [];
     let whereClause = '';
@@ -262,13 +285,10 @@ router.get('/pedidos', auth, async (req, res) => {
     const countResult = await pool.query(countQuery, countParams);
     const total = Number(countResult.rows[0].total || 0);
 
-    // Append ORDER BY, LIMIT and OFFSET using parameterized values
     if (whereClause) {
-      // if we already used $1 for userId, next params are $2 and $3
       query += whereClause + ` ORDER BY p.fecha DESC LIMIT $2 OFFSET $3 `;
       params.push(limitParam, offsetParam);
     } else {
-      // no where clause, limit/offset are $1 and $2
       query += ` ORDER BY p.fecha DESC LIMIT $1 OFFSET $2 `;
       params = [limitParam, offsetParam];
     }
@@ -293,7 +313,7 @@ router.get('/pedidos', auth, async (req, res) => {
   }
 });
 
-// NUEVO ENDPOINT: Obtener información del vendedor actual
+// ENDPOINT: Obtener información del vendedor actual
 router.get('/vendedor-actual', auth, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -327,7 +347,7 @@ router.get('/vendedor-actual', auth, async (req, res) => {
         nombre_completo: `${usuario.nombre} ${usuario.apellido}`,
         rol: usuario.rol,
         es_vendedor: usuario.rol === 'Vendedor',
-        es_administrador: usuario.rol === 'Administrador', // ADDED
+        es_administrador: usuario.rol === 'Administrador',
         usuario: usuario.usuario
       },
       message: 'Información del usuario obtenida correctamente'
@@ -338,23 +358,6 @@ router.get('/vendedor-actual', auth, async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Error al obtener información del usuario' 
-    });
-  }
-});
-
-// Obtener métodos de pago
-router.get('/metodos-pago', auth, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM Metodos_De_Pago ORDER BY tipo');
-    res.json({
-      success: true,
-      data: result.rows,
-      message: 'Métodos de pago obtenidos correctamente'
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: 'Error al obtener métodos de pago' 
     });
   }
 });
@@ -548,7 +551,6 @@ router.get('/pedidos/:id/productos', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Obtener filas del detalle del pedido con info de zapato y talla
     const result = await pool.query(
       `SELECT dp.id AS detalle_id, dp.id_zapato, dp.id_talla, dp.cantidad, dp.precio_unitario,
         z.codigo, z.nombre, z.precio_par,
@@ -564,8 +566,6 @@ router.get('/pedidos/:id/productos', auth, async (req, res) => {
     , [id]);
 
     const rows = result.rows || [];
-
-    // Agrupar por zapato
     const productsMap = new Map();
 
     for (const row of rows) {
