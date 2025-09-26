@@ -78,7 +78,6 @@
           @download-envio="handleDownloadEnvio"
         />
 
-
         <!-- Paginación (reutiliza estilos de UserManagement) -->
         <div class="pagination" v-if="total > 0">
           <button @click="previousPage" :disabled="currentPage === 1" class="pagination-nav">‹</button>
@@ -114,7 +113,7 @@
         <h2>Agregar Nueva Venta</h2>
         <form @submit.prevent="addSale">
           
-          <!-- NUEVA SECCIÓN: Información del Vendedor Automática -->
+          <!-- SECCIÓN: Información del Vendedor Automática -->
           <div class="vendedor-section" v-if="vendedorActual">
             <h3>Vendedor</h3>
             <div class="vendedor-info">
@@ -224,15 +223,7 @@
             </select>
           </div>
 
-          <div class="form-group">
-            <label for="id_metodo_de_pago">Método de Pago:</label>
-            <select id="id_metodo_de_pago" v-model="newSale.id_metodo_de_pago" required>
-              <option value="">Seleccione un método</option>
-              <option v-for="metodo in metodosPago" :key="metodo.id" :value="metodo.id">
-                {{ metodo.tipo }} - {{ metodo.detalle }}
-              </option>
-            </select>
-          </div>
+          <!-- REMOVIDO: Sección de método de pago completamente eliminada -->
 
           <div class="productos-section">
             <label>Productos con Tallas:</label>
@@ -364,7 +355,6 @@
             </button>
           </div>
 
-          <!-- CAMBIO: Solo mostrar total, no subtotal -->
           <div class="totales-section">
             <div class="totales-display">
               <div class="total-row total-final">
@@ -400,7 +390,6 @@
             <p><strong>Línea de Producto:</strong> {{ selectedSale.tipo_linea_producto }}</p>
           </div>
           
-          <!-- NUEVA SECCIÓN DE PRODUCTOS -->
           <div class="detail-section">
             <h3>Productos del Pedido</h3>
             <div v-if="loadingDetails" class="loading-products">
@@ -410,8 +399,8 @@
               <div v-for="product in saleProducts" :key="product.id" class="product-item">
                 <div class="product-header">
                   <h4>{{ product.codigo }} - {{ product.nombre }}</h4>
-            <span class="product-price">Q{{ formatCurrency(product.precio_par) }}</span>
-            <span class="product-linea" v-if="product.tipo_linea">{{ product.tipo_linea }}</span>
+                  <span class="product-price">Q{{ formatCurrency(product.precio_par) }}</span>
+                  <span class="product-linea" v-if="product.tipo_linea">{{ product.tipo_linea }}</span>
                 </div>
                 <div class="tallas-info">
                   <div v-for="talla in product.tallas" :key="talla.id" class="talla-item">
@@ -443,7 +432,6 @@
       </div>
     </div>
 
-    
     <!-- Modal de descarga de envío -->
     <div v-if="showEnvioDialog" class="modal">
       <div class="modal-content">
@@ -457,7 +445,8 @@
         </div>
       </div>
     </div>
-<modal-message 
+    
+    <modal-message 
       :show="showMessageModal"
       :title="messageTitle"
       :message="messageContent"
@@ -500,11 +489,11 @@ export default {
     const messageType = ref('info');
     const creatingPedido = ref(false);
     const activeTab = ref('ventas');
-    const metodosPago = ref([])
+    // REMOVIDO: metodosPago ref
     const showEnvioDialog = ref(false);
     const lastPedidoId = ref(null);
     const lastTipoLinea = ref('');
-    const downloadingEnvio = ref(false);;
+    const downloadingEnvio = ref(false);
     const estadosPedidos = ref([]);
     const clientes = ref([]);
     const zapatosDisponibles = ref([]);
@@ -514,13 +503,14 @@ export default {
     const clientesFiltrados = ref([]);
     const searchTimeout = ref(null);
     const tiposLineaProducto = ref([]);
-    const vendedorActual = ref(null); // NUEVO
-  // Pagination state
-  const currentPage = ref(1);
-  const perPage = ref(10);
-  const total = ref(0);
-  const totalPages = ref(1);
-  const isMobile = ref(false);
+    const vendedorActual = ref(null);
+    
+    // Pagination state
+    const currentPage = ref(1);
+    const perPage = ref(10);
+    const total = ref(0);
+    const totalPages = ref(1);
+    const isMobile = ref(false);
     
     const filters = ref({
       date: '',
@@ -528,11 +518,10 @@ export default {
       status: ''
     });
 
-    // CAMBIO: Eliminamos id_vendedor del newSale
+    // ACTUALIZADO: newSale sin id_metodo_de_pago
     const newSale = ref({
       id_cliente: '',
-      id_tipo_linea_producto: '', // NUEVO campo obligatorio
-      id_metodo_de_pago: '',
+      id_tipo_linea_producto: '',
       productos: [{ 
         id_zapato: '', 
         tallas: [{ 
@@ -567,13 +556,12 @@ export default {
       return token;
     };
 
-    // NUEVO: Obtener información del vendedor actual
     const fetchVendedorActual = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
 
-        const response = await fetch('http://localhost:3000/api/ventas/vendedor-actual', {
+        const response = await fetch('/api/ventas/vendedor-actual', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -583,7 +571,6 @@ export default {
         if (result.success) {
           vendedorActual.value = result.data;
           
-          // CAMBIO: Permitir tanto Vendedor como Administrador
           if (!result.data.es_vendedor && !result.data.es_administrador) {
             showMessage('Error de Permisos', 
               'Tu usuario no tiene permisos de vendedor o administrador. Contacta al administrador.', 
@@ -606,7 +593,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
-        const response = await fetch('http://localhost:3000/api/ventas/tipos-linea-producto', {
+        const response = await fetch('/api/ventas/tipos-linea-producto', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -624,7 +611,7 @@ export default {
 
     const checkScreenSize = () => {
       isMobile.value = window.innerWidth < 768;
-      perPage.value = isMobile.value ? 5 : 10; // default per page (matches backend limit default)
+      perPage.value = isMobile.value ? 5 : 10;
     };
 
     const handleFacturaSeleccionada = (factura) => {
@@ -700,7 +687,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/clientes', {
+        const response = await fetch('/api/ventas/clientes', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -719,7 +706,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/inventory', {
+        const response = await fetch('/api/inventory', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -732,23 +719,7 @@ export default {
       }
     };
     
-    const fetchMetodosPago = async () => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:3000/api/ventas/metodos-pago', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener métodos de pago');
-        
-        const data = await response.json();
-        metodosPago.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener métodos de pago:', err);
-      }
-    };
+    // REMOVIDO: fetchMetodosPago function completamente
 
     const getTallasDisponiblesParaProducto = (zapatoId, productoIndex) => {
       if (!zapatoId) return [];
@@ -792,16 +763,15 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/estados-pedidos', {
+        const response = await fetch('/api/ventas/estados-pedidos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) throw new Error('Error al obtener estados de pedidos');
         
         const data = await response.json();
-        console.log('Estados de pedidos cargados:', data.data); // Debug
+        console.log('Estados de pedidos cargados:', data.data);
         
-        // Verificar que los estados sean "Pendiente" y "Despachado"
         if (data.success && Array.isArray(data.data)) {
           estadosPedidos.value = data.data;
           console.log('Estados disponibles:', estadosPedidos.value.map(e => e.estado));
@@ -872,7 +842,6 @@ export default {
       return parseFloat(price).toFixed(2);
     };
 
-    // CAMBIO: Solo calculamos total, no subtotal
     const calculatedTotal = computed(() => {
       return newSale.value.productos.reduce((total, producto) => {
         return total + calcularSubtotalProducto(producto);
@@ -883,11 +852,12 @@ export default {
       // Función para forzar la reactividad
     };
 
+    // ACTUALIZADO: isValidForm sin validar metodo de pago
     const isValidForm = computed(() => {
       // Validar datos básicos
       if (!newSale.value.id_cliente) return false;
-      if (!newSale.value.id_tipo_linea_producto) return false; // NUEVO campo requerido
-      if (!newSale.value.id_metodo_de_pago) return false;
+      if (!newSale.value.id_tipo_linea_producto) return false;
+      // REMOVIDO: validación de id_metodo_de_pago
       
       // Validar productos
       for (let i = 0; i < newSale.value.productos.length; i++) {
@@ -943,16 +913,15 @@ export default {
       await Promise.all([
         fetchClientes(),
         fetchZapatosDisponibles(),
-        fetchMetodosPago(),
+        // REMOVIDO: fetchMetodosPago(),
         fetchTiposLineaProducto(),
         fetchEstadosPedidos()
       ]);
 
-      // CAMBIO: Ya no incluimos id_vendedor
+      // ACTUALIZADO: newSale sin id_metodo_de_pago
       newSale.value = {
         id_cliente: '',
         id_tipo_linea_producto: '',
-        id_metodo_de_pago: '',
         productos: [{ 
           id_zapato: '', 
           tallas: [{ 
@@ -984,11 +953,9 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
-        // FIXED: Transform the productos data structure correctly
         const productosParaEnviar = [];
         
         newSale.value.productos.forEach((producto, pIndex) => {
-          // Each talla becomes a separate product entry
           producto.tallas.forEach((talla, tIndex) => {
             if (talla.id_talla && talla.cantidad > 0 && !talla.error_stock) {
               productosParaEnviar.push({
@@ -1006,17 +973,16 @@ export default {
           return;
         }
 
-        // FIXED: Data structure that matches backend expectations
+        // ACTUALIZADO: pedidoData sin id_metodo_de_pago
         const pedidoData = {
           id_cliente: parseInt(newSale.value.id_cliente),
           id_tipo_linea_producto: parseInt(newSale.value.id_tipo_linea_producto),
-          id_metodo_de_pago: parseInt(newSale.value.id_metodo_de_pago),
           productos: productosParaEnviar
         };
 
-        console.log('Sending pedido data:', pedidoData); // Debug log
+        console.log('Sending pedido data:', pedidoData);
 
-        const response = await fetch('http://localhost:3000/api/ventas/pedidos', {
+        const response = await fetch('/api/ventas/pedidos', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1042,8 +1008,7 @@ export default {
 
         const data = await response.json();
 
-        // Success message with updated structure
-        showMessage('Pedido Creado Exitosamente');
+        showMessage('Pedido Creado Exitosamente', 'El pedido se ha creado correctamente', 'success');
 
         // Ofrecer descarga de envío si aplica
         lastPedidoId.value = data.data.pedido.id;
@@ -1052,7 +1017,6 @@ export default {
           showEnvioDialog.value = true;
         }
 
-        // Close modal and refresh
         showAddSaleModal.value = false;
         fetchSales();
         
@@ -1064,7 +1028,6 @@ export default {
       }
     };
 
-    
     const descargarEnvio = async () => {
       try {
         const token = checkAuth();
@@ -1072,8 +1035,8 @@ export default {
         downloadingEnvio.value = true;
 
         const endpoint = (lastTipoLinea.value === 'Linea Nacional')
-          ? 'http://localhost:3000/api/envios/nacional'
-          : 'http://localhost:3000/api/envios/importadora';
+          ? '/api/envios/nacional'
+          : '/api/envios/importadora';
 
         const res = await fetch(endpoint, {
           method: 'POST',
@@ -1122,10 +1085,9 @@ export default {
 
         showMessage('Generando PDF', `Generando PDF de envío para pedido #${sale.id}...`, 'info');
 
-        // Decide endpoint based on sale.tipo_linea_producto (fallback to nacional)
         const endpoint = (sale.tipo_linea_producto && sale.tipo_linea_producto.toLowerCase().includes('import'))
-          ? 'http://localhost:3000/api/envios/importadora'
-          : 'http://localhost:3000/api/envios/nacional';
+          ? '/api/envios/importadora'
+          : '/api/envios/nacional';
 
         const res = await fetch(endpoint, {
           method: 'POST',
@@ -1164,7 +1126,6 @@ export default {
       }
     };
 
-
     const fetchSales = async () => {
       const token = checkAuth();
       if (!token) return;
@@ -1173,12 +1134,11 @@ export default {
       error.value = null;
 
       try {
-        // Build paginated URL
         const params = new URLSearchParams();
         params.set('limit', String(perPage.value));
         params.set('page', String(currentPage.value));
 
-        const url = `http://localhost:3000/api/ventas/pedidos?${params.toString()}`;
+        const url = `/api/ventas/pedidos?${params.toString()}`;
 
         const response = await fetch(url, {
           method: 'GET',
@@ -1289,8 +1249,7 @@ export default {
         
         const token = localStorage.getItem('jwtToken');
         
-        // Cargar productos del pedido
-        const response = await fetch(`http://localhost:3000/api/ventas/pedidos/${sale.id}/productos`, {
+        const response = await fetch(`/api/ventas/pedidos/${sale.id}/productos`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -1347,16 +1306,14 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
-        // Mostrar loading temporal
         const saleIndex = sales.value.findIndex(sale => sale.id === pedido_id);
         if (saleIndex !== -1) {
-          // Deshabilitar temporalmente el select (opcional)
           const originalState = sales.value[saleIndex].estado_pedido;
         }
 
-        console.log('Actualizando estado:', { pedido_id, nuevo_estado }); // Debug
+        console.log('Actualizando estado:', { pedido_id, nuevo_estado });
 
-        const response = await fetch(`http://localhost:3000/api/ventas/pedidos/${pedido_id}/estado`, {
+        const response = await fetch(`/api/ventas/pedidos/${pedido_id}/estado`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -1371,9 +1328,8 @@ export default {
         }
 
         const data = await response.json();
-        console.log('Respuesta del servidor:', data); // Debug
+        console.log('Respuesta del servidor:', data);
 
-        // Actualizar el estado en el frontend SOLO si la BD se actualizó correctamente
         if (data.success) {
           const saleToUpdate = sales.value.find(sale => sale.id === pedido_id);
           if (saleToUpdate) {
@@ -1393,7 +1349,6 @@ export default {
           'error'
         );
         
-        // Recargar datos para asegurar consistencia
         await fetchSales();
       }
     };
@@ -1419,14 +1374,13 @@ export default {
     });
 
     onMounted(async () => {
-      await fetchVendedorActual(); // NUEVO: Cargar vendedor actual al montar
+      await fetchVendedorActual();
       checkScreenSize();
       window.addEventListener('resize', checkScreenSize);
       await fetchSales();
       fetchEstadosPedidos();
     });
 
-    // Watch pagination changes
     watch([currentPage, perPage], () => {
       fetchSales();
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1458,7 +1412,7 @@ export default {
       newSale,
       clientes,
       zapatosDisponibles,
-      metodosPago,
+      // REMOVIDO: metodosPago,
       estadosPedidos,
       filteredSales,
       istallaYaSeleccionada,
@@ -1521,5 +1475,4 @@ export default {
 </script>
 
 <style scoped src="../styles/salesManagment.css">
-
 </style>

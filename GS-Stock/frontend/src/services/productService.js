@@ -1,7 +1,7 @@
 // src/services/productService.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000/api/productos';  // Ajusta la URL según tu backend real
+const API_URL = '/api/productos';  // Ajusta la URL según tu backend real
 
 export const fetchAllProducts = async () => {
   const { data } = await axios.get(API_URL);

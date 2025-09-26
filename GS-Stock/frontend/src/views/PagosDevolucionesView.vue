@@ -38,7 +38,7 @@
                   v-model="clienteSearchTermPago"
                   @input="buscarClientesPago"
                   @focus="showClienteDropdownPago = true"
-                  @blur="setTimeout(() => showClienteDropdownPago = false, 200)"
+                  @blur="cerrarDropdownPago"
                   placeholder="Buscar por nombre o empresa..."
                   required
                 />
@@ -149,7 +149,7 @@
         </div>
       </div>
 
-      <!-- TAB DE DEVOLUCIONES (UNTOUCHED) -->
+      <!-- TAB DE DEVOLUCIONES -->
       <div v-show="activeTab === 'devoluciones'" class="tab-content">
         <div class="form-section">
           <h2 class="section-title">Registrar Nueva Devolución</h2>
@@ -165,7 +165,7 @@
                   v-model="clienteSearchTermDev"
                   @input="buscarClientesDev"
                   @focus="showClienteDropdownDev = true"
-                  @blur="setTimeout(() => showClienteDropdownDev = false, 200)"
+                  @blur="cerrarDropdownDev"
                   placeholder="Buscar por nombre o empresa..."
                   required
                 />
@@ -297,7 +297,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
 import PagosTable from '@/components/PagosTable.vue';
@@ -416,13 +416,26 @@ export default {
       return parseFloat(amount).toFixed(2);
     };
 
+    // Funciones para cerrar dropdowns
+    const cerrarDropdownPago = () => {
+      setTimeout(() => {
+        showClienteDropdownPago.value = false;
+      }, 200);
+    };
+
+    const cerrarDropdownDev = () => {
+      setTimeout(() => {
+        showClienteDropdownDev.value = false;
+      }, 200);
+    };
+
     // Funciones de carga de datos
     const fetchVendedores = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/vendedores', {
+        const response = await fetch('/api/ventas/vendedores', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -435,21 +448,25 @@ export default {
       }
     };
 
-    const fetchClientesConPagosPendientes = async () => {
+    // CORREGIDO: Función para obtener todos los clientes (no solo con pagos pendientes)
+    const fetchClientes = async () => {
       try {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/pagos/clientes-pendientes', {
+        const response = await fetch('/api/ventas/clientes', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) throw new Error('Error al obtener clientes con pagos pendientes');
+        if (!response.ok) throw new Error('Error al obtener clientes');
         
         const data = await response.json();
         clientes.value = data.data || [];
+        
+        console.log('Clientes cargados:', clientes.value.length);
       } catch (err) {
-        console.error('Error al obtener clientes con pagos pendientes:', err);
+        console.error('Error al obtener clientes:', err);
+        clientes.value = [];
       }
     };
 
@@ -458,7 +475,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/ventas/metodos-pago', {
+        const response = await fetch('/api/ventas/metodos-pago', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -476,7 +493,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/devoluciones/metodos', {
+        const response = await fetch('/api/devoluciones/metodos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -489,19 +506,23 @@ export default {
       }
     };
 
-    // Funciones de búsqueda de clientes
+    // MEJORADAS: Funciones de búsqueda de clientes
     const buscarClientesPago = () => {
       if (clienteSearchTermPago.value.length < 2) {
         clientesFiltradosPago.value = [];
         return;
       }
       
-      const term = clienteSearchTermPago.value.toLowerCase();
+      const term = clienteSearchTermPago.value.toLowerCase().trim();
+      
       clientesFiltradosPago.value = clientes.value.filter(cliente => {
-        const nombreCompleto = `${cliente.nombre} ${cliente.apellido}`.toLowerCase();
-        const empresa = cliente.empresa?.toLowerCase() || '';
+        const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.toLowerCase().trim();
+        const empresa = (cliente.empresa || '').toLowerCase().trim();
+        
         return nombreCompleto.includes(term) || empresa.includes(term);
-      }).slice(0, 8);
+      }).slice(0, 10); // Aumenté el límite a 10
+      
+      console.log(`Búsqueda pagos: "${term}" encontró ${clientesFiltradosPago.value.length} clientes`);
     };
 
     const buscarClientesDev = () => {
@@ -510,12 +531,16 @@ export default {
         return;
       }
       
-      const term = clienteSearchTermDev.value.toLowerCase();
+      const term = clienteSearchTermDev.value.toLowerCase().trim();
+      
       clientesFiltradosDev.value = clientes.value.filter(cliente => {
-        const nombreCompleto = `${cliente.nombre} ${cliente.apellido}`.toLowerCase();
-        const empresa = cliente.empresa?.toLowerCase() || '';
+        const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.toLowerCase().trim();
+        const empresa = (cliente.empresa || '').toLowerCase().trim();
+        
         return nombreCompleto.includes(term) || empresa.includes(term);
-      }).slice(0, 8);
+      }).slice(0, 10);
+      
+      console.log(`Búsqueda dev: "${term}" encontró ${clientesFiltradosDev.value.length} clientes`);
     };
 
     // Funciones específicas de pagos
@@ -524,38 +549,53 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch(`http://localhost:3000/api/pagos/pedidos-cliente/${clienteId}`, {
+        console.log(`Obteniendo pedidos para cliente ID: ${clienteId}`);
+        
+        const response = await fetch(`/api/pagos/pedidos-cliente/${clienteId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) throw new Error('Error al obtener pedidos del cliente');
+        if (!response.ok) {
+          console.error(`Error HTTP ${response.status}: ${response.statusText}`);
+          throw new Error('Error al obtener pedidos del cliente');
+        }
         
         const data = await response.json();
         pedidosClientePago.value = data.data || [];
+        
+        console.log(`Pedidos encontrados para cliente ${clienteId}:`, pedidosClientePago.value.length);
+        
+        if (pedidosClientePago.value.length === 0) {
+          showMessage('Sin pedidos pendientes', 
+            `El cliente seleccionado no tiene pedidos pendientes de pago.`, 
+            'warning'
+          );
+        }
+        
       } catch (err) {
         console.error('Error al obtener pedidos del cliente:', err);
         pedidosClientePago.value = [];
+        showMessage('Error', 
+          `Error al cargar pedidos del cliente: ${err.message}`, 
+          'error'
+        );
       }
     };
 
     const seleccionarClientePago = async (cliente) => {
+      console.log('Cliente seleccionado para pago:', cliente);
+      
       clienteSeleccionadoPago.value = cliente;
       nuevoPago.value.id_cliente = cliente.id;
-      clienteSearchTermPago.value = `${cliente.nombre} ${cliente.apellido}`;
+      clienteSearchTermPago.value = `${cliente.nombre} ${cliente.apellido}${cliente.empresa ? ' - ' + cliente.empresa : ''}`;
       showClienteDropdownPago.value = false;
       clientesFiltradosPago.value = [];
       
+      // Limpiar pedido seleccionado previamente
+      nuevoPago.value.id_pedido = '';
+      
       // Cargar pedidos del cliente seleccionado
       await fetchPedidosClientePago(cliente.id);
-    };
-
-    const cargarPedidosCliente = async (clienteId) => {
-      if (!clienteId) {
-        pedidosClientePago.value = [];
-        return;
-      }
-      
-      await fetchPedidosClientePago(clienteId);
     };
 
     const registrarPago = async () => {
@@ -569,7 +609,9 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
-        const response = await fetch('http://localhost:3000/api/pagos', {
+        console.log('Registrando pago:', nuevoPago.value);
+
+        const response = await fetch('/api/pagos', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -601,7 +643,6 @@ export default {
         
         // Recargar datos
         await fetchPagos();
-        await fetchClientesConPagosPendientes();
         
       } catch (err) {
         showMessage('Error', err.message, 'error');
@@ -616,7 +657,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch(`http://localhost:3000/api/devoluciones/pedidos-cliente/${clienteId}`, {
+        const response = await fetch(`/api/devoluciones/pedidos-cliente/${clienteId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -660,7 +701,7 @@ export default {
           observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
         };
 
-        const response = await fetch('http://localhost:3000/api/devoluciones', {
+        const response = await fetch('/api/devoluciones', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -706,7 +747,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/pagos', {
+        const response = await fetch('/api/pagos', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -727,7 +768,7 @@ export default {
         const token = checkAuth();
         if (!token) return;
         
-        const response = await fetch('http://localhost:3000/api/devoluciones', {
+        const response = await fetch('/api/devoluciones', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -818,14 +859,18 @@ export default {
 
     // Inicialización
     onMounted(async () => {
+      console.log('Iniciando carga de datos...');
+      
       await Promise.all([
         fetchVendedores(),
-        fetchClientesConPagosPendientes(),
+        fetchClientes(), // CAMBIADO: ahora carga todos los clientes
         fetchMetodosPago(),
         fetchMetodosDevoluciones(),
         fetchPagos(),
         fetchDevoluciones()
       ]);
+      
+      console.log('Datos cargados. Clientes:', clientes.value.length);
     });
 
     return {
@@ -877,13 +922,14 @@ export default {
       buscarClientesDev,
       seleccionarClientePago,
       seleccionarClienteDev,
-      cargarPedidosCliente,
       registrarPago,
       registrarDevolucion,
       actualizarFiltrosPagos,
       actualizarFiltrosDevoluciones,
       limpiarFiltrosPagos,
-      limpiarFiltrosDevoluciones
+      limpiarFiltrosDevoluciones,
+      cerrarDropdownPago,
+      cerrarDropdownDev
     };
   }
 }

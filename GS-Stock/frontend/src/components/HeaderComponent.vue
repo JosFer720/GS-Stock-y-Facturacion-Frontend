@@ -74,7 +74,7 @@ export default {
       try {
         const token = localStorage.getItem('jwtToken');
         if (token) {
-          await fetch('http://localhost:3000/api/auth/logout', {
+          await fetch('/api/auth/logout', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,

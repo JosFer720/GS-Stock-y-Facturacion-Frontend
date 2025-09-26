@@ -156,7 +156,7 @@ export default {
     
     async validarToken() {
       try {
-        const response = await fetch('http://localhost:3000/api/auth/validate-reset-token', {
+        const response = await fetch('/api/auth/validate-reset-token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -232,7 +232,7 @@ export default {
         console.log('Body de la petición:', requestBody);
         
         // Llamada al endpoint de reset-password
-        const response = await fetch('http://localhost:3000/api/auth/reset-password', {
+        const response = await fetch('/api/auth/reset-password', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

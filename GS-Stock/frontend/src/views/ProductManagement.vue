@@ -636,7 +636,7 @@ export default {
 
       try {
         const deletePromises = selectedProducts.value.map(productId => 
-          fetch(`http://localhost:3000/api/inventory/${productId}`, {
+          fetch(`/api/inventory/${productId}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -665,7 +665,7 @@ export default {
       if (!token) return;
 
       try {
-        const response = await fetch('http://localhost:3000/api/tipos-calzados', {
+        const response = await fetch('/api/tipos-calzados', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -685,7 +685,7 @@ export default {
       if (!token) return;
 
       try {
-        const response = await fetch('http://localhost:3000/api/inventory/tipos-linea-producto', {
+        const response = await fetch('/api/inventory/tipos-linea-producto', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -705,7 +705,7 @@ export default {
       if (!token) return;
 
       try {
-        const response = await fetch('http://localhost:3000/api/tallas', {
+        const response = await fetch('/api/tallas', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -727,7 +727,7 @@ export default {
       error.value = null;
 
       try {
-        const response = await fetch('http://localhost:3000/api/inventory', {
+        const response = await fetch('/api/inventory', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -813,7 +813,7 @@ export default {
           return;
         }
 
-        const response = await fetch('http://localhost:3000/api/inventory', {
+        const response = await fetch('/api/inventory', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -932,7 +932,7 @@ export default {
           tallas: tallasParaEnviar
         };
 
-        const response = await fetch(`http://localhost:3000/api/inventory/${selectedProduct.value.id}`, {
+        const response = await fetch(`/api/inventory/${selectedProduct.value.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

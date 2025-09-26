@@ -105,7 +105,7 @@ export default {
       this.loading = true;
       
       try {
-        const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
+        const response = await fetch('/api/auth/forgot-password', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
