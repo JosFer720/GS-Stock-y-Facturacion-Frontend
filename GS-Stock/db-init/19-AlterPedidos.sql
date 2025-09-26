@@ -1,0 +1,1 @@
+ALTER TABLE pedidos ALTER COLUMN id_metodo_de_pago DROP NOT NULL;

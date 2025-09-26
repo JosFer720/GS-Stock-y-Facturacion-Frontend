@@ -422,27 +422,34 @@
 }
 
 .actions-cell {
+  text-align: center;
+  padding: 8px;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-.edit-btn-small{
-  padding: 4px 8px;
-  font-size: 12px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
+/* ACTUALIZADO: Botón de editar con el mismo estilo que cuentas por cobrar */
 .edit-btn-small {
   background-color: #2196F3;
   color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  min-width: 60px;
 }
 
-.edit-btn-small:hover {
+.edit-btn-small:hover:not(:disabled) {
   background-color: #1976D2;
+}
+
+.edit-btn-small:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .card-actions {
@@ -688,4 +695,270 @@
 .phone-input-container:focus-within {
   border-color: #007bff;
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Estilos unificados para cuentas por cobrar y acciones */
+.accounts-receivable-cell {
+  text-align: center;
+  padding: 8px;
+}
+
+.view-accounts-btn {
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  min-width: 60px;
+}
+
+.view-accounts-btn:hover:not(:disabled) {
+  background-color: #138496;
+}
+
+.view-accounts-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Estilos para el modal de cuentas por cobrar */
+.accounts-modal .modal-content {
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.loading-section {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.no-accounts-section {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+  font-style: italic;
+}
+
+.accounts-list {
+  max-height: 400px;
+  overflow-y: auto;
+  margin: 20px 0;
+}
+
+.account-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  background: #f9f9f9;
+  transition: box-shadow 0.2s ease;
+}
+
+.account-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.account-header {
+  background: linear-gradient(135deg, #4a90e2, #357abd);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.account-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.account-date {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.account-details {
+  padding: 16px;
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.account-row:last-child {
+  border-bottom: none;
+}
+
+.account-row .label {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.account-row .amount {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.amount.original {
+  color: #28a745;
+}
+
+.amount.pending {
+  color: #dc3545;
+}
+
+.status {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status.pending {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+
+.status.paid {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.btn-close {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-close:hover {
+  background-color: #5a6268;
+}
+
+/* Estilos responsivos para móviles */
+@media (max-width: 768px) {
+  .accounts-modal .modal-content {
+    width: 95%;
+    margin: 10px;
+    max-height: 85vh;
+  }
+
+  .account-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .account-header h3 {
+    font-size: 14px;
+  }
+
+  .account-date {
+    font-size: 11px;
+  }
+
+  .account-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 10px 0;
+  }
+
+  .account-row .label {
+    font-size: 13px;
+  }
+
+  .account-row .amount {
+    font-size: 14px;
+    align-self: flex-end;
+  }
+
+  .accounts-list {
+    max-height: 300px;
+  }
+
+  /* Estilos unificados para la vista de tarjetas móviles */
+  .card-view .card-row .view-accounts-btn,
+  .card-view .card-row .edit-btn {
+    margin-top: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    min-width: 50px;
+  }
+  
+  /* Botón de editar en tarjetas móviles */
+  .card-actions .edit-btn {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    min-width: 60px;
+  }
+
+  .card-actions .edit-btn:hover:not(:disabled) {
+    background-color: #1976D2;
+  }
+
+  .card-actions .edit-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+/* Animaciones */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.account-item {
+  animation: fadeInUp 0.3s ease forwards;
+}
+
+.account-item:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.account-item:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.account-item:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.account-item:nth-child(n+5) {
+  animation-delay: 0.4s;
 }

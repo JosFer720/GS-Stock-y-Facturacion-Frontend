@@ -31,7 +31,7 @@
       <div class="search-section">
         <input 
           v-model="searchQuery.nombre" 
-          placeholder="Buscar por nombre, apellido o empresa" 
+          placeholder="Buscar por nombre, apellido, empresa o NIT" 
           @input="searchClient"
         />
       </div>
@@ -64,8 +64,10 @@
                 <th>Nombre</th>
                 <th>Apellido</th>
                 <th>Empresa</th>
+                <th>NIT</th>
                 <th>Direcciones</th>
                 <th>Teléfonos</th>
+                <th>Cuentas por Cobrar</th>
                 <th v-if="!deleteMode">Acciones</th>
               </tr>
             </thead>
@@ -83,6 +85,7 @@
                 <td>{{ client.nombre || '-' }}</td>
                 <td>{{ client.apellido || '-' }}</td>
                 <td>{{ client.empresa || '-' }}</td>
+                <td>{{ client.nit || '-' }}</td>
                 <td>
                   <ul class="list-unstyled">
                     <li v-for="(direccion, idx) in client.direcciones" :key="'dir-'+idx">
@@ -97,6 +100,15 @@
                     </li>
                   </ul>
                 </td>
+                <td class="accounts-receivable-cell">
+                  <button 
+                    @click="verCuentasPorCobrar(client)" 
+                    class="view-accounts-btn"
+                    :disabled="loadingAccountsReceivable[client.id]"
+                  >
+                    {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : 'Ver' }}
+                  </button>
+                </td>
                 <td v-if="!deleteMode" class="actions-cell">
                   <button @click.stop="editClient(client)" class="edit-btn-small">
                     Editar
@@ -104,7 +116,7 @@
                 </td>
               </tr>
               <tr v-if="paginatedClients.length === 0">
-                <td :colspan="deleteMode ? 8 : 7" class="empty-table">
+                <td :colspan="deleteMode ? 10 : 9" class="empty-table">
                   No hay clientes disponibles
                 </td>
               </tr>
@@ -137,6 +149,11 @@
                 <strong>Empresa:</strong>
                 <span>{{ client.empresa || '-' }}</span>
               </div>
+
+              <div class="card-row">
+                <strong>NIT:</strong>
+                <span>{{ client.nit || '-' }}</span>
+              </div>
               
               <div class="card-row">
                 <strong>Direcciones:</strong>
@@ -154,6 +171,17 @@
                     {{ telefono.telefono }}
                   </li>
                 </ul>
+              </div>
+
+              <div class="card-row">
+                <strong>Cuentas por Cobrar:</strong>
+                <button 
+                  @click="verCuentasPorCobrar(client)" 
+                  class="view-accounts-btn"
+                  :disabled="loadingAccountsReceivable[client.id]"
+                >
+                  {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : 'Ver' }}
+                </button>
               </div>
               
               <div v-if="!deleteMode" class="card-actions">
@@ -229,6 +257,20 @@
               v-model="newClient.empresa"
             >
           </div>
+          <div class="form-group">
+            <label for="nit">NIT (opcional):</label>
+            <input 
+              type="text" 
+              id="nit" 
+              v-model="newClient.nit"
+              @input="validateNITInput"
+              placeholder="12345678-9 o CF"
+              maxlength="11"
+            >
+            <div v-if="nitValidationMessage" :class="['nit-validation', nitValidationClass]">
+              {{ nitValidationMessage }}
+            </div>
+          </div>
           
           <div class="form-group">
             <label>Direcciones:</label>
@@ -271,7 +313,7 @@
             <button type="button" @click="showCreateModal = false" class="cancel-btn">
               Cancelar
             </button>
-            <button type="submit" class="submit-btn">
+            <button type="submit" class="submit-btn" :disabled="!isFormValid">
               Guardar Cliente
             </button>
           </div>
@@ -310,6 +352,20 @@
               id="edit-empresa" 
               v-model="selectedClient.empresa"
             >
+          </div>
+          <div class="form-group">
+            <label for="edit-nit">NIT:</label>
+            <input 
+              type="text" 
+              id="edit-nit" 
+              v-model="selectedClient.nit"
+              @input="validateEditNITInput"
+              placeholder="12345678-9 o CF"
+              maxlength="11"
+            >
+            <div v-if="editNitValidationMessage" :class="['nit-validation', editNitValidationClass]">
+              {{ editNitValidationMessage }}
+            </div>
           </div>
           
           <div class="form-group">
@@ -353,7 +409,7 @@
             <button type="button" @click="showEditModal = false" class="cancel-btn">
               Cancelar
             </button>
-            <button type="submit" class="submit-btn">
+            <button type="submit" class="submit-btn" :disabled="!isEditFormValid">
               Actualizar Cliente
             </button>
           </div>
@@ -375,6 +431,49 @@
         <div class="modal-actions">
           <button @click="showDeleteModal = false" class="btn-cancel">Cancelar</button>
           <button @click="deleteClients" class="btn-delete">Eliminar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para Cuentas por Cobrar -->
+    <div v-if="showAccountsReceivableModal" class="modal accounts-modal">
+      <div class="modal-content">
+        <span class="close" @click="closeAccountsReceivableModal">&times;</span>
+        <h2>Cuentas por Cobrar - {{ selectedClientForAccounts?.nombre }} {{ selectedClientForAccounts?.apellido }}</h2>
+        
+        <div v-if="loadingClientAccounts" class="loading-section">
+          <p>Cargando pedidos pendientes...</p>
+        </div>
+
+        <div v-else-if="clientAccountsReceivable.length === 0" class="no-accounts-section">
+          <p>Este cliente no tiene pedidos pendientes de pago.</p>
+        </div>
+
+        <div v-else class="accounts-list">
+          <div v-for="pedido in clientAccountsReceivable" :key="pedido.id" class="account-item">
+            <div class="account-header">
+              <h3>Pedido #{{ pedido.id }}</h3>
+              <span class="account-date">{{ formatDate(pedido.fecha) }}</span>
+            </div>
+            <div class="account-details">
+              <div class="account-row">
+                <span class="label">Total Original:</span>
+                <span class="amount original">Q{{ formatCurrency(pedido.total) }}</span>
+              </div>
+              <div class="account-row">
+                <span class="label">Saldo Pendiente:</span>
+                <span class="amount pending">Q{{ formatCurrency(pedido.saldo_pendiente) }}</span>
+              </div>
+              <div class="account-row">
+                <span class="label">Estado:</span>
+                <span class="status pending">{{ pedido.estado_pago }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button @click="closeAccountsReceivableModal" class="btn-close">Cerrar</button>
         </div>
       </div>
     </div>
@@ -421,15 +520,158 @@ export default {
     const perPage = ref(15);
     const isMobile = ref(false);
 
+    // Estados para validación de NIT
+    const nitValidationMessage = ref('');
+    const nitValidationClass = ref('');
+    const editNitValidationMessage = ref('');
+    const editNitValidationClass = ref('');
+
+    // Estados para Cuentas por Cobrar
+    const showAccountsReceivableModal = ref(false);
+    const selectedClientForAccounts = ref(null);
+    const clientAccountsReceivable = ref([]);
+    const loadingClientAccounts = ref(false);
+    const loadingAccountsReceivable = ref({});
+
     const newClient = ref({
       nombre: '',
       apellido: '',
       empresa: '',
+      nit: '',
       direcciones: [''],
       telefonos: ['']
     });
 
     const searchQuery = ref({ nombre: '' });
+
+    // Función para validar NIT guatemalteco en el frontend
+    const validateGuatemalanNIT = (nit) => {
+      if (!nit || nit.trim() === '') return { valid: true, message: '' }; // NIT opcional
+      
+      // Limpiar el NIT (quitar espacios y convertir a mayúsculas)
+      const nitClean = nit.replace(/[\s-]/g, '').toUpperCase();
+      
+      // Verificar si es "CF" (Consumidor Final)
+      if (nitClean === 'CF') {
+        return { 
+          valid: true, 
+          message: 'Consumidor Final válido' 
+        };
+      }
+      
+      // Verificar longitud (debe ser 8 o 9 dígitos)
+      if (!/^[0-9]{8,9}$/.test(nitClean)) {
+        return { 
+          valid: false, 
+          message: 'El NIT debe tener 8-9 dígitos o ser "CF" para Consumidor Final' 
+        };
+      }
+      
+      // Para NITs de 8 dígitos, agregar un 0 al inicio
+      const nitPadded = nitClean.length === 8 ? '0' + nitClean : nitClean;
+      
+      // Extraer dígitos y dígito verificador
+      const nitDigits = nitPadded.substring(0, 8);
+      const checkDigit = parseInt(nitPadded.substring(8, 9));
+      
+      // Calcular dígito verificador
+      let sum = 0;
+      let multiplier = 2;
+      
+      for (let i = 7; i >= 0; i--) {
+        sum += parseInt(nitDigits[i]) * multiplier;
+        multiplier++;
+      }
+      
+      let calculatedDigit = 11 - (sum % 11);
+      
+      // Casos especiales
+      if (calculatedDigit === 11) {
+        calculatedDigit = 0;
+      } else if (calculatedDigit === 10) {
+        return { 
+          valid: false, 
+          message: 'NIT inválido - dígito verificador incorrecto' 
+        };
+      }
+      
+      if (calculatedDigit !== checkDigit) {
+        return { 
+          valid: false, 
+          message: 'Dígito verificador incorrecto' 
+        };
+      }
+      
+      return { 
+        valid: true, 
+        message: 'NIT válido' 
+      };
+    };
+
+    // Función para formatear NIT guatemalteco
+    const formatGuatemalanNIT = (nit) => {
+      if (!nit) return '';
+      
+      const nitClean = nit.replace(/[\s-]/g, '').toUpperCase();
+      
+      if (nitClean === 'CF') {
+        return 'CF';
+      }
+      
+      if (nitClean.length === 8) {
+        return `${nitClean.substring(0, 7)}-${nitClean.substring(7)}`;
+      } else if (nitClean.length === 9) {
+        return `${nitClean.substring(0, 8)}-${nitClean.substring(8)}`;
+      }
+      
+      return nitClean;
+    };
+
+    // Validar NIT en tiempo real para nuevo cliente
+    const validateNITInput = () => {
+      if (newClient.value.nit) {
+        newClient.value.nit = formatGuatemalanNIT(newClient.value.nit);
+        const validation = validateGuatemalanNIT(newClient.value.nit);
+        nitValidationMessage.value = validation.message;
+        nitValidationClass.value = validation.valid ? 'valid' : 'invalid';
+      } else {
+        nitValidationMessage.value = '';
+        nitValidationClass.value = '';
+      }
+    };
+
+    // Validar NIT en tiempo real para editar cliente
+    const validateEditNITInput = () => {
+      if (selectedClient.value.nit) {
+        selectedClient.value.nit = formatGuatemalanNIT(selectedClient.value.nit);
+        const validation = validateGuatemalanNIT(selectedClient.value.nit);
+        editNitValidationMessage.value = validation.message;
+        editNitValidationClass.value = validation.valid ? 'valid' : 'invalid';
+      } else {
+        editNitValidationMessage.value = '';
+        editNitValidationClass.value = '';
+      }
+    };
+
+    // Validar formulario de creación
+    const isFormValid = computed(() => {
+      const nitValid = !newClient.value.nit || validateGuatemalanNIT(newClient.value.nit).valid;
+      return newClient.value.nombre && 
+             newClient.value.apellido && 
+             nitValid &&
+             newClient.value.direcciones.some(d => d.trim()) &&
+             newClient.value.telefonos.some(t => t.trim());
+    });
+
+    // Validar formulario de edición
+    const isEditFormValid = computed(() => {
+      const nitValid = !selectedClient.value?.nit || validateGuatemalanNIT(selectedClient.value.nit).valid;
+      return selectedClient.value?.nombre && 
+             selectedClient.value?.apellido && 
+             nitValid &&
+             selectedClient.value?.direcciones?.some(d => d.direccion?.trim()) &&
+             selectedClient.value?.telefonos?.some(t => t.telefono?.trim());
+    });
 
     const paginatedClients = computed(() => {
       const start = (currentPage.value - 1) * perPage.value;
@@ -456,6 +698,22 @@ export default {
     const areAllSelected = computed(() => {
       return paginatedClients.value.length > 0 && 
              paginatedClients.value.every(client => selectedClients.value.includes(client.id));
+    });
+
+    const filteredClients = computed(() => {
+      let result = clients.value;
+
+      if (searchQuery.value.nombre) {
+        const termino = searchQuery.value.nombre.toLowerCase();
+        result = result.filter(c =>
+          (c.nombre && c.nombre.toLowerCase().includes(termino)) ||
+          (c.apellido && c.apellido.toLowerCase().includes(termino)) ||
+          (c.empresa && c.empresa.toLowerCase().includes(termino)) ||
+          (c.nit && c.nit.toLowerCase().includes(termino))
+        );
+      }
+
+      return result;
     });
 
     const previousPage = () => {
@@ -510,6 +768,371 @@ export default {
       }
 
       showDeleteModal.value = true;
+    };
+
+    const checkScreenSize = () => {
+      isMobile.value = window.innerWidth < 768;
+      perPage.value = isMobile.value ? 10 : 15;
+    };
+
+    const showMessage = (title, message, type = 'info') => {
+      messageTitle.value = title;
+      messageContent.value = message;
+      messageType.value = type;
+      showMessageModal.value = true;
+    };
+
+    const hideMessage = () => {
+      showMessageModal.value = false;
+    };
+
+    const openCreateClientModal = () => {
+      newClient.value = { 
+        nombre: '',
+        apellido: '',
+        empresa: '',
+        nit: '',
+        direcciones: [''],
+        telefonos: ['']
+      };
+      nitValidationMessage.value = '';
+      nitValidationClass.value = '';
+      showCreateModal.value = true;
+    };
+
+    const addDireccion = () => {
+      newClient.value.direcciones.push('');
+    };
+
+    const removeDireccion = (index) => {
+      if (newClient.value.direcciones.length > 1) {
+        newClient.value.direcciones.splice(index, 1);
+      }
+    };
+
+    const addTelefono = () => {
+      newClient.value.telefonos.push('');
+    };
+
+    const removeTelefono = (index) => {
+      if (newClient.value.telefonos.length > 1) {
+        newClient.value.telefonos.splice(index, 1);
+      }
+    };
+
+    const addEditDireccion = () => {
+      selectedClient.value.direcciones.push({ id: null, direccion: '' });
+    };
+
+    const removeEditDireccion = (index) => {
+      if (selectedClient.value.direcciones.length > 1) {
+        selectedClient.value.direcciones.splice(index, 1);
+      }
+    };
+
+    const addEditTelefono = () => {
+      selectedClient.value.telefonos.push({ id: null, telefono: '' });
+    };
+
+    const removeEditTelefono = (index) => {
+      if (selectedClient.value.telefonos.length > 1) {
+        selectedClient.value.telefonos.splice(index, 1);
+      }
+    };
+
+    const validateTelefono = (index, tipo) => {
+      let telefono;
+      
+      if (tipo === 'new') {
+        telefono = newClient.value.telefonos[index];
+      } else {
+        telefono = selectedClient.value.telefonos[index].telefono;
+      }
+      
+      telefono = telefono.replace(/[^0-9]/g, '');
+      
+      if (telefono.length > 8) {
+        telefono = telefono.substring(0, 8);
+      }
+      
+      if (telefono.length > 4) {
+        telefono = telefono.substring(0, 4) + '-' + telefono.substring(4);
+      }
+      
+      if (tipo === 'new') {
+        newClient.value.telefonos[index] = telefono;
+      } else {
+        selectedClient.value.telefonos[index].telefono = telefono;
+      }
+    };
+
+    const checkAuth = () => {
+      const token = localStorage.getItem('jwtToken');
+      if (!token) {
+        showMessage('Error', 'No has iniciado sesión', 'error');
+        setTimeout(() => {
+          router.push('/login');
+        }, 1500);
+        return false;
+      }
+      return token;
+    };
+
+    const searchClient = async () => {
+      if (searchQuery.value.nombre.trim() === '') {
+        fetchClients();
+        return;
+      }
+
+      const termino = searchQuery.value.nombre.trim();
+      
+      try {
+        const token = checkAuth();
+        if (!token) return;
+
+        loading.value = true;
+        error.value = null;
+
+        const searchResponse = await fetch(`http://localhost:3000/api/clientes/buscar/${encodeURIComponent(termino)}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!searchResponse.ok) {
+          const errorData = await searchResponse.json();
+          throw new Error(errorData.error || 'Error en la búsqueda');
+        }
+
+        const searchData = await searchResponse.json();
+        
+        if (searchData.data && searchData.data.length > 0) {
+          const clientsWithDetails = await Promise.all(
+            searchData.data.map(async client => {
+              try {
+                const detailResponse = await fetch(`http://localhost:3000/api/clientes/${client.id}`, {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                });
+                
+                if (!detailResponse.ok) {
+                  console.warn(`No se pudieron obtener detalles del cliente ${client.id}`);
+                  return client;
+                }
+                
+                const detailData = await detailResponse.json();
+                return detailData.data;
+              } catch (err) {
+                console.warn(`Error al obtener detalles del cliente ${client.id}:`, err);
+                return client;
+              }
+            })
+          );
+          
+          clients.value = clientsWithDetails;
+        } else {
+          clients.value = [];
+        }
+        
+      } catch (err) {
+        console.error('Error en búsqueda de clientes:', err);
+        error.value = `Error: ${err.message}`;
+        clients.value = [];
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    const fetchClients = async () => {
+      const token = checkAuth();
+      if (!token) return;
+
+      loading.value = true;
+      error.value = null;
+
+      try {
+        const response = await fetch('http://localhost:3000/api/clientes', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al cargar los clientes');
+        }
+
+        const data = await response.json();
+        
+        clients.value = data.data.map(cliente => ({
+          id: cliente.id,
+          nombre: cliente.nombre,
+          apellido: cliente.apellido,
+          empresa: cliente.empresa,
+          nit: cliente.nit,
+          direcciones: cliente.direcciones,
+          telefonos: cliente.telefonos
+        }));
+      } catch (err) {
+        error.value = `Error: ${err.message}`;
+        console.error('Error al obtener clientes:', err);
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    const createClient = async () => {
+      const token = checkAuth();
+      if (!token) return;
+
+      try {
+        const direccionesValidas = newClient.value.direcciones.filter(d => d.trim() !== '');
+        const telefonosValidos = newClient.value.telefonos.filter(t => t.trim() !== '');
+        
+        if (direccionesValidas.length === 0) {
+          throw new Error('Debe proporcionar al menos una dirección válida');
+        }
+        
+        if (telefonosValidos.length === 0) {
+          throw new Error('Debe proporcionar al menos un teléfono válido');
+        }
+
+        if (newClient.value.nit && newClient.value.nit.trim() !== '') {
+          const nitValidation = validateGuatemalanNIT(newClient.value.nit);
+          if (!nitValidation.valid) {
+            throw new Error(nitValidation.message);
+          }
+        }
+
+        const response = await fetch('http://localhost:3000/api/clientes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            nombre: newClient.value.nombre,
+            apellido: newClient.value.apellido,
+            empresa: newClient.value.empresa,
+            nit: newClient.value.nit || null,
+            direcciones: direccionesValidas,
+            telefonos: telefonosValidos
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al crear el cliente');
+        }
+
+        const data = await response.json();
+        console.log("Cliente creado:", data);
+
+        showCreateModal.value = false;
+        showMessage('Éxito', 'Cliente creado correctamente', 'success');
+        fetchClients();
+      } catch (err) {
+        showMessage('Error', err.message, 'error');
+      }
+    };
+
+    const editClient = (client) => {
+      selectedClient.value = { ...client };
+      if (!selectedClient.value.nit) {
+        selectedClient.value.nit = '';
+      }
+      confirmEdit();
+    };
+
+    const confirmEdit = () => {
+      if (!selectedClient.value) {
+        showMessage('Error', 'No hay ningún cliente seleccionado para editar', 'error');
+        return;
+      }
+      editNitValidationMessage.value = '';
+      editNitValidationClass.value = '';
+      showEditModal.value = true;
+    };
+
+    const updateClient = async () => {
+      const token = checkAuth();
+      if (!token) return;
+
+      try {
+        if (!selectedClient.value || !selectedClient.value.id) {
+          throw new Error('No hay cliente seleccionado para actualizar');
+        }
+
+        const direccionesValidas = selectedClient.value.direcciones
+          .filter(d => d.direccion && d.direccion.trim() !== '');
+        
+        const telefonosValidos = selectedClient.value.telefonos
+          .filter(t => t.telefono && t.telefono.trim() !== '');
+        
+        if (direccionesValidas.length === 0) {
+          throw new Error('Debe proporcionar al menos una dirección válida');
+        }
+        
+        if (telefonosValidos.length === 0) {
+          throw new Error('Debe proporcionar al menos un teléfono válido');
+        }
+
+        if (selectedClient.value.nit && selectedClient.value.nit.trim() !== '') {
+          const nitValidation = validateGuatemalanNIT(selectedClient.value.nit);
+          if (!nitValidation.valid) {
+            throw new Error(nitValidation.message);
+          }
+        }
+
+        const updateData = {
+          nombre: selectedClient.value.nombre,
+          apellido: selectedClient.value.apellido,
+          empresa: selectedClient.value.empresa,
+          nit: selectedClient.value.nit || null,
+          direcciones: direccionesValidas,
+          telefonos: telefonosValidos
+        };
+
+        const response = await fetch(`http://localhost:3000/api/clientes/${selectedClient.value.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updateData)
+        });
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const textResponse = await response.text();
+          console.error('Respuesta no es JSON:', textResponse);
+          throw new Error('El servidor no devolvió una respuesta JSON válida');
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Error del servidor: ${response.status}`);
+        }
+
+        showEditModal.value = false;
+        showMessage('Éxito', 'Cliente actualizado correctamente', 'success');
+        
+        await fetchClients();
+        
+        if (data.data) {
+          selectedClient.value = data.data;
+        }
+      } catch (err) {
+        console.error('Error al actualizar cliente:', err);
+        showMessage('Error', err.message, 'error');
+      }
     };
 
     const deleteClients = async () => {
@@ -587,330 +1210,62 @@ export default {
       }
     };
 
-    const editClient = (client) => {
-      selectedClient.value = { ...client };
-      confirmEdit();
-    };
-
-    const checkScreenSize = () => {
-      isMobile.value = window.innerWidth < 768;
-      perPage.value = isMobile.value ? 10 : 15;
-    };
-
-        const showMessage = (title, message, type = 'info') => {
-      messageTitle.value = title;
-      messageContent.value = message;
-      messageType.value = type;
-      showMessageModal.value = true;
-    };
-
-    const hideMessage = () => {
-      showMessageModal.value = false;
-    };
-
-    const openCreateClientModal = () => {
-      newClient.value = { 
-        nombre: '',
-        apellido: '',
-        empresa: '',
-        direcciones: [''],
-        telefonos: ['']
-      };
-      showCreateModal.value = true;
-    };
-
-    const addDireccion = () => {
-      newClient.value.direcciones.push('');
-    };
-
-    const removeDireccion = (index) => {
-      if (newClient.value.direcciones.length > 1) {
-        newClient.value.direcciones.splice(index, 1);
-      }
-    };
-
-    const addTelefono = () => {
-      newClient.value.telefonos.push('');
-    };
-
-    const removeTelefono = (index) => {
-      if (newClient.value.telefonos.length > 1) {
-        newClient.value.telefonos.splice(index, 1);
-      }
-    };
-
-    const addEditDireccion = () => {
-      selectedClient.value.direcciones.push({ id: null, direccion: '' });
-    };
-
-    const removeEditDireccion = (index) => {
-      if (selectedClient.value.direcciones.length > 1) {
-        selectedClient.value.direcciones.splice(index, 1);
-      }
-    };
-
-    const addEditTelefono = () => {
-      selectedClient.value.telefonos.push({ id: null, telefono: '' });
-    };
-
-    const removeEditTelefono = (index) => {
-      if (selectedClient.value.telefonos.length > 1) {
-        selectedClient.value.telefonos.splice(index, 1);
-      }
-    };
-
-    const validateTelefono = (index, tipo) => {
-      let telefono;
+    const verCuentasPorCobrar = async (client) => {
+      selectedClientForAccounts.value = client;
+      showAccountsReceivableModal.value = true;
+      loadingClientAccounts.value = true;
+      loadingAccountsReceivable.value[client.id] = true;
       
-      if (tipo === 'new') {
-        telefono = newClient.value.telefonos[index];
-      } else {
-        telefono = selectedClient.value.telefonos[index].telefono;
-      }
-      
-      telefono = telefono.replace(/[^0-9]/g, '');
-      
-      if (telefono.length > 8) {
-        telefono = telefono.substring(0, 8);
-      }
-      
-      if (telefono.length > 4) {
-        telefono = telefono.substring(0, 4) + '-' + telefono.substring(4);
-      }
-      
-      if (tipo === 'new') {
-        newClient.value.telefonos[index] = telefono;
-      } else {
-        selectedClient.value.telefonos[index].telefono = telefono;
-      }
-    }; 
-
-    const searchClient = async () => {
-      if (searchQuery.value.nombre.trim() === '') {
-        fetchClients();
-      } else {
-        const termino = searchQuery.value.nombre.trim();
-        try {
-          const searchResponse = await fetch(`http://localhost:3000/api/clientes/buscar/${termino}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
-            }
-          });
-          
-          if (!searchResponse.ok) throw new Error('Error en la búsqueda');
-          const searchData = await searchResponse.json();
-          
-          const clientsWithDetails = await Promise.all(
-            searchData.data.map(async client => {
-              const detailResponse = await fetch(`http://localhost:3000/api/clientes/${client.id}`, {
-                method: 'GET',
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
-                }
-              });
-              
-              if (!detailResponse.ok) return client;
-              const detailData = await detailResponse.json();
-              return detailData.data;
-            })
-          );
-          
-          clients.value = clientsWithDetails;
-          loading.value = false;
-        } catch (err) {
-          error.value = `Error: ${err.message}`;
-          loading.value = false;
-        }
-      }
-    };
-
-    const checkAuth = () => {
-      const token = localStorage.getItem('jwtToken');
-      if (!token) {
-        showMessage('Error', 'No has iniciado sesión', 'error');
-        setTimeout(() => {
-          router.push('/login');
-        }, 1500);
-        return false;
-      }
-      return token;
-    };
-
-    const fetchClients = async () => {
-      const token = checkAuth();
-      if (!token) return;
-
-      loading.value = true;
-      error.value = null;
-
       try {
-        const response = await fetch('http://localhost:3000/api/clientes', {
+        const token = checkAuth();
+        if (!token) return;
+
+        const response = await fetch(`http://localhost:3000/api/clientes/${client.id}/cuentas-por-cobrar`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al cargar los clientes');
+          throw new Error(errorData.error || 'Error al obtener cuentas por cobrar');
         }
 
         const data = await response.json();
+        clientAccountsReceivable.value = data.data || [];
         
-        clients.value = data.data.map(cliente => ({
-          id: cliente.id,
-          nombre: cliente.nombre,
-          apellido: cliente.apellido,
-          empresa: cliente.empresa,
-          direcciones: cliente.direcciones,
-          telefonos: cliente.telefonos
-        }));
       } catch (err) {
-        error.value = `Error: ${err.message}`;
-        console.error('Error al obtener clientes:', err);
+        console.error('Error al obtener cuentas por cobrar:', err);
+        showMessage('Error', `Error al cargar cuentas por cobrar: ${err.message}`, 'error');
+        clientAccountsReceivable.value = [];
       } finally {
-        loading.value = false;
+        loadingClientAccounts.value = false;
+        loadingAccountsReceivable.value[client.id] = false;
       }
     };
 
-    const createClient = async () => {
-      const token = checkAuth();
-      if (!token) return;
-
-      try {
-        // Validar que al menos haya una dirección y un teléfono
-        const direccionesValidas = newClient.value.direcciones.filter(d => d.trim() !== '');
-        const telefonosValidos = newClient.value.telefonos.filter(t => t.trim() !== '');
-        
-        if (direccionesValidas.length === 0) {
-          throw new Error('Debe proporcionar al menos una dirección válida');
-        }
-        
-        if (telefonosValidos.length === 0) {
-          throw new Error('Debe proporcionar al menos un teléfono válido');
-        }
-
-        const response = await fetch('http://localhost:3000/api/clientes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            nombre: newClient.value.nombre,
-            apellido: newClient.value.apellido,
-            empresa: newClient.value.empresa,
-            direcciones: direccionesValidas,
-            telefonos: telefonosValidos
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al crear el cliente');
-        }
-
-        const data = await response.json();
-        console.log("Cliente creado:", data);
-
-        showCreateModal.value = false;
-        showMessage('Éxito', 'Cliente creado correctamente', 'success');
-        fetchClients();
-      } catch (err) {
-        showMessage('Error', err.message, 'error');
-      }
+    const closeAccountsReceivableModal = () => {
+      showAccountsReceivableModal.value = false;
+      selectedClientForAccounts.value = null;
+      clientAccountsReceivable.value = [];
     };
 
-    const confirmEdit = () => {
-      if (!selectedClient.value) {
-        showMessage('Error', 'No hay ningún cliente seleccionado para editar', 'error');
-        return;
-      }
-      showEditModal.value = true;
+    const formatDate = (dateString) => {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
     };
 
-    const updateClient = async () => {
-      const token = checkAuth();
-      if (!token) return;
-
-      try {
-        const direccionesValidas = selectedClient.value.direcciones
-          .filter(d => d.direccion?.trim() !== '');
-        
-        const telefonosValidos = selectedClient.value.telefonos
-          .filter(t => t.telefono?.trim() !== '');
-        
-        if (direccionesValidas.length === 0) {
-          throw new Error('Debe proporcionar al menos una dirección válida');
-        }
-        
-        if (telefonosValidos.length === 0) {
-          throw new Error('Debe proporcionar al menos un teléfono válido');
-        }
-
-        const response = await fetch(`http://localhost:3000/api/clientes/${selectedClient.value.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            nombre: selectedClient.value.nombre,
-            apellido: selectedClient.value.apellido,
-            empresa: selectedClient.value.empresa,
-            direcciones: direccionesValidas,
-            telefonos: telefonosValidos
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al actualizar el cliente');
-        }
-
-        const data = await response.json();
-        console.log("Cliente actualizado:", data);
-
-        showEditModal.value = false;
-        showMessage('Éxito', 'Cliente actualizado correctamente', 'success');
-        
-        await fetchClients();
-        
-        if (data.data) {
-          selectedClient.value = data.data;
-        }
-      } catch (err) {
-        showMessage('Error', err.message, 'error');
-      }
+    const formatCurrency = (amount) => {
+      if (!amount && amount !== 0) return '0.00';
+      return parseFloat(amount).toFixed(2);
     };
-
-    const confirmDelete = () => {
-      if (!selectedClient.value) {
-        showMessage('Error', 'No hay ningún cliente seleccionado para eliminar', 'error');
-        return;
-      }
-    };
-
-    const handleClientSelection = (client) => {
-      selectedClient.value = { ...client };
-    };
-
-    const filteredClients = computed(() => {
-      let result = clients.value;
-
-      if (searchQuery.value.nombre) {
-        const termino = searchQuery.value.nombre.toLowerCase();
-        result = result.filter(c =>
-          (c.nombre && c.nombre.toLowerCase().includes(termino)) ||
-          (c.apellido && c.apellido.toLowerCase().includes(termino)) ||
-          (c.empresa && c.empresa.toLowerCase().includes(termino))
-        );
-      }
-
-      return result;
-    });
 
     onMounted(() => {
       fetchClients();
@@ -939,6 +1294,12 @@ export default {
       totalPages,
       displayedPageNumbers,
       areAllSelected,
+      nitValidationMessage,
+      nitValidationClass,
+      editNitValidationMessage,
+      editNitValidationClass,
+      isFormValid,
+      isEditFormValid,
       showMessage,
       hideMessage,
       openCreateClientModal,
@@ -954,7 +1315,6 @@ export default {
       createClient,
       confirmEdit,
       updateClient,
-      handleClientSelection,
       editClient,
       enterDeleteMode,
       cancelDeleteMode,
@@ -965,12 +1325,63 @@ export default {
       previousPage,
       nextPage,
       filteredClients,
-      validateTelefono 
+      validateTelefono,
+      validateNITInput,
+      validateEditNITInput,
+      showAccountsReceivableModal,
+      selectedClientForAccounts,
+      clientAccountsReceivable,
+      loadingClientAccounts,
+      loadingAccountsReceivable,
+      verCuentasPorCobrar,
+      closeAccountsReceivableModal,
+      formatDate,
+      formatCurrency,
+      validateGuatemalanNIT,
+      formatGuatemalanNIT
     };
   }
 }
 </script>
 
 <style scoped src="../styles/clientes.css">
+/* Estilos adicionales para validación de NIT */
+.nit-validation {
+  font-size: 0.8em;
+  margin-top: 4px;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
 
+.nit-validation.valid {
+  color: #28a745;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+}
+
+.nit-validation.invalid {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+}
+
+.form-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Estilos para el campo NIT */
+.form-group input[type="text"]#nit,
+.form-group input[type="text"]#edit-nit {
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Mejoras para la tabla en móviles */
+@media (max-width: 768px) {
+  .clients-table th:nth-child(6),
+  .clients-table td:nth-child(6) {
+    min-width: 100px;
+  }
+}
 </style>
