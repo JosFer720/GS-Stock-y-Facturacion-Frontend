@@ -229,6 +229,62 @@
             >
           </div>
           <div class="form-group">
+            <label for="usuario">Usuario:</label>
+            <input 
+              type="text" 
+              id="usuario" 
+              v-model="newUser.usuario"
+              required
+              placeholder="usuario123 (solo letras, números y _)"
+            >
+            <div class="input-help">Solo letras, números y guiones bajos (_)</div>
+          </div>
+          <div class="form-group">
+            <label for="contrasena">Contraseña:</label>
+            <div class="password-input-container">
+              <input 
+                :type="showPassword ? 'text' : 'password'" 
+                id="contrasena" 
+                v-model="newUser.contrasena"
+                required
+                minlength="8"
+                placeholder="Mínimo 8 caracteres"
+              >
+              <button 
+                type="button" 
+                class="password-toggle" 
+                @click="togglePassword"
+                :title="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              >
+                {{ showPassword ? '🙈' : '👁️' }}
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="confirmar-contrasena">Confirmar Contraseña:</label>
+            <div class="password-input-container">
+              <input 
+                :type="showConfirmPassword ? 'text' : 'password'" 
+                id="confirmar-contrasena" 
+                v-model="newUser.confirmarContrasena"
+                required
+                placeholder="Repite la contraseña"
+                :class="{ 'input-error': passwordMismatch }"
+              >
+              <button 
+                type="button" 
+                class="password-toggle" 
+                @click="toggleConfirmPassword"
+                :title="showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              >
+                {{ showConfirmPassword ? '🙈' : '👁️' }}
+              </button>
+            </div>
+            <div v-if="passwordMismatch" class="error-text">
+              Las contraseñas no coinciden
+            </div>
+          </div>
+          <div class="form-group">
             <label for="rol">Rol (ID):</label>
             <select id="rol" v-model="newUser.id_roles" required>
               <option value="1">1 - Administrador</option>
@@ -244,7 +300,9 @@
               <option :value="false">Inactivo</option>
             </select>
           </div>
-          <button type="submit" class="btn-submit">Guardar</button>
+          <button type="submit" class="btn-submit" :disabled="passwordMismatch">
+            Guardar
+          </button>
         </form>
       </div>
     </div>
@@ -361,6 +419,135 @@ export default {
     const isMobile = ref(false);
     const activateMode = ref(false);
 
+    // Función helper para ocultar contraseñas en logs
+    const hidePassword = (obj) => {
+      if (!obj || typeof obj !== 'object') return obj;
+      const safe = { ...obj };
+      if (safe.contrasena) safe.contrasena = `***${safe.contrasena.length} chars***`;
+      if (safe.nueva_contrasena) safe.nueva_contrasena = `***${safe.nueva_contrasena.length} chars***`;
+      if (safe.confirmarContrasena) safe.confirmarContrasena = `***${safe.confirmarContrasena.length} chars***`;
+      return safe;
+    };
+
+    // Nuevas referencias para contraseñas
+    const showPassword = ref(false);
+    const showConfirmPassword = ref(false);
+
+    const newUser = ref({
+      nombre: '',
+      apellido: '',
+      email: '',
+      usuario: '',
+      contrasena: '',
+      confirmarContrasena: '',
+      id_roles: 2,
+      estado: true
+    });
+
+    const editingUser = ref({
+      id: null,
+      nombre: '',
+      apellido: '',
+      email: '',
+      id_roles: null,
+      estado: true
+    });
+
+    // Función helper para normalizar emails
+    const normalizeEmail = (email) => {
+      if (!email) return '';
+      return email.toLowerCase().trim();
+    };
+
+    // Computed property para validar contraseñas
+    const passwordMismatch = computed(() => {
+      if (!newUser.value.contrasena || !newUser.value.confirmarContrasena) {
+        return false;
+      }
+      return newUser.value.contrasena !== newUser.value.confirmarContrasena;
+    });
+
+    // Métodos para mostrar/ocultar contraseñas
+    const togglePassword = () => {
+      showPassword.value = !showPassword.value;
+    };
+
+    const toggleConfirmPassword = () => {
+      showConfirmPassword.value = !showConfirmPassword.value;
+    };
+
+    const paginatedUsers = computed(() => {
+      const start = (currentPage.value - 1) * perPage.value;
+      return filteredUsers.value.slice(start, start + perPage.value);
+    });
+
+    const totalPages = computed(() => {
+      return Math.ceil(filteredUsers.value.length / perPage.value);
+    });
+
+    const displayedPageNumbers = computed(() => {
+      const maxVisibleButtons = isMobile.value ? 3 : 5;
+      if (totalPages.value <= maxVisibleButtons) {
+        return Array.from({ length: totalPages.value }, (_, i) => i + 1);
+      }
+      let start = Math.max(1, currentPage.value - Math.floor(maxVisibleButtons / 2));
+      const end = Math.min(totalPages.value, start + maxVisibleButtons - 1);
+      if (end === totalPages.value) {
+        start = Math.max(1, totalPages.value - maxVisibleButtons + 1);
+      }
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    });
+
+    const areAllSelected = computed(() => {
+      return paginatedUsers.value.length > 0 && 
+             paginatedUsers.value.every(user => selectedUsers.value.includes(user.id));
+    });
+
+    const previousPage = () => {
+      if (currentPage.value > 1) {
+        currentPage.value--;
+      }
+    };
+
+    const nextPage = () => {
+      if (currentPage.value < totalPages.value) {
+        currentPage.value++;
+      }
+    };
+
+    const toggleUserSelection = (userId) => {
+      const index = selectedUsers.value.indexOf(userId);
+      if (index > -1) {
+        selectedUsers.value.splice(index, 1);
+      } else {
+        selectedUsers.value.push(userId);
+      }
+    };
+
+    const toggleSelectAll = () => {
+      if (areAllSelected.value) {
+        const currentPageIds = paginatedUsers.value.map(u => u.id);
+        selectedUsers.value = selectedUsers.value.filter(id => !currentPageIds.includes(id));
+      } else {
+        const currentPageIds = paginatedUsers.value.map(u => u.id);
+        currentPageIds.forEach(id => {
+          if (!selectedUsers.value.includes(id)) {
+            selectedUsers.value.push(id);
+          }
+        });
+      }
+    };
+
+    const enterDeleteMode = () => {
+      deleteMode.value = true;
+      selectedUsers.value = [];
+    };
+
+    const cancelDeleteMode = () => {
+      deleteMode.value = false;
+      selectedUsers.value = [];
+    };
+
     const enterActivateMode = () => {
       activateMode.value = true;
       selectedUsers.value = [];
@@ -447,178 +634,89 @@ export default {
       }
     };
 
-    const newUser = ref({
-      nombre: '',
-      apellido: '',
-      email: '',
-      id_roles: 2,
-      estado: true
-    });
-
-    const editingUser = ref({
-      id: null,
-      nombre: '',
-      apellido: '',
-      email: '',
-      id_roles: null,
-      estado: true
-    });
-
-    const paginatedUsers = computed(() => {
-      const start = (currentPage.value - 1) * perPage.value;
-      return filteredUsers.value.slice(start, start + perPage.value);
-    });
-
-    const totalPages = computed(() => {
-      return Math.ceil(filteredUsers.value.length / perPage.value);
-    });
-
-    const displayedPageNumbers = computed(() => {
-      const maxVisibleButtons = isMobile.value ? 3 : 5;
-      if (totalPages.value <= maxVisibleButtons) {
-        return Array.from({ length: totalPages.value }, (_, i) => i + 1);
+    const confirmBulkDeactivate = () => {
+      if (selectedUsers.value.length === 0) {
+        showMessage('Error', 'No hay usuarios seleccionados para desactivar', 'error');
+        return;
       }
-      let start = Math.max(1, currentPage.value - Math.floor(maxVisibleButtons / 2));
-      const end = Math.min(totalPages.value, start + maxVisibleButtons - 1);
-      if (end === totalPages.value) {
-        start = Math.max(1, totalPages.value - maxVisibleButtons + 1);
-      }
-      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-    });
 
-    const areAllSelected = computed(() => {
-      return paginatedUsers.value.length > 0 && 
-             paginatedUsers.value.every(user => selectedUsers.value.includes(user.id));
-    });
-
-    const previousPage = () => {
-      if (currentPage.value > 1) {
-        currentPage.value--;
-      }
+      showDeleteModal.value = true;
     };
 
-    const nextPage = () => {
-      if (currentPage.value < totalPages.value) {
-        currentPage.value++;
-      }
-    };
+    const deactivateUsers = async () => {
+      const token = checkAuth();
+      if (!token) return;
 
-    const toggleUserSelection = (userId) => {
-      const index = selectedUsers.value.indexOf(userId);
-      if (index > -1) {
-        selectedUsers.value.splice(index, 1);
-      } else {
-        selectedUsers.value.push(userId);
-      }
-    };
-
-    const toggleSelectAll = () => {
-      if (areAllSelected.value) {
-        const currentPageIds = paginatedUsers.value.map(u => u.id);
-        selectedUsers.value = selectedUsers.value.filter(id => !currentPageIds.includes(id));
-      } else {
-        const currentPageIds = paginatedUsers.value.map(u => u.id);
-        currentPageIds.forEach(id => {
-          if (!selectedUsers.value.includes(id)) {
-            selectedUsers.value.push(id);
-          }
-        });
-      }
-    };
-
-    const enterDeleteMode = () => {
-      deleteMode.value = true;
-      selectedUsers.value = [];
-    };
-
-    const cancelDeleteMode = () => {
-      deleteMode.value = false;
-      selectedUsers.value = [];
-    };
-
-  const confirmBulkDeactivate = () => {
-    if (selectedUsers.value.length === 0) {
-      showMessage('Error', 'No hay usuarios seleccionados para desactivar', 'error');
-      return;
-    }
-
-    showDeleteModal.value = true;
-  };
-
-  const deactivateUsers = async () => {
-    const token = checkAuth();
-    if (!token) return;
-
-    try {
-      const deactivateResults = [];
-      const usersToProcess = selectedUsers.value.length > 0 ? selectedUsers.value : [selectedUser.value.id];
-      
-      for (const userId of usersToProcess) {
-        try {
-          const response = await fetch(`http://localhost:3000/api/usuarios/${userId}/deactivate`, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          const data = await response.json();
-          
-          if (response.ok) {
-            deactivateResults.push({
-              id: userId,
-              success: true,
-              message: data.mensaje || 'Desactivado correctamente'
+      try {
+        const deactivateResults = [];
+        const usersToProcess = selectedUsers.value.length > 0 ? selectedUsers.value : [selectedUser.value.id];
+        
+        for (const userId of usersToProcess) {
+          try {
+            const response = await fetch(`http://localhost:3000/api/usuarios/${userId}/deactivate`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
             });
-          } else {
+
+            const data = await response.json();
+            
+            if (response.ok) {
+              deactivateResults.push({
+                id: userId,
+                success: true,
+                message: data.mensaje || 'Desactivado correctamente'
+              });
+            } else {
+              const user = users.value.find(u => u.id === userId);
+              deactivateResults.push({
+                id: userId,
+                success: false,
+                message: data.error || 'Error desconocido',
+                userName: user ? `${user.nombre} ${user.apellido}` : `ID: ${userId}`
+              });
+            }
+          } catch (err) {
             const user = users.value.find(u => u.id === userId);
             deactivateResults.push({
               id: userId,
               success: false,
-              message: data.error || 'Error desconocido',
+              message: 'Error de conexión',
               userName: user ? `${user.nombre} ${user.apellido}` : `ID: ${userId}`
             });
           }
-        } catch (err) {
-          const user = users.value.find(u => u.id === userId);
-          deactivateResults.push({
-            id: userId,
-            success: false,
-            message: 'Error de conexión',
-            userName: user ? `${user.nombre} ${user.apellido}` : `ID: ${userId}`
-          });
         }
+
+        const successful = deactivateResults.filter(r => r.success);
+        const failed = deactivateResults.filter(r => !r.success);
+
+        if (successful.length > 0 && failed.length === 0) {
+          showMessage('Éxito', `${successful.length} usuario(s) desactivado(s) correctamente`, 'success');
+        } else if (successful.length > 0 && failed.length > 0) {
+          const failedNames = failed.map(f => `• ${f.userName}: ${f.message}`).join('\n');
+          showMessage(
+            'Parcialmente completado', 
+            `${successful.length} usuario(s) desactivado(s) correctamente.\n\nNo se pudieron desactivar ${failed.length} usuario(s):\n${failedNames}`, 
+            'warning'
+          );
+        } else {
+          const failedNames = failed.map(f => `• ${f.userName}: ${f.message}`).join('\n');
+          showMessage(
+            'Error', 
+            `No se pudo desactivar ningún usuario:\n${failedNames}`, 
+            'error'
+          );
+        }
+
+        showDeleteModal.value = false;
+        selectedUser.value = null;
+        cancelDeleteMode();
+        fetchUsers();
+      } catch (err) {
+        showMessage('Error', 'Error general al desactivar los usuarios', 'error');
       }
-
-      const successful = deactivateResults.filter(r => r.success);
-      const failed = deactivateResults.filter(r => !r.success);
-
-      if (successful.length > 0 && failed.length === 0) {
-        showMessage('Éxito', `${successful.length} usuario(s) desactivado(s) correctamente`, 'success');
-      } else if (successful.length > 0 && failed.length > 0) {
-        const failedNames = failed.map(f => `• ${f.userName}: ${f.message}`).join('\n');
-        showMessage(
-          'Parcialmente completado', 
-          `${successful.length} usuario(s) desactivado(s) correctamente.\n\nNo se pudieron desactivar ${failed.length} usuario(s):\n${failedNames}`, 
-          'warning'
-        );
-      } else {
-        const failedNames = failed.map(f => `• ${f.userName}: ${f.message}`).join('\n');
-        showMessage(
-          'Error', 
-          `No se pudo desactivar ningún usuario:\n${failedNames}`, 
-          'error'
-        );
-      }
-
-      showDeleteModal.value = false;
-      selectedUser.value = null;
-      cancelDeleteMode();
-      fetchUsers();
-    } catch (err) {
-      showMessage('Error', 'Error general al desactivar los usuarios', 'error');
-    }
-  };
+    };
 
     const checkAuth = () => {
       const token = localStorage.getItem('jwtToken');
@@ -651,6 +749,7 @@ export default {
       error.value = null;
       
       try {
+        console.log('Cargando usuarios desde el servidor...');
         const response = await fetch('http://localhost:3000/api/usuarios', {
           method: 'GET',
           headers: {
@@ -669,13 +768,13 @@ export default {
           id: user.id,
           nombre: user.nombre,
           apellido: user.apellido,
-          email: user.email, 
+          email: normalizeEmail(user.email), // Normalizar email al cargar
           id_roles: user.id_roles,
           estado: user.estado, 
           estadoTexto: user.estado ? 'Activo' : 'Inactivo' 
         }));
         
-        console.log('Usuarios cargados:', users.value);
+        console.log('Usuarios cargados exitosamente:', users.value.length);
       } catch (err) {
         error.value = `Error: ${err.message}`;
         console.error('Error al obtener usuarios:', err);
@@ -714,9 +813,14 @@ export default {
         nombre: '',
         apellido: '',
         email: '',
+        usuario: '',
+        contrasena: '',
+        confirmarContrasena: '',
         id_roles: 2,
         estado: true
       };
+      showPassword.value = false;
+      showConfirmPassword.value = false;
       showCreateModal.value = true;
     };
 
@@ -735,29 +839,167 @@ export default {
         estado: selectedUser.value.estado
       };
       
-      console.log('Editando usuario:', editingUser.value); 
+      console.log('Editando usuario:', hidePassword(editingUser.value)); 
       showEditModal.value = true;
     };
 
+    // Función validateUserForm MEJORADA - VERSIÓN CORREGIDA
+    const validateUserForm = (user, isEditing = false, currentUserId = null) => {
+      console.log('=== INICIANDO VALIDACIÓN FRONTEND MEJORADA ===');
+      console.log('Usuario a validar:', hidePassword({
+        nombre: user.nombre,
+        apellido: user.apellido,
+        email: user.email,
+        usuario: user.usuario,
+        contrasena: user.contrasena,
+        isEditing,
+        currentUserId
+      }));
+      
+      // Validaciones básicas de campos obligatorios
+      const camposRequeridos = ['nombre', 'apellido', 'email'];
+      if (!isEditing) {
+        camposRequeridos.push('usuario', 'contrasena');
+      }
+      
+      const camposFaltantes = camposRequeridos.filter(campo => !user[campo]);
+      if (camposFaltantes.length > 0) {
+        console.log('❌ Campos obligatorios faltantes:', camposFaltantes);
+        return { valid: false, message: `Los siguientes campos son obligatorios: ${camposFaltantes.join(', ')}` };
+      }
+      
+      // Validaciones de longitud
+      if (user.nombre.trim().length < 2) {
+        return { valid: false, message: 'El nombre debe tener al menos 2 caracteres' };
+      }
+      
+      if (user.apellido.trim().length < 2) {
+        return { valid: false, message: 'El apellido debe tener al menos 2 caracteres' };
+      }
+      
+      // Validación de formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(user.email.trim())) {
+        return { valid: false, message: 'El formato del email no es válido' };
+      }
+      
+      // Validaciones específicas para creación
+      if (!isEditing) {
+        if (user.usuario.trim().length < 3) {
+          return { valid: false, message: 'El nombre de usuario debe tener al menos 3 caracteres' };
+        }
+        
+        const userNameRegex = /^[a-zA-Z0-9_]+$/;
+        if (!userNameRegex.test(user.usuario.trim())) {
+          return { 
+            valid: false, 
+            message: 'El usuario solo puede contener letras, números y guiones bajos (_)' 
+          };
+        }
+        
+        if (user.contrasena.length < 8) {
+          return { valid: false, message: 'La contraseña debe tener al menos 8 caracteres' };
+        }
+      }
+      
+      // Validación de email existente
+      const normalizedEmailToCheck = normalizeEmail(user.email);
+      const emailExists = users.value.some(existingUser => {
+        const existingEmail = normalizeEmail(existingUser.email);
+        const isSameEmail = existingEmail === normalizedEmailToCheck;
+        
+        if (isEditing && currentUserId) {
+          return isSameEmail && existingUser.id !== currentUserId;
+        } else {
+          return isSameEmail;
+        }
+      });
+      
+      if (emailExists) {
+        return { valid: false, message: 'Ya existe un usuario con este email' };
+      }
+      
+      // Validación de rol
+      const validRoles = [1, 2, 3, 4];
+      if (!validRoles.includes(parseInt(user.id_roles))) {
+        return { valid: false, message: 'Debe seleccionar un rol válido' };
+      }
+      
+      console.log('✅ Validación frontend completada exitosamente');
+      return { valid: true };
+    };
+
+    // Función mejorada para crear usuario
     const createUser = async () => {
+      console.log('=== INICIANDO CREACIÓN DE USUARIO ===');
+      console.log('🔍 ESTRUCTURA COMPLETA DE newUser:', hidePassword(JSON.parse(JSON.stringify(newUser.value))));
+      
       const token = checkAuth();
       if (!token) return;
       
+      // Validar contraseñas
+      if (passwordMismatch.value) {
+        showMessage('Error', 'Las contraseñas no coinciden', 'error');
+        return;
+      }
+      
+      if (newUser.value.contrasena.length < 8) {
+        showMessage('Error', 'La contraseña debe tener al menos 8 caracteres', 'error');
+        return;
+      }
+      
+      // Asegurar que todos los campos tengan valores válidos
       const userToCreate = {
-        ...newUser.value,
-        nombre: newUser.value.nombre.trim(),
-        apellido: newUser.value.apellido.trim(),
-        email: newUser.value.email.trim().toLowerCase()
+        nombre: newUser.value.nombre?.trim() || '',
+        apellido: newUser.value.apellido?.trim() || '',
+        email: normalizeEmail(newUser.value.email) || '',
+        usuario: newUser.value.usuario?.trim() || '',
+        contrasena: newUser.value.contrasena || '', // ← Asegurar que no sea undefined
+        id_roles: parseInt(newUser.value.id_roles) || 2,
+        estado: Boolean(newUser.value.estado)
       };
       
+      console.log('📋 Datos preparados para envío (VERIFICAR):', hidePassword(userToCreate));
+      
+      // Verificar que ningún campo requerido esté vacío
+      const camposRequeridos = ['nombre', 'apellido', 'email', 'usuario', 'contrasena'];
+      const camposVacios = camposRequeridos.filter(campo => !userToCreate[campo]);
+      
+      if (camposVacios.length > 0) {
+        console.log('❌ Campos vacíos:', camposVacios);
+        showMessage('Error', `Los siguientes campos son obligatorios: ${camposVacios.join(', ')}`, 'error');
+        return;
+      }
+      
+      // Validación frontend
       const validation = validateUserForm(userToCreate, false);
       if (!validation.valid) {
+        console.log('❌ Validación frontend fallida:', validation.message);
         showMessage('Error de Validación', validation.message, 'error');
         return;
       }
       
+      console.log('✅ Validación frontend exitosa, enviando al backend...');
+      
+      // Agregar esto JUSTO ANTES del fetch para ver EXACTAMENTE qué se envía
+      console.log('🔍 DATOS QUE SE ENVIARÁN AL BACKEND (JSON SEGURO):', JSON.stringify(hidePassword(userToCreate), null, 2));
+      console.log('🔍 VERIFICACIÓN DE CAMPOS CRÍTICOS:');
+      console.log('- nombre:', userToCreate.nombre, '(length:', userToCreate.nombre.length, ')');
+      console.log('- apellido:', userToCreate.apellido, '(length:', userToCreate.apellido.length, ')');
+      console.log('- email:', userToCreate.email);
+      console.log('- usuario:', userToCreate.usuario, '(length:', userToCreate.usuario.length, ')');
+      console.log('- contrasena:', userToCreate.contrasena ? `***${userToCreate.contrasena.length} chars***` : 'UNDEFINED');
+      console.log('- id_roles:', userToCreate.id_roles, '(type:', typeof userToCreate.id_roles, ')');
+      console.log('- estado:', userToCreate.estado, '(type:', typeof userToCreate.estado, ')');
+
+      // También verifica los headers
+      console.log('🔍 HEADERS:', {
+        'Content-Type': 'application/json',
+        'Authorization': token ? 'Bearer ***token***' : 'no token'
+      });
+      
       try {
-        const response = await fetch('http://localhost:3000/api/usuarios', {
+        const response = await fetch('http://localhost:3000/api/usuarios/create-with-account', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -766,36 +1008,64 @@ export default {
           body: JSON.stringify(userToCreate)
         });
         
+        console.log('📡 Respuesta del servidor:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+        
+        const responseData = await response.json();
+        
         if (!response.ok) {
-          const errorData = await response.json();
-          
-          if (response.status === 409 || errorData.message?.includes('email')) {
-            showMessage('Error', 'Ya existe un usuario con este email', 'error');
-          } else if (response.status === 400) {
-            showMessage('Error', 'Datos inválidos: ' + (errorData.message || 'Verifique los campos'), 'error');
-          } else {
-            showMessage('Error', errorData.message || 'Error al crear el usuario', 'error');
-          }
-          return;
+        console.log('❌ Error del servidor - DETALLES COMPLETOS:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          responseData: responseData
+        });
+        
+        let errorMessage = 'Error al crear el usuario';
+        
+        if (response.status === 400) {
+          errorMessage = responseData.error || responseData.details || 'Datos inválidos';
+          // Mostrar más detalles para debugging
+          console.log('❌ ERROR 400 - POSIBLES CAUSAS:');
+          console.log('- Campos faltantes:', responseData.camposFaltantes);
+          console.log('- Detalles:', responseData.details);
+          console.log('- Campos recibidos:', responseData.camposRecibidos);
+        } else if (response.status === 409) {
+          errorMessage = responseData.error || 'El usuario o email ya existe';
         }
         
-        const data = await response.json();
-        console.log("Usuario creado:", data);
+        showMessage('Error', errorMessage, 'error');
+        return;
+      }
         
+        console.log('✅ Usuario creado exitosamente:', hidePassword(responseData));
+        
+        // Éxito
         showCreateModal.value = false;
         showMessage('Éxito', 'Usuario creado correctamente', 'success');
         
+        // Reset form
         newUser.value = {
           nombre: '',
           apellido: '',
           email: '',
+          usuario: '',
+          contrasena: '',
+          confirmarContrasena: '',
           id_roles: 2,
           estado: true
         };
+        showPassword.value = false;
+        showConfirmPassword.value = false;
         
-        fetchUsers();
+        // Recargar lista
+        await fetchUsers();
+        
       } catch (err) {
-        console.error('Error en createUser:', err);
+        console.error('❌ Error de conexión:', err);
         showMessage('Error', 'Error de conexión. Intente nuevamente.', 'error');
       }
     };
@@ -808,7 +1078,7 @@ export default {
         ...editingUser.value,
         nombre: editingUser.value.nombre.trim(),
         apellido: editingUser.value.apellido.trim(),
-        email: editingUser.value.email.trim().toLowerCase()
+        email: normalizeEmail(editingUser.value.email)
       };
       
       const validation = validateUserForm(userToUpdate, true, editingUser.value.id);
@@ -851,112 +1121,10 @@ export default {
         
         showEditModal.value = false;
         showMessage('Éxito', 'Usuario actualizado correctamente', 'success');
-        fetchUsers();
+        await fetchUsers();
       } catch (err) {
         console.error('Error en updateUser:', err);
         showMessage('Error', 'Error de conexión. Intente nuevamente.', 'error');
-      }
-    };
-
-    const confirmDeleteUser = (user = null) => {
-      if (user) {
-        selectedUser.value = { ...user };
-      }
-      
-      if (!selectedUser.value) {
-        showMessage('Error', 'No hay ningún usuario seleccionado para eliminar', 'error');
-        return;
-      }
-      
-      showDeleteModal.value = true;
-    };
-
-    const validateUserForm = (user, isEditing = false, currentUserId = null) => {
-      console.log('Validando usuario:', user); 
-      console.log('Usuarios existentes:', users.value); 
-      
-      if (!user.nombre?.trim() || !user.apellido?.trim() || !user.email?.trim()) {
-        return { valid: false, message: 'Todos los campos son obligatorios' };
-      }
-      
-      if (user.nombre.trim().length < 2) {
-        return { valid: false, message: 'El nombre debe tener al menos 2 caracteres' };
-      }
-      
-      if (user.apellido.trim().length < 2) {
-        return { valid: false, message: 'El apellido debe tener al menos 2 caracteres' };
-      }
-      
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(user.email.trim())) {
-        return { valid: false, message: 'El formato del email no es válido' };
-      }
-      
-      const emailToCheck = user.email.trim().toLowerCase();
-      const emailExists = users.value.some(existingUser => {
-        const existingEmail = existingUser.email.toLowerCase();
-        const isSameEmail = existingEmail === emailToCheck;
-        
-        if (isEditing && currentUserId) {
-          const isDifferentUser = existingUser.id !== currentUserId;
-          const result = isSameEmail && isDifferentUser;
-          console.log(`Comparando: ${existingEmail} vs ${emailToCheck}, ID: ${existingUser.id} vs ${currentUserId}, resultado: ${result}`);
-          return result;
-        } else {
-          console.log(`Creando - Comparando: ${existingEmail} vs ${emailToCheck}, resultado: ${isSameEmail}`);
-          return isSameEmail;
-        }
-      });
-      
-      if (emailExists) {
-        return { valid: false, message: 'Ya existe un usuario con este email' };
-      }
-      
-      const validRoles = [1, 2, 3, 4];
-      if (!validRoles.includes(parseInt(user.id_roles))) {
-        return { valid: false, message: 'Debe seleccionar un rol válido' };
-      }
-      
-      return { valid: true };
-    };
-
-    const deleteUser = async () => {
-      const token = checkAuth();
-      if (!token) return;
-      
-      try {
-        if (deleteCompletely.value) {
-          const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Error al eliminar el usuario');
-          }
-        } else {
-          const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUser.value.id}/deactivate`, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Error al desactivar el usuario');
-          }
-        }
-        
-        selectedUser.value = null;
-        showDeleteModal.value = false;
-        showMessage('Éxito', `Usuario ${deleteCompletely.value ? 'eliminado' : 'desactivado'} correctamente`, 'success');
-        fetchUsers();
-      } catch (err) {
-        showMessage('Error', err.message, 'error');
       }
     };
 
@@ -994,6 +1162,11 @@ export default {
       displayedPageNumbers,
       areAllSelected,
       filteredUsers,
+      showPassword,
+      showConfirmPassword,
+      passwordMismatch,
+      togglePassword,
+      toggleConfirmPassword,
       showMessage,
       hideMessage,
       fetchUsers,
@@ -1016,18 +1189,51 @@ export default {
       enterActivateMode,
       cancelActivateMode,
       confirmBulkActivate,
-      activateUsers
+      activateUsers,
+      normalizeEmail,
+      validateUserForm,
+      hidePassword
     };
   }
 };
 </script>
 
 <style scoped>
-
 .user-management-container {
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
+}
+
+.password-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-container input {
+  width: 100%;
+  padding-right: 45px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #666;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+}
+
+.password-toggle:hover {
+  color: #333;
 }
 
 .input-error {
@@ -1039,6 +1245,13 @@ export default {
   color: #dc3545;
   font-size: 14px;
   margin-top: 5px;
+}
+
+.input-help {
+  font-size: 12px;
+  color: #666;
+  margin-top: 3px;
+  font-style: italic;
 }
 
 .activate-button {
@@ -1262,6 +1475,11 @@ export default {
   background-color: #45a049;
 }
 
+.btn-submit:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
 .btn-cancel {
   background-color: #ccc;
   color: #333;
@@ -1288,61 +1506,27 @@ export default {
   background-color: #c9302c;
 }
 
+.btn-activate {
+  background-color: #28a745;
+  color: white;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+}
+
+.btn-activate:hover {
+  background-color: #218838;
+}
+
 .modal-actions {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-top: 20px;
   width: 100%;
-}
-
-@media (min-width: 576px) {
-  .content-section {
-    padding: 20px;
-    margin-top: 70px;
-  }
-  
-  .page-title {
-    font-size: 22px;
-  }
-  
-  .actions-section {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-  }
-  
-  .action-button {
-    width: auto;
-  }
-  
-  .modal-actions {
-    flex-direction: row;
-    justify-content: center;
-  }
-  
-  .modal-actions button {
-    width: auto;
-    min-width: 120px;
-  }
-}
-
-@media (min-width: 768px) {
-  .content-section {
-    max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
-    margin-top: 100px;
-  }
-  
-  .page-title {
-    font-size: 24px;
-  }
-  
-  .list-title {
-    font-size: 20px;
-  }
 }
 
 .delete-mode-actions {
@@ -1483,9 +1667,6 @@ export default {
   border-radius: 3px;
   cursor: pointer;
   transition: background-color 0.2s;
-}
-
-.edit-btn-small {
   background-color: #2196F3;
   color: white;
 }
@@ -1509,9 +1690,6 @@ export default {
   flex: 1;
   text-align: center;
   transition: background-color 0.2s, transform 0.1s;
-}
-
-.edit-btn {
   background-color: #2196F3;
   color: white;
 }
@@ -1587,6 +1765,36 @@ export default {
 }
 
 @media (min-width: 576px) {
+  .content-section {
+    padding: 20px;
+    margin-top: 70px;
+  }
+  
+  .page-title {
+    font-size: 22px;
+  }
+  
+  .actions-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .action-button {
+    width: auto;
+  }
+  
+  .modal-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .modal-actions button {
+    width: auto;
+    min-width: 120px;
+  }
+  
   .delete-mode-actions {
     flex-direction: row;
     justify-content: center;
@@ -1599,6 +1807,21 @@ export default {
 }
 
 @media (min-width: 768px) {
+  .content-section {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 100px;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .list-title {
+    font-size: 20px;
+  }
+  
   .table-responsive {
     display: block;
   }
@@ -1644,20 +1867,5 @@ export default {
   .card-actions {
     flex-direction: column;
   }
-}
-
-.btn-activate {
-  background-color: #28a745;
-  color: white;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  width: 100%;
-}
-
-.btn-activate:hover {
-  background-color: #218838;
 }
 </style>
