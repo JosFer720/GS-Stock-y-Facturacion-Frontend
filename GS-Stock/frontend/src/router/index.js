@@ -39,7 +39,7 @@ const routes = [
     path: '/ventas',
     name: 'Ventas',
     component: () => import('../views/SalesManagment.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria', 'Vendedor'] }
+    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Vendedor'] }
   },
   {
     path: '/clientes',
@@ -51,15 +51,9 @@ const routes = [
     path: '/pagosydevoluciones',
     name: 'Pagos Y Devoluciones',
     component: () => import('../views/PagosDevolucionesView.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador','Secretaria', 'Vendedor'] }
+    meta: { requiresAuth: true, allowedRoles: ['Administrador','Vendedor'] }
   },
-  // NEW ROUTE: Performance Dashboard
-  {
-    path: '/rendimiento',
-    name: 'Rendimiento',
-    component: () => import('../views/Rendimiento/Rendimiento.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria'] }
-  }
+
 ]
 
 const router = createRouter({

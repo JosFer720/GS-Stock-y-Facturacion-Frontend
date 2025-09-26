@@ -13,6 +13,33 @@
         />
       </div>
 
+      <!-- Nueva sección de filtros -->
+      <div class="filters-section">
+        <div class="filter-group">
+          <label for="lineaFilter">Filtrar por Línea de Producto:</label>
+          <select id="lineaFilter" v-model="selectedLineaFilter" @change="applyFilters">
+            <option value="">Todas las líneas</option>
+            <option v-for="linea in tiposLineaProducto" :key="linea.id" :value="linea.id">
+              {{ linea.nombre }}
+            </option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label for="estadoFilter">Filtrar por Estado:</label>
+          <select id="estadoFilter" v-model="selectedEstadoFilter" @change="applyFilters">
+            <option value="">Todos los estados</option>
+            <option value="Disponible">Disponible</option>
+            <option value="Agotado">Agotado</option>
+            <option value="No Disponible">No Disponible</option>
+          </select>
+        </div>
+
+        <button v-if="selectedLineaFilter || selectedEstadoFilter" @click="clearFilters" class="clear-filters-btn">
+          Limpiar Filtros
+        </button>
+      </div>
+
       <div v-if="showActions" class="actions-section">
         <button class="action-button create-button" @click="openCreateProductModal">
           Agregar Zapato
@@ -68,7 +95,7 @@
                 <th>Stock Total</th>
                 <th>Tallas Disponibles</th>
                 <th>Estado</th>
-                <th v-if="showActions && !deleteMode">Acciones</th>
+                <th v-if="isAdmin && !deleteMode">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -104,7 +131,7 @@
                     {{ product.inventario_general.estado }}
                   </span>
                 </td>
-                <td v-if="showActions && !deleteMode">
+                <td v-if="isAdmin && !deleteMode">
                   <button @click.stop="editProduct(product)" class="edit-btn">
                     Editar
                   </button>
@@ -178,7 +205,7 @@
               </div>
               
               <button 
-                v-if="showActions && !deleteMode" 
+                v-if="isAdmin && !deleteMode" 
                 @click.stop="editProduct(product)" 
                 class="edit-btn"
               >
@@ -445,7 +472,6 @@
   </div>
 </template>
 
-
 <script>
 import { ref, computed, onMounted } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
@@ -491,9 +517,18 @@ export default {
     const perPage = ref(15);
     const isMobile = ref(false);
     const userRole = ref(null);
+    
+    // Nuevos refs para filtros
+    const selectedLineaFilter = ref('');
+    const selectedEstadoFilter = ref('');
 
     const showActions = computed(() => {
       return userRole.value && ['Administrador', 'Secretaria'].includes(userRole.value);
+    });
+
+    // Nueva computed para verificar si es admin
+    const isAdmin = computed(() => {
+      return userRole.value === 'Administrador';
     });
 
     const formatPrice = (price) => {
@@ -516,6 +551,50 @@ export default {
         default: return 'status-default';
       }
     };
+
+    // Función para aplicar filtros
+    const applyFilters = () => {
+      currentPage.value = 1;
+    };
+
+    // Función para limpiar filtros
+    const clearFilters = () => {
+      selectedLineaFilter.value = '';
+      selectedEstadoFilter.value = '';
+      currentPage.value = 1;
+    };
+
+    // Computed mejorado para filtros combinados
+    const filteredProducts = computed(() => {
+      let filtered = products.value;
+
+      // Filtro por búsqueda de texto
+      if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase();
+        filtered = filtered.filter(product => 
+          product.codigo?.toLowerCase().includes(query) ||
+          product.nombre?.toLowerCase().includes(query) ||
+          product.tipo_zapato?.nombre?.toLowerCase().includes(query) ||
+          product.tipo_linea_producto?.nombre?.toLowerCase().includes(query)
+        );
+      }
+
+      // Filtro por línea de producto
+      if (selectedLineaFilter.value) {
+        filtered = filtered.filter(product => 
+          product.tipo_linea_producto?.id === parseInt(selectedLineaFilter.value)
+        );
+      }
+
+      // Filtro por estado
+      if (selectedEstadoFilter.value) {
+        filtered = filtered.filter(product => 
+          product.inventario_general?.estado === selectedEstadoFilter.value
+        );
+      }
+
+      return filtered;
+    });
 
     const paginatedProducts = computed(() => {
       const start = (currentPage.value - 1) * perPage.value;
@@ -840,17 +919,6 @@ export default {
       currentPage.value = 1;
     };
 
-    const filteredProducts = computed(() => {
-      if (!searchQuery.value) return products.value;
-      const query = searchQuery.value.toLowerCase();
-      return products.value.filter(product => 
-        product.codigo?.toLowerCase().includes(query) ||
-        product.nombre?.toLowerCase().includes(query) ||
-        product.tipo_zapato?.nombre?.toLowerCase().includes(query) ||
-        product.tipo_linea_producto?.nombre?.toLowerCase().includes(query)
-      );
-    });
-
     const checkScreenSize = () => {
       isMobile.value = window.innerWidth < 768;
       perPage.value = isMobile.value ? 10 : 15;
@@ -974,12 +1042,13 @@ export default {
       selectedProductTallas.value = [];
     };
 
-    onMounted(() => {
+    onMounted(async () => {
       const user = JSON.parse(localStorage.getItem('user'));
       if (user) {
         userRole.value = user.rol;
       }
-      fetchProducts();
+      await fetchProducts();
+      await fetchTiposLineaProducto(); // Cargar tipos de línea para los filtros
       checkScreenSize();
       window.addEventListener('resize', checkScreenSize);
     });
@@ -1008,6 +1077,8 @@ export default {
       totalPages,
       displayedPageNumbers,
       areAllSelected,
+      selectedLineaFilter,
+      selectedEstadoFilter,
       showMessage,
       hideMessage,
       openCreateProductModal,
@@ -1037,12 +1108,14 @@ export default {
       showTallasModal,
       closeModal,
       showActions,
-      userRole
+      userRole,
+      isAdmin,
+      applyFilters,
+      clearFilters
     };
   }
 }
 </script>
 
 <style scoped src="../styles/productManagment.css">
-
 </style>
