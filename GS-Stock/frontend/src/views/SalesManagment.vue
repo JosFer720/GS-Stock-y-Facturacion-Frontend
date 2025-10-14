@@ -99,6 +99,7 @@
 
       <div v-show="activeTab === 'historial'" class="tab-content">
         <historial-facturas 
+          ref="historialRef"
           :estados-pedidos="estadosPedidos"
           @factura-seleccionada="handleFacturaSeleccionada"
           @ver-detalles="handleVerDetalles"
@@ -1306,11 +1307,6 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
-        const saleIndex = sales.value.findIndex(sale => sale.id === pedido_id);
-        if (saleIndex !== -1) {
-          const originalState = sales.value[saleIndex].estado_pedido;
-        }
-
         console.log('Actualizando estado:', { pedido_id, nuevo_estado });
 
         const response = await fetch(`/api/ventas/pedidos/${pedido_id}/estado`, {
@@ -1331,15 +1327,23 @@ export default {
         console.log('Respuesta del servidor:', data);
 
         if (data.success) {
-          const saleToUpdate = sales.value.find(sale => sale.id === pedido_id);
-          if (saleToUpdate) {
-            saleToUpdate.estado_pedido = nuevo_estado;
-          }
-
           showMessage('Estado Actualizado', 
             `El pedido #${pedido_id} ahora está en estado: ${nuevo_estado}`, 
             'success'
           );
+          
+          // Si el estado cambió a Despachado, recargar la lista para que desaparezca de Gestión de Ventas
+          if (nuevo_estado.toLowerCase() === 'despachado') {
+            setTimeout(() => {
+              fetchSales(); // Recargar lista de ventas pendientes
+            }, 1000);
+          } else {
+            // Para otros estados, actualizar localmente
+            const saleToUpdate = sales.value.find(sale => sale.id === pedido_id);
+            if (saleToUpdate) {
+              saleToUpdate.estado_pedido = nuevo_estado;
+            }
+          }
         }
 
       } catch (err) {
@@ -1354,7 +1358,11 @@ export default {
     };
 
     const filteredSales = computed(() => {
-      let result = sales.value;
+      // Solo mostrar ventas PENDIENTES en la gestión de ventas
+      let result = sales.value.filter(sale => {
+        const estado = (sale.estado_pedido || '').toLowerCase();
+        return estado === 'pendiente';
+      });
 
       if (filters.value.date) {
         result = result.filter(sale => {
@@ -1384,6 +1392,20 @@ export default {
     watch([currentPage, perPage], () => {
       fetchSales();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    const historialRef = ref(null);
+    
+    // Watcher para recargar el historial cuando se cambia a esa pestaña
+    watch(activeTab, (newTab) => {
+      if (newTab === 'historial' && historialRef.value) {
+        // Recargar el historial cuando se activa la pestaña
+        setTimeout(() => {
+          if (historialRef.value && typeof historialRef.value.cargarFacturas === 'function') {
+            historialRef.value.cargarFacturas();
+          }
+        }, 100);
+      }
     });
 
     return {
@@ -1416,6 +1438,7 @@ export default {
       estadosPedidos,
       filteredSales,
       istallaYaSeleccionada,
+      historialRef,
       fetchEstadosPedidos,
       activeTab,
       clienteSearchTerm,

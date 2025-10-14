@@ -21,9 +21,6 @@
     </nav>
 
     <div class="header-right">
-      <div class="secondary-logo">
-        <img src="../assets/images/perfil.png" alt="Perfil" class="logo-image" />
-      </div>
       <button class="logout-button" @click="handleLogout">Logout</button>
     </div>
   </header>

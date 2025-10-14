@@ -38,20 +38,21 @@
             <td class="vendedor-cell">{{ sale.vendedor_nombre || 'N/A' }}</td>
             <td class="fecha-cell">{{ formatDate(sale.fecha) }}</td>
             <td class="estado-cell">
+              <!-- Si es historial, solo mostrar el estado sin permitir cambios -->
+              <span v-if="isHistorial" class="status-badge" :class="getStatusClass(sale.estado_pedido)">
+                {{ sale.estado_pedido }}
+              </span>
+              <!-- Si NO es historial, mostrar select solo con Pendiente y Despachado -->
               <select 
+                v-else
                 v-model="sale.estado_pedido"
                 @change="updateOrderStatus(sale)"
                 class="status-select"
                 :class="getStatusClass(sale.estado_pedido)"
                 @click.stop
               >
-                <option 
-                  v-for="estado in estadosPedidos" 
-                  :key="estado.id" 
-                  :value="estado.estado"
-                >
-                  {{ estado.estado }}
-                </option>
+                <option value="Pendiente">Pendiente</option>
+                <option value="Despachado">Despachado</option>
               </select>
             </td>
             <td class="total-cell">
@@ -95,6 +96,11 @@ export default {
       type: Array,
       required: true,
       default: () => []
+    },
+    // Nueva prop para indicar si es el historial (solo lectura)
+    isHistorial: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['sale-selected', 'status-updated', 'view-details', 'download-envio'],
@@ -147,7 +153,9 @@ export default {
     const getStatusClass = (status) => {
       if (!status) return 'status-default';
       
-      switch (status.toLowerCase()) {
+      const statusLower = status.toLowerCase();
+      
+      switch (statusLower) {
         case 'pendiente':
           return 'status-pending';
         case 'despachado':
