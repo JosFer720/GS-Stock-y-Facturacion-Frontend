@@ -27,9 +27,6 @@
           <button class="action-button add-button" @click="openAddSaleModal">
             Agregar Venta
           </button>
-          <button class="action-button view-button" @click="viewSaleDetails" :disabled="!selectedSale">
-            Ver Detalles
-          </button>
           <button class="action-button refresh-button" @click="fetchSales">
             Actualizar Lista
           </button>
