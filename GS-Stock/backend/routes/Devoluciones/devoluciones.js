@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
 const auth = require('../../middleware/auth'); 
-const rateLimiter = require('../../middleware/rateLimiter');
-
+const { apiLimiter } = require('../../middleware/rateLimiter');
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
   host: process.env.DB_HOST || 'postgres',
