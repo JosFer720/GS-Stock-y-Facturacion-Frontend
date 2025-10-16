@@ -46,31 +46,31 @@
             <th v-if="type === 'pagos'">Método</th>
 
             <!-- columnas para devoluciones -->
-            <th v-if="type === 'devoluciones'">Código Pedido</th>
-            <th v-if="type === 'devoluciones'">Producto</th>
-            <th v-if="type === 'devoluciones'">Cantidad</th>
-            <th v-if="type === 'devoluciones'">Monto Devuelto</th>
-            <th v-if="type === 'devoluciones'">Método de Devolución</th>
+            <th v-if="type === 'devoluciones'">Teléfono</th>
+            <th v-if="type === 'devoluciones'">Código</th>
+            <th v-if="type === 'devoluciones'">Unidades</th>
+            <th v-if="type === 'devoluciones'">Tallas</th>
+            <th v-if="type === 'devoluciones'">Motivo de la Devolución</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td :colspan="type === 'pagos' ? 5 : 7" class="loading-row">
+            <td :colspan="type === 'pagos' ? 5 : 6" class="loading-row">
               Cargando datos...
             </td>
           </tr>
           
           <tr v-else-if="data.length === 0">
-            <td :colspan="type === 'pagos' ? 5 : 7" class="no-data-row">
+            <td :colspan="type === 'pagos' ? 5 : 6" class="no-data-row">
               No se encontraron {{ type === 'pagos' ? 'pagos' : 'devoluciones' }}
             </td>
           </tr>
           
-          <tr v-else v-for="item in data" :key="item.id">
+          <tr v-else v-for="item in data" :key="getRowKey(item)">
             <td>{{ formatDate(item.fecha) }}</td>
             <td>
-              {{ item.cliente_nombre || '' }} {{ item.cliente_apellido || '' }}
-              <span v-if="item.empresa">({{ item.empresa }})</span>
+              {{ item.cliente_nombre || '' }}
+              <span v-if="item.cliente_empresa" class="empresa-badge">({{ item.cliente_empresa }})</span>
             </td>
             
             <!-- pagos -->
@@ -79,11 +79,17 @@
             <td v-if="type === 'pagos'">{{ item.metodo_pago || 'N/A' }}</td>
             
             <!-- devoluciones -->
-            <td v-if="type === 'devoluciones'">#{{ item.pedido_id }}</td>
-            <td v-if="type === 'devoluciones'">{{ item.productos || 'N/A' }}</td>
-            <td v-if="type === 'devoluciones'">{{ item.cantidad_total || 0 }}</td>
-            <td v-if="type === 'devoluciones'">Q{{ formatCurrency(item.monto) }}</td>
-            <td v-if="type === 'devoluciones'">{{ item.metodo_devolucion || 'N/A' }}</td>
+            <td v-if="type === 'devoluciones'">{{ item.cliente_telefono || 'N/A' }}</td>
+            <td v-if="type === 'devoluciones'">
+              <span class="codigo-badge">{{ item.codigo || 'N/A' }}</span>
+            </td>
+            <td v-if="type === 'devoluciones'">{{ item.unidades || 0 }}</td>
+            <td v-if="type === 'devoluciones'">
+              <span class="talla-badge">{{ item.talla_eu ? item.talla_eu + ' EU' : 'N/A' }}</span>
+            </td>
+            <td v-if="type === 'devoluciones'" class="motivo-cell">
+              {{ item.motivo || 'Sin motivo especificado' }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -141,6 +147,14 @@ export default {
       return parseFloat(amount).toFixed(2);
     };
     
+    const getRowKey = (item) => {
+      // Para devoluciones, usar combinación de devolucion_id y codigo para key única
+      if (props.type === 'devoluciones') {
+        return `${item.devolucion_id || item.id}-${item.codigo || ''}-${Math.random()}`;
+      }
+      return item.id;
+    };
+    
     const clearFilters = () => {
       localFilters.value = {
         cliente: '',
@@ -154,6 +168,7 @@ export default {
       localFilters,
       formatDate,
       formatCurrency,
+      getRowKey,
       clearFilters
     };
   }
@@ -242,6 +257,46 @@ td {
   font-style: italic;
 }
 
+.empresa-badge {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 11px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.codigo-badge {
+  display: inline-block;
+  background-color: #e7f3ff;
+  color: #0066cc;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.talla-badge {
+  display: inline-block;
+  background-color: #f0f0f0;
+  color: #333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.motivo-cell {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.motivo-cell:hover {
+  white-space: normal;
+  overflow: visible;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .table-filters {
@@ -256,6 +311,12 @@ td {
   th, td {
     padding: 8px 4px;
     font-size: 12px;
+  }
+  
+  .codigo-badge,
+  .talla-badge {
+    font-size: 11px;
+    padding: 3px 6px;
   }
 }
 </style>

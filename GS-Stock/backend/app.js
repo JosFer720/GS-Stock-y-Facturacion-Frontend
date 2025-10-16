@@ -20,7 +20,7 @@ const tiposCalzadoRoutes = require('./routes/tiposCalzado');
 const tiposLineaProductoRoutes = require('./routes/tiposLineaProducto');
 const envioNacionalRoutes = require('./routes/envioNacional');
 const envioImportadoraRoutes = require('./routes/envioImportadora');
-const devolucionesRoutes = require('./routes/devoluciones');
+const devolucionesRoutes = require('./routes/Devoluciones/devoluciones');
 const pagosRoutes = require('./routes/pagos');
 
 const graphicsRoutes = require('./routes/Routesforgraphics/graphics');
