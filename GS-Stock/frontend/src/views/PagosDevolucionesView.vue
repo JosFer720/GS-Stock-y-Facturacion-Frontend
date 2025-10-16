@@ -189,10 +189,15 @@
               </div>
             </div>
 
-            <!-- Mostrar pedidos del cliente seleccionado -->
+            <!-- Selección de pedido -->
             <div v-if="clienteSeleccionadoDev && pedidosClienteDev.length > 0" class="form-group">
               <label for="dev-pedido">Pedido del Cliente:</label>
-              <select id="dev-pedido" v-model="nuevaDevolucion.id_pedido" required>
+              <select 
+                id="dev-pedido" 
+                v-model="pedidoSeleccionado" 
+                @change="cargarProductosPedido"
+                required
+              >
                 <option value="">Seleccione un pedido</option>
                 <option v-for="pedido in pedidosClienteDev" :key="pedido.id" :value="pedido.id">
                   Pedido #{{ pedido.id }} - {{ formatDate(pedido.fecha) }} (Q{{ formatCurrency(pedido.total) }})
@@ -204,44 +209,77 @@
             <div v-if="clienteSeleccionadoDev && pedidosClienteDev.length === 0" class="form-group">
               <div class="no-orders-message">
                 Este cliente no tiene pedidos elegibles para devolución.
-                <small>Solo se pueden devolver pedidos entregados que no tengan devoluciones previas.</small>
+                <small>Solo se pueden devolver pedidos despachados que no tengan devoluciones previas.</small>
+              </div>
+            </div>
+
+            <!-- Selección de productos a devolver -->
+            <div v-if="pedidoSeleccionado && productosDisponibles.length > 0" class="productos-devolucion-section">
+              <h3 class="subsection-title">Seleccionar Productos a Devolver</h3>
+              
+              <div class="productos-list">
+                <div 
+                  v-for="producto in productosDisponibles" 
+                  :key="producto.detalle_id"
+                  class="producto-item"
+                  :class="{ 'selected': isProductoSeleccionado(producto.detalle_id) }"
+                >
+                  <div class="producto-header">
+                    <input 
+                      type="checkbox"
+                      :id="`producto-${producto.detalle_id}`"
+                      :value="producto.detalle_id"
+                      v-model="productosSeleccionados"
+                      @change="toggleProducto(producto)"
+                    />
+                    <label :for="`producto-${producto.detalle_id}`" class="producto-label">
+                      <div class="producto-info">
+                        <span class="producto-codigo">{{ producto.codigo }}</span>
+                        <span class="producto-nombre">{{ producto.nombre }}</span>
+                        <span class="producto-talla">Talla: {{ producto.talla_eu }} EU</span>
+                      </div>
+                      <div class="producto-cantidad-disponible">
+                        Disponible: {{ producto.cantidad }} unidades
+                      </div>
+                    </label>
+                  </div>
+                  
+                  <!-- Campo para cantidad a devolver -->
+                  <div v-if="isProductoSeleccionado(producto.detalle_id)" class="cantidad-devolver-container">
+                    <label :for="`cantidad-${producto.detalle_id}`">Cantidad a devolver:</label>
+                    <input 
+                      type="number"
+                      :id="`cantidad-${producto.detalle_id}`"
+                      :value="cantidadesDevolver[producto.detalle_id] || producto.cantidad"
+                      @input="updateCantidadDevolver(producto.detalle_id, $event)"
+                      :max="producto.cantidad"
+                      :min="1"
+                      required
+                      class="cantidad-input"
+                    />
+                    <span class="cantidad-max">/ {{ producto.cantidad }}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
             <!-- Método de devolución -->
             <div class="form-group">
               <label for="dev-metodo">Método de Devolución:</label>
-              <select id="dev-metodo" v-model="nuevaDevolucion.metodo" required>
+              <select id="dev-metodo" v-model="nuevaDevolucion.id_metodo_devolucion" required>
                 <option value="">Seleccione un método</option>
-                <option v-for="metodo in metodosDevoluciones" :key="metodo.id" :value="metodo.metodo">
+                <option v-for="metodo in metodosDevoluciones" :key="metodo.id" :value="metodo.id">
                   {{ metodo.metodo }}
                 </option>
               </select>
             </div>
 
-            <!-- Monto personalizado (opcional) -->
-            <div class="form-group">
-              <label for="dev-monto">Monto de Devolución (opcional):</label>
-              <div class="currency-input">
-                <span class="currency-symbol">Q</span>
-                <input 
-                  type="number" 
-                  id="dev-monto" 
-                  v-model.number="nuevaDevolucion.monto" 
-                  step="0.01"
-                  min="0"
-                  placeholder="Dejar vacío para devolver el total del pedido"
-                />
-              </div>
-              <small>Si no especifica un monto, se devolverá el total del pedido.</small>
-            </div>
-
             <!-- Motivo de devolución -->
             <div class="form-group">
-              <label for="dev-observaciones">Motivo de Devolución:</label>
+              <label for="dev-motivo">Motivo de Devolución:</label>
               <textarea 
-                id="dev-observaciones" 
-                v-model="nuevaDevolucion.observaciones"
+                id="dev-motivo" 
+                v-model="nuevaDevolucion.motivo"
                 placeholder="Describa el motivo de la devolución..."
                 rows="3"
                 required
@@ -259,10 +297,26 @@
               ></textarea>
             </div>
 
+            <!-- Resumen de la devolución -->
+            <div v-if="productosSeleccionados.length > 0" class="resumen-devolucion">
+              <h4>Resumen de la Devolución</h4>
+              <div class="resumen-items">
+                <div v-for="item in resumenDevolucion" :key="item.detalle_id" class="resumen-item">
+                  <span>{{ item.codigo }} - {{ item.nombre }} (Talla {{ item.talla_eu }} EU)</span>
+                  <span>{{ item.cantidad }} unidad(es)</span>
+                  <span class="resumen-precio">Q{{ formatCurrency(item.monto) }}</span>
+                </div>
+              </div>
+              <div class="resumen-total">
+                <strong>Monto Total a Devolver:</strong>
+                <strong class="total-amount">Q{{ formatCurrency(montoTotalDevolucion) }}</strong>
+              </div>
+            </div>
+
             <button 
               type="submit" 
               class="submit-button" 
-              :disabled="procesandoDevolucion || !clienteSeleccionadoDev || pedidosClienteDev.length === 0"
+              :disabled="procesandoDevolucion || !clienteSeleccionadoDev || pedidosClienteDev.length === 0 || productosSeleccionados.length === 0"
             >
               {{ procesandoDevolucion ? 'Procesando...' : 'Registrar Devolución' }}
             </button>
@@ -297,7 +351,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
 import PagosTable from '@/components/PagosTable.vue';
@@ -350,7 +404,7 @@ export default {
       fechaPago: ''
     });
     
-    // Estados de devoluciones
+    // Estados de devoluciones - NUEVOS Y MODIFICADOS
     const devoluciones = ref([]);
     const cargandoDevoluciones = ref(false);
     const procesandoDevolucion = ref(false);
@@ -360,13 +414,17 @@ export default {
     const metodosDevoluciones = ref([]);
     const clienteSeleccionadoDev = ref(null);
     const pedidosClienteDev = ref([]);
+    const pedidoSeleccionado = ref('');
+    const productosDisponibles = ref([]);
+    const productosSeleccionados = ref([]);
+    const cantidadesDevolver = ref({});
     
     const nuevaDevolucion = ref({
       id_pedido: '',
-      metodo: '',
-      monto: null,
-      observaciones: '',
-      observaciones_adicionales: ''
+      id_metodo_devolucion: '',
+      motivo: '',
+      observaciones_adicionales: '',
+      productos: []
     });
 
     const filtrosDevoluciones = ref({
@@ -448,7 +506,6 @@ export default {
       }
     };
 
-    // CORREGIDO: Función para obtener todos los clientes (no solo con pagos pendientes)
     const fetchClientes = async () => {
       try {
         const token = checkAuth();
@@ -506,7 +563,7 @@ export default {
       }
     };
 
-    // MEJORADAS: Funciones de búsqueda de clientes
+    // Funciones de búsqueda de clientes
     const buscarClientesPago = () => {
       if (clienteSearchTermPago.value.length < 2) {
         clientesFiltradosPago.value = [];
@@ -520,7 +577,7 @@ export default {
         const empresa = (cliente.empresa || '').toLowerCase().trim();
         
         return nombreCompleto.includes(term) || empresa.includes(term);
-      }).slice(0, 10); // Aumenté el límite a 10
+      }).slice(0, 10);
       
       console.log(`Búsqueda pagos: "${term}" encontró ${clientesFiltradosPago.value.length} clientes`);
     };
@@ -591,10 +648,8 @@ export default {
       showClienteDropdownPago.value = false;
       clientesFiltradosPago.value = [];
       
-      // Limpiar pedido seleccionado previamente
       nuevoPago.value.id_pedido = '';
       
-      // Cargar pedidos del cliente seleccionado
       await fetchPedidosClientePago(cliente.id);
     };
 
@@ -629,7 +684,6 @@ export default {
         
         showMessage('Éxito', result.message, 'success');
         
-        // Limpiar formulario
         nuevoPago.value = {
           id_pedido: '',
           id_metodo_pago: '',
@@ -641,7 +695,6 @@ export default {
         clienteSeleccionadoPago.value = null;
         pedidosClientePago.value = [];
         
-        // Recargar datos
         await fetchPagos();
         
       } catch (err) {
@@ -651,7 +704,7 @@ export default {
       }
     };
 
-    // Funciones específicas de devoluciones
+    // Funciones específicas de devoluciones - NUEVAS Y MODIFICADAS
     const fetchPedidosClienteDev = async (clienteId) => {
       try {
         const token = checkAuth();
@@ -665,6 +718,8 @@ export default {
         
         const data = await response.json();
         pedidosClienteDev.value = data.data || [];
+        
+        console.log('Pedidos despachados encontrados:', pedidosClienteDev.value);
       } catch (err) {
         console.error('Error al obtener pedidos del cliente:', err);
         pedidosClienteDev.value = [];
@@ -674,17 +729,112 @@ export default {
     const seleccionarClienteDev = async (cliente) => {
       clienteSeleccionadoDev.value = cliente;
       nuevaDevolucion.value.id_cliente = cliente.id;
-      clienteSearchTermDev.value = `${cliente.nombre} ${cliente.apellido}`;
+      clienteSearchTermDev.value = `${cliente.nombre} ${cliente.apellido}${cliente.empresa ? ' - ' + cliente.empresa : ''}`;
       showClienteDropdownDev.value = false;
       clientesFiltradosDev.value = [];
       
-      // Cargar pedidos del cliente seleccionado
+      // Limpiar selección anterior
+      pedidoSeleccionado.value = '';
+      productosDisponibles.value = [];
+      productosSeleccionados.value = [];
+      cantidadesDevolver.value = {};
+      
       await fetchPedidosClienteDev(cliente.id);
     };
 
+    const cargarProductosPedido = () => {
+      if (!pedidoSeleccionado.value) {
+        productosDisponibles.value = [];
+        return;
+      }
+      
+      const pedido = pedidosClienteDev.value.find(p => p.id === pedidoSeleccionado.value);
+      
+      if (pedido && pedido.productos) {
+        productosDisponibles.value = pedido.productos;
+        console.log('Productos disponibles para devolución:', productosDisponibles.value);
+      }
+      
+      // Limpiar selecciones previas
+      productosSeleccionados.value = [];
+      cantidadesDevolver.value = {};
+    };
+
+    const isProductoSeleccionado = (detalleId) => {
+      return productosSeleccionados.value.includes(detalleId);
+    };
+
+    const toggleProducto = (producto) => {
+      if (!isProductoSeleccionado(producto.detalle_id)) {
+        // Inicializar cantidad a devolver con la cantidad disponible
+        cantidadesDevolver.value[producto.detalle_id] = producto.cantidad;
+      } else {
+        // Limpiar cantidad si se deselecciona
+        delete cantidadesDevolver.value[producto.detalle_id];
+      }
+    };
+
+    const getCantidadDevolver = (detalleId) => {
+      return cantidadesDevolver.value[detalleId] || 1;
+    };
+
+    const updateCantidadDevolver = (detalleId, event) => {
+      const producto = productosDisponibles.value.find(p => p.detalle_id === detalleId);
+      if (!producto) return;
+      
+      let cantidad = parseInt(event.target.value);
+      
+      // Validar que no exceda la cantidad disponible
+      if (cantidad > producto.cantidad) {
+        cantidad = producto.cantidad;
+        event.target.value = cantidad;
+      }
+      
+      if (cantidad < 1) {
+        cantidad = 1;
+        event.target.value = cantidad;
+      }
+      
+      cantidadesDevolver.value[detalleId] = cantidad;
+    };
+
+    // Computed para el resumen de devolución
+    const resumenDevolucion = computed(() => {
+      return productosSeleccionados.value.map(detalleId => {
+        const producto = productosDisponibles.value.find(p => p.detalle_id === detalleId);
+        const cantidad = cantidadesDevolver.value[detalleId] || 1;
+        
+        if (!producto) return null;
+        
+        return {
+          detalle_id: detalleId,
+          codigo: producto.codigo,
+          nombre: producto.nombre,
+          talla_eu: producto.talla_eu,
+          cantidad: cantidad,
+          precio_unitario: producto.precio_unitario,
+          monto: cantidad * parseFloat(producto.precio_unitario || 0)
+        };
+      }).filter(item => item !== null);
+    });
+
+    const montoTotalDevolucion = computed(() => {
+      return resumenDevolucion.value.reduce((total, item) => total + item.monto, 0);
+    });
+
     const registrarDevolucion = async () => {
-      if (!nuevaDevolucion.value.id_cliente || !nuevaDevolucion.value.id_pedido || !nuevaDevolucion.value.metodo) {
-        showMessage('Error', 'Complete todos los campos requeridos', 'error');
+      if (!clienteSeleccionadoDev.value || !pedidoSeleccionado.value) {
+        showMessage('Error', 'Debe seleccionar un cliente y un pedido', 'error');
+        return;
+      }
+
+      if (productosSeleccionados.value.length === 0) {
+        showMessage('Error', 'Debe seleccionar al menos un producto para devolver', 'error');
+        return;
+      }
+
+      if (!nuevaDevolucion.value.id_metodo_devolucion || !nuevaDevolucion.value.motivo) {
+        showMessage('Error', 'Complete el método de devolución y el motivo', 'error');
         return;
       }
 
@@ -693,13 +843,26 @@ export default {
         const token = checkAuth();
         if (!token) return;
 
+        // Preparar array de productos a devolver
+        const productosADevolver = productosSeleccionados.value.map(detalleId => {
+          const producto = productosDisponibles.value.find(p => p.detalle_id === detalleId);
+          return {
+            detalle_id: detalleId,
+            zapato_id: producto.zapato_id,
+            talla_id: producto.talla_id,
+            cantidad: cantidadesDevolver.value[detalleId] || 1
+          };
+        });
+
         const payload = {
-          id_pedido: nuevaDevolucion.value.id_pedido,
-          motivo: nuevaDevolucion.value.observaciones,
-          id_metodo_devolucion: metodosDevoluciones.value.find(m => m.metodo === nuevaDevolucion.value.metodo)?.id,
-          monto_devolucion: nuevaDevolucion.value.monto || null,
+          id_pedido: pedidoSeleccionado.value,
+          productos: productosADevolver,
+          motivo: nuevaDevolucion.value.motivo,
+          id_metodo_devolucion: nuevaDevolucion.value.id_metodo_devolucion,
           observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
         };
+
+        console.log('Enviando devolución:', payload);
 
         const response = await fetch('/api/devoluciones', {
           method: 'POST',
@@ -715,25 +878,32 @@ export default {
           throw new Error(errorData.error || 'Error al registrar la devolución');
         }
 
-        showMessage('Éxito', 'Devolución registrada correctamente', 'success');
+        const result = await response.json();
+
+        showMessage('Éxito', result.mensaje || 'Devolución registrada correctamente', 'success');
         
         // Limpiar formulario
         nuevaDevolucion.value = {
           id_cliente: '',
           id_pedido: '',
-          metodo: '',
-          observaciones: '',
-          monto: null,
-          observaciones_adicionales: ''
+          id_metodo_devolucion: '',
+          motivo: '',
+          observaciones_adicionales: '',
+          productos: []
         };
         clienteSearchTermDev.value = '';
         clienteSeleccionadoDev.value = null;
         pedidosClienteDev.value = [];
+        pedidoSeleccionado.value = '';
+        productosDisponibles.value = [];
+        productosSeleccionados.value = [];
+        cantidadesDevolver.value = {};
         
-        // Recargar datos
+        // Recargar devoluciones
         await fetchDevoluciones();
         
       } catch (err) {
+        console.error('Error al registrar devolución:', err);
         showMessage('Error', err.message, 'error');
       } finally {
         procesandoDevolucion.value = false;
@@ -776,6 +946,8 @@ export default {
         
         const data = await response.json();
         devoluciones.value = data.data || [];
+        
+        console.log('Devoluciones cargadas:', devoluciones.value);
       } catch (err) {
         console.error('Error al obtener devoluciones:', err);
       } finally {
@@ -863,7 +1035,7 @@ export default {
       
       await Promise.all([
         fetchVendedores(),
-        fetchClientes(), // CAMBIADO: ahora carga todos los clientes
+        fetchClientes(),
         fetchMetodosPago(),
         fetchMetodosDevoluciones(),
         fetchPagos(),
@@ -912,6 +1084,12 @@ export default {
       metodosDevoluciones,
       clienteSeleccionadoDev,
       pedidosClienteDev,
+      pedidoSeleccionado,
+      productosDisponibles,
+      productosSeleccionados,
+      cantidadesDevolver,
+      resumenDevolucion,
+      montoTotalDevolucion,
       
       // Funciones
       showMessage,
@@ -924,6 +1102,11 @@ export default {
       seleccionarClienteDev,
       registrarPago,
       registrarDevolucion,
+      cargarProductosPedido,
+      isProductoSeleccionado,
+      toggleProducto,
+      getCantidadDevolver,
+      updateCantidadDevolver,
       actualizarFiltrosPagos,
       actualizarFiltrosDevoluciones,
       limpiarFiltrosPagos,
@@ -936,5 +1119,4 @@ export default {
 </script>
 
 <style scoped src="../styles/pagosYdevoluciones/pagosDevoluciones.css">
-
 </style>
