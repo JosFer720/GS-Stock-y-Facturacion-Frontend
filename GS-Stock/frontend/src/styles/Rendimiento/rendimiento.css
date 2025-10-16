@@ -14,7 +14,7 @@
 }
 
 .content-section {
-  padding: 15px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -26,27 +26,29 @@
 
 /* Header Section */
 .page-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
   margin-bottom: 5px;
   text-align: center;
   color: #333;
   width: 100%;
+  padding: 0 10px;
 }
 
 .page-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: #666;
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   width: 100%;
+  padding: 0 10px;
 }
 
 /* Section Titles */
 .section-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: bold;
-  margin: 0 0 15px 0;
+  margin: 0 0 12px 0;
   color: #333;
 }
 
@@ -54,8 +56,8 @@
 .filters-section {
   background: white;
   border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 20px;
+  padding: 12px;
+  margin-bottom: 15px;
   width: 100%;
   box-sizing: border-box;
   border: 1px solid #ddd;
@@ -64,7 +66,7 @@
 .filters-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 15px;
+  gap: 12px;
   align-items: end;
 }
 
@@ -77,11 +79,11 @@
 .filter-group label {
   font-weight: 600;
   color: #333;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .filter-select {
-  padding: 10px;
+  padding: 8px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
@@ -89,6 +91,7 @@
   transition: border-color 0.2s ease;
   width: 100%;
   box-sizing: border-box;
+  min-height: 40px;
 }
 
 .filter-select:focus {
@@ -111,6 +114,8 @@
   justify-content: center;
   width: 100%;
   box-sizing: border-box;
+  min-height: 40px;
+  font-size: 14px;
 }
 
 .refresh-btn:hover:not(:disabled) {
@@ -125,7 +130,7 @@
 /* Loading and Error States */
 .loading-container {
   text-align: center;
-  padding: 40px;
+  padding: 30px 15px;
   background: white;
   border-radius: 8px;
   border: 1px solid #ddd;
@@ -136,6 +141,7 @@
 .loading-indicator {
   color: #666;
   font-style: italic;
+  font-size: 14px;
 }
 
 .loading-spinner {
@@ -156,14 +162,15 @@
   background: #f8d7da;
   border: 1px solid #f5c6cb;
   border-radius: 4px;
-  padding: 15px;
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   color: #721c24;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   width: 100%;
   box-sizing: border-box;
+  font-size: 13px;
 }
 
 .error-dismiss {
@@ -174,13 +181,14 @@
   cursor: pointer;
   padding: 0;
   margin-left: 10px;
+  flex-shrink: 0;
 }
 
 /* Dashboard Content */
 .dashboard-content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 15px;
   width: 100%;
 }
 
@@ -188,7 +196,7 @@
 .summary-section {
   background: white;
   border-radius: 8px;
-  padding: 15px;
+  padding: 12px;
   border: 1px solid #ddd;
   width: 100%;
   box-sizing: border-box;
@@ -197,13 +205,13 @@
 .summary-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 15px;
+  gap: 12px;
 }
 
 .summary-card {
   background: white;
   border-radius: 8px;
-  padding: 15px;
+  padding: 12px;
   border: 1px solid #ddd;
   transition: all 0.2s ease;
 }
@@ -214,20 +222,20 @@
 }
 
 .summary-card.nacional {
-  border-left: 4px solid #2196F3;
+  border-left: 3px solid #2196F3;
 }
 
 .summary-card.importadora {
-  border-left: 4px solid #4CAF50;
+  border-left: 3px solid #4CAF50;
 }
 
 .summary-card.best-product {
-  border-left: 4px solid #FF9800;
+  border-left: 3px solid #FF9800;
 }
 
 .summary-header h4 {
-  margin: 0 0 10px 0;
-  font-size: 14px;
+  margin: 0 0 8px 0;
+  font-size: 12px;
   font-weight: 600;
   color: #666;
   text-transform: uppercase;
@@ -237,20 +245,21 @@
 .summary-content {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .summary-value {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   color: #333;
-  line-height: 1;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 .summary-detail {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
 }
 
@@ -258,7 +267,7 @@
 .chart-navigation {
   background: white;
   border-radius: 8px;
-  padding: 15px;
+  padding: 12px;
   border: 1px solid #ddd;
   width: 100%;
   box-sizing: border-box;
@@ -267,15 +276,15 @@
 .nav-buttons {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
 }
 
 .nav-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 15px;
+  gap: 6px;
+  padding: 10px 12px;
   border: 1px solid #ddd;
   background: white;
   color: #666;
@@ -283,12 +292,14 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 14px;
+  font-size: 13px;
   justify-content: center;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
   position: relative;
   overflow: hidden;
+  min-height: 44px;
 }
 
 .nav-btn::before {
@@ -329,7 +340,7 @@
 .chart-card {
   background: white;
   border-radius: 8px;
-  padding: 15px;
+  padding: 12px;
   border: 1px solid #ddd;
   width: 100%;
   box-sizing: border-box;
@@ -349,34 +360,37 @@
 
 .chart-header {
   text-align: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
+  margin-bottom: 15px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #eee;
 }
 
 .chart-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: #333;
+  word-break: break-word;
 }
 
 .chart-subtitle {
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
   margin: 0;
   font-style: italic;
+  word-break: break-word;
 }
 
 .chart-wrapper {
   position: relative;
-  height: 300px;
+  height: 250px;
   margin: 0 auto;
+  width: 100%;
 }
 
 /* Additional Chart Specific Styles */
 #vendedorChart, #ventasChart {
-  max-height: 400px;
+  max-height: 300px;
 }
 
 /* Data Section */
@@ -395,19 +409,20 @@
   background: #f8f9fa;
   border-bottom: 1px solid #ddd;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tab-button {
   flex: 1;
-  min-width: 120px;
-  padding: 15px;
+  min-width: 100px;
+  padding: 12px 8px;
   background: none;
   border: none;
   font-weight: 600;
   color: #666;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 14px;
+  font-size: 12px;
   text-align: center;
   position: relative;
   white-space: nowrap;
@@ -439,12 +454,13 @@
 }
 
 .data-card {
-  padding: 15px;
+  padding: 12px;
 }
 
 /* Table Styles */
 .table-container {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 4px;
   border: 1px solid #ddd;
 }
@@ -452,26 +468,27 @@
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
-  min-width: 600px;
+  font-size: 12px;
+  min-width: 500px;
 }
 
 .data-table th {
   background: #f8f9fa;
-  padding: 12px 8px;
+  padding: 10px 6px;
   text-align: left;
   font-weight: 700;
   color: #333;
   border-bottom: 2px solid #ddd;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .data-table td {
-  padding: 12px 8px;
+  padding: 10px 6px;
   border-bottom: 1px solid #eee;
   vertical-align: middle;
-  font-size: 13px;
+  font-size: 12px;
+  word-break: break-word;
 }
 
 .data-table tbody tr:hover {
@@ -486,12 +503,13 @@
 .line-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 10px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
 .line-badge.nacional {
@@ -507,24 +525,26 @@
 .vendedor-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 10px;
+  font-size: 10px;
   font-weight: 600;
   background: rgba(255, 152, 0, 0.1);
   color: #F57C00;
   border: 1px solid rgba(255, 152, 0, 0.2);
+  white-space: nowrap;
 }
 
 .rank-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 .rank-badge.gold {
@@ -549,17 +569,18 @@
 
 .data-table code {
   background: #f8f9fa;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 11px;
   color: #495057;
   border: 1px solid #e9ecef;
+  word-break: break-all;
 }
 
 /* Empty States */
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 30px 15px;
   color: #666;
 }
 
@@ -570,25 +591,103 @@
 }
 
 .empty-state h3 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
   color: #333;
 }
 
 .empty-state p {
   color: #666;
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
-/* Responsive Design */
-@media (min-width: 480px) {
-  .nav-buttons {
-    grid-template-columns: repeat(2, 1fr);
+/* Responsive Design - Small Mobile (320px - 374px) */
+@media (max-width: 374px) {
+  .page-title {
+    font-size: 16px;
+  }
+  
+  .page-subtitle {
+    font-size: 12px;
+  }
+  
+  .section-title {
+    font-size: 14px;
+  }
+  
+  .nav-btn {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+  
+  .summary-value {
+    font-size: 14px;
+  }
+  
+  .summary-header h4 {
+    font-size: 11px;
+  }
+  
+  .chart-wrapper {
+    height: 220px;
+  }
+  
+  .data-table {
+    font-size: 11px;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 8px 4px;
   }
 }
 
+/* Mobile Portrait (375px - 479px) */
+@media (min-width: 375px) and (max-width: 479px) {
+  .chart-wrapper {
+    height: 240px;
+  }
+  
+  .nav-buttons {
+    gap: 10px;
+  }
+}
+
+/* Mobile Landscape / Small Tablets (480px - 575px) */
+@media (min-width: 480px) {
+  .content-section {
+    padding: 12px;
+  }
+  
+  .filters-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .nav-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .chart-wrapper {
+    height: 280px;
+  }
+  
+  .page-title {
+    font-size: 20px;
+  }
+  
+  .page-subtitle {
+    font-size: 14px;
+  }
+}
+
+/* Small Tablets (576px - 767px) */
 @media (min-width: 576px) {
   .content-section {
     padding: 20px;
@@ -599,34 +698,60 @@
     font-size: 22px;
   }
   
-  .page-subtitle {
+  .section-title {
     font-size: 16px;
   }
   
-  .filters-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .summary-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .nav-buttons {
-    grid-template-columns: repeat(2, 1fr);
+  .filters-section,
+  .summary-section,
+  .chart-navigation,
+  .chart-card {
+    padding: 15px;
   }
   
   .chart-wrapper {
-    height: 350px;
+    height: 320px;
+  }
+  
+  .chart-title {
+    font-size: 15px;
+  }
+  
+  .chart-subtitle {
+    font-size: 12px;
+  }
+  
+  .nav-btn {
+    font-size: 14px;
+    padding: 12px 15px;
+  }
+  
+  .summary-value {
+    font-size: 18px;
+  }
+  
+  .summary-header h4 {
+    font-size: 13px;
+  }
+  
+  .data-table {
+    font-size: 13px;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 12px 8px;
   }
 }
 
+/* Tablets (768px - 991px) */
 @media (min-width: 768px) {
   .content-section {
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
-    margin-top: 100px;
-    padding: 30px;
+    margin-top: 80px;
+    padding: 25px;
   }
   
   .page-title {
@@ -639,10 +764,12 @@
   
   .filters-grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
   }
   
   .summary-grid {
     grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
   }
   
   .summary-value {
@@ -651,16 +778,76 @@
   
   .nav-buttons {
     grid-template-columns: repeat(4, 1fr);
-    gap: 15px;
+    gap: 12px;
   }
   
   .nav-btn {
-    padding: 15px 10px;
+    padding: 14px 12px;
     font-size: 13px;
+    white-space: nowrap;
   }
   
   .chart-wrapper {
-    height: 400px;
+    height: 380px;
+  }
+  
+  #vendedorChart, #ventasChart {
+    max-height: 400px;
+  }
+  
+  .data-table {
+    font-size: 14px;
+    min-width: 600px;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 14px 10px;
+  }
+  
+  .tabs-navigation {
+    overflow-x: visible;
+  }
+  
+  .tab-button {
+    min-width: auto;
+    flex: 1;
+    font-size: 13px;
+    padding: 14px 12px;
+  }
+  
+  .line-badge,
+  .vendedor-badge {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  
+  .rank-badge {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+}
+
+/* Desktop (992px - 1199px) */
+@media (min-width: 992px) {
+  .content-section {
+    max-width: 1400px;
+    padding: 30px;
+    margin-top: 90px;
+  }
+  
+  .filters-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .chart-wrapper {
+    height: 420px;
+  }
+  
+  .nav-btn {
+    font-size: 14px;
+    padding: 15px 20px;
   }
   
   .data-table {
@@ -671,45 +858,68 @@
   .data-table td {
     padding: 15px 12px;
   }
-  
-  .tabs-navigation {
-    overflow-x: visible;
-  }
-  
-  .tab-button {
-    min-width: auto;
-    flex: 1;
-  }
 }
 
-@media (min-width: 992px) {
-  .content-section {
-    max-width: 1400px;
-  }
-  
-  .filters-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-  
-  .chart-wrapper {
-    height: 450px;
-  }
-  
-  .nav-btn {
-    font-size: 14px;
-    padding: 15px 20px;
-  }
-}
-
+/* Large Desktop (1200px+) */
 @media (min-width: 1200px) {
+  .content-section {
+    max-width: 1600px;
+  }
+  
   .filters-grid {
     grid-template-columns: repeat(6, 1fr);
   }
   
   .nav-buttons {
     justify-content: center;
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
+  }
+  
+  .chart-wrapper {
+    height: 450px;
+  }
+  
+  .summary-section,
+  .filters-section,
+  .chart-navigation,
+  .chart-card,
+  .data-section {
+    padding: 20px;
+  }
+}
+
+/* Extra Large Desktop (1400px+) */
+@media (min-width: 1400px) {
+  .content-section {
+    max-width: 1800px;
+  }
+  
+  .chart-wrapper {
+    height: 500px;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 767px) and (orientation: landscape) {
+  .content-section {
+    margin-top: 50px;
+  }
+  
+  .chart-wrapper {
+    height: 220px;
+  }
+  
+  #vendedorChart, #ventasChart {
+    max-height: 250px;
+  }
+  
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .nav-buttons {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -733,20 +943,38 @@
   .data-section {
     page-break-inside: avoid;
   }
+  
+  .content-section {
+    margin-top: 0;
+    padding: 10px;
+  }
 }
 
 /* Accessibility improvements */
 .nav-btn:focus,
 .filter-select:focus,
-.tab-button:focus {
+.tab-button:focus,
+.refresh-btn:focus {
   outline: 2px solid #2196F3;
   outline-offset: 2px;
 }
 
 .nav-btn:focus:not(:focus-visible),
 .filter-select:focus:not(:focus-visible),
-.tab-button:focus:not(:focus-visible) {
+.tab-button:focus:not(:focus-visible),
+.refresh-btn:focus:not(:focus-visible) {
   outline: none;
+}
+
+/* Touch target size for mobile */
+@media (max-width: 767px) {
+  .nav-btn,
+  .tab-button,
+  .filter-select,
+  .refresh-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* High contrast support */
@@ -781,5 +1009,37 @@
   
   .nav-btn::before {
     transition: none;
+  }
+}
+
+/* Fix for very small screens */
+@media (max-width: 320px) {
+  .content-section {
+    padding: 8px;
+  }
+  
+  .filters-section,
+  .summary-section,
+  .chart-navigation,
+  .chart-card,
+  .data-section {
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+  
+  .page-title {
+    font-size: 15px;
+  }
+  
+  .page-subtitle {
+    font-size: 11px;
+  }
+  
+  .section-title {
+    font-size: 13px;
+  }
+  
+  .dashboard-content {
+    gap: 12px;
   }
 }

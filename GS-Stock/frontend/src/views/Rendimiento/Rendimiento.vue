@@ -496,7 +496,8 @@ export default {
     ]
 
     // API Base URL
-    const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const API_BASE_URL = '/api'
+
 
     // Utility function to format numbers
     const formatNumber = (num) => {
@@ -544,7 +545,7 @@ export default {
         const token = localStorage.getItem('jwtToken')
         const params = { year: selectedYear.value }
         
-        const response = await axios.get(`${API_BASE_URL}/graphics/dashboard/summary`, {
+        const response = await axios.get(`/api/graphics/dashboard/summary`, {
           headers: { Authorization: `Bearer ${token}` },
           params
         })
@@ -566,7 +567,7 @@ export default {
           ...(selectedMonth.value && { month: selectedMonth.value })
         }
         
-        const response = await axios.get(`${API_BASE_URL}/graphics/comparison/product-lines`, {
+        const response = await axios.get(`$/api/graphics/comparison/product-lines`, {
           headers: { Authorization: `Bearer ${token}` },
           params
         })
@@ -590,7 +591,7 @@ export default {
           ...(selectedMonth.value && { month: selectedMonth.value })
         }
         
-        const response = await axios.get(`${API_BASE_URL}/graphics/analytics/best-selling-products`, {
+        const response = await axios.get(`/api/graphics/analytics/best-selling-products`, {
           headers: { Authorization: `Bearer ${token}` },
           params
         })
@@ -615,7 +616,7 @@ export default {
           ...(selectedVendedor.value && { vendedor_id: selectedVendedor.value })
         }
         
-        const response = await axios.get(`${API_BASE_URL}/graphics/analytics/vendedor-performance`, {
+        const response = await axios.get(`/api/graphics/analytics/vendedor-performance`, {
           headers: { Authorization: `Bearer ${token}` },
           params
         })
@@ -639,7 +640,7 @@ export default {
           ...(selectedMonth.value && { month: selectedMonth.value })
         }
         
-        const response = await axios.get(`${API_BASE_URL}/graphics/analytics/sales-performance`, {
+        const response = await axios.get(`/api/graphics/analytics/sales-performance`, {
           headers: { Authorization: `Bearer ${token}` },
           params
         })
@@ -658,7 +659,7 @@ export default {
       try {
         const token = localStorage.getItem('jwtToken')
         
-        const response = await axios.get(`${API_BASE_URL}/graphics/analytics/vendedores-list`, {
+        const response = await axios.get(`/api/graphics/analytics/vendedores-list`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         
