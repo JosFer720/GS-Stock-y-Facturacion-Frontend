@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
 const auth = require('../../middleware/auth'); 
+const rateLimiter = require('../../middleware/rateLimiter');
 
 const pool = new Pool({
   user: process.env.DB_USER || 'admin',
@@ -12,7 +13,7 @@ const pool = new Pool({
 });
 
 // ENDPOINT: Obtener todos los métodos de devolución
-router.get('/metodos', auth, async (req, res) => {
+router.get('/metodos', auth, apiLimiter, async (req, res) => {
   try {
     const query = 'SELECT Id as id, Metodo as metodo FROM Metodos_Devolucion ORDER BY Metodo';
     const result = await pool.query(query);
@@ -31,7 +32,7 @@ router.get('/metodos', auth, async (req, res) => {
 });
 
 // ENDPOINT: Obtener pedidos "Despachado" de un cliente con productos detallados
-router.get('/pedidos-cliente/:clienteId', auth, async (req, res) => {
+router.get('/pedidos-cliente/:clienteId', auth, apiLimiter, async (req, res) => {
   try {
     const { clienteId } = req.params;
     
@@ -111,7 +112,7 @@ router.get('/pedidos-cliente/:clienteId', auth, async (req, res) => {
 });
 
 // ENDPOINT: Registrar nueva devolución con productos específicos
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, apiLimiter, async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -308,7 +309,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // ENDPOINT: Obtener historial de devoluciones con detalle de productos
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, apiLimiter, async (req, res) => {
   try {
     const query = `
       SELECT 
@@ -358,7 +359,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // ENDPOINT: Actualizar una devolución
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, apiLimiter, async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -430,7 +431,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // ENDPOINT: Eliminar una devolución
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, apiLimiter, async (req, res) => {
   const client = await pool.connect();
   
   try {
