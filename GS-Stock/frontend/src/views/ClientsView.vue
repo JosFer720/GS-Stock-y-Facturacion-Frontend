@@ -81,7 +81,9 @@
                     @change="toggleClientSelection(client.id)"
                   >
                 </td>
-                <td>{{ client.id || '-' }}</td>
+                <td>
+                  <span :class="['client-id', idColorClass(client)]">{{ client.id || '-' }}</span>
+                </td>
                 <td>{{ client.nombre || '-' }}</td>
                 <td>{{ client.apellido || '-' }}</td>
                 <td>{{ client.empresa || '-' }}</td>
@@ -103,8 +105,9 @@
                 <td class="accounts-receivable-cell">
                   <button 
                     @click="verCuentasPorCobrar(client)" 
-                    class="view-accounts-btn"
+                    :class="['view-accounts-btn', buttonColorClass(client)]"
                     :disabled="loadingAccountsReceivable[client.id]"
+                    :title="buttonTitle(client)"
                   >
                     {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : 'Ver' }}
                   </button>
@@ -140,7 +143,7 @@
                   >
                   <div>
                     <h3>{{ client.nombre }} {{ client.apellido }}</h3>
-                    <span class="client-id">ID: {{ client.id }}</span>
+                    <span :class="['client-id', idColorClass(client)]">ID: {{ client.id }}</span>
                   </div>
                 </div>
               </div>
@@ -177,8 +180,9 @@
                 <strong>Cuentas por Cobrar:</strong>
                 <button 
                   @click="verCuentasPorCobrar(client)" 
-                  class="view-accounts-btn"
+                  :class="['view-accounts-btn', buttonColorClass(client)]"
                   :disabled="loadingAccountsReceivable[client.id]"
+                  :title="buttonTitle(client)"
                 >
                   {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : 'Ver' }}
                 </button>
@@ -452,13 +456,20 @@
         <div v-else class="accounts-list">
           <div v-for="pedido in clientAccountsReceivable" :key="pedido.id" class="account-item">
             <div class="account-header">
-              <h3>Pedido #{{ pedido.id }}</h3>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <h3>Pedido #{{ pedido.id }}</h3>
+                <button type="button" @click.stop="editPedido(pedido)" class="edit-btn-small">Editar</button>
+              </div>
               <span class="account-date">{{ formatDate(pedido.fecha) }}</span>
             </div>
             <div class="account-details">
               <div class="account-row">
                 <span class="label">Total Original:</span>
                 <span class="amount original">Q{{ formatCurrency(pedido.total) }}</span>
+              </div>
+              <div class="account-row">
+                <span class="label">Total Cancelado:</span>
+                <span class="amount original">Q{{ formatCurrency(pedido.total_cancelado_pedido || (pedido.total - (parseFloat(pedido.saldo_pendiente || 0)))) }}</span>
               </div>
               <div class="account-row">
                 <span class="label">Saldo Pendiente:</span>
@@ -470,6 +481,8 @@
               </div>
             </div>
           </div>
+
+          <!-- (Resumen final removido por petición) -->
         </div>
 
         <div class="modal-actions">
@@ -977,7 +990,11 @@ export default {
           empresa: cliente.empresa,
           nit: cliente.nit,
           direcciones: cliente.direcciones,
-          telefonos: cliente.telefonos
+          telefonos: cliente.telefonos,
+          // Summary fields added by backend (may be null)
+          total_cancelado: cliente.total_cancelado || 0,
+          oldest_pending_days: cliente.oldest_pending_days || null,
+          avg_days_to_pay: cliente.avg_days_to_pay || null
         }));
       } catch (err) {
         error.value = `Error: ${err.message}`;
@@ -1211,7 +1228,12 @@ export default {
     };
 
     const verCuentasPorCobrar = async (client) => {
-      selectedClientForAccounts.value = client;
+      // Ensure we have total_cancelado and avg_days_to_pay from the client list if present
+      selectedClientForAccounts.value = Object.assign({}, client, {
+        total_cancelado: client.total_cancelado || 0,
+        avg_days_to_pay: client.avg_days_to_pay || null,
+        oldest_pending_days: client.oldest_pending_days || null
+      });
       showAccountsReceivableModal.value = true;
       loadingClientAccounts.value = true;
       loadingAccountsReceivable.value[client.id] = true;
@@ -1235,6 +1257,26 @@ export default {
 
         const data = await response.json();
         clientAccountsReceivable.value = data.data || [];
+        // Attach 'dias_pendiente' already computed by backend; also compute total paid per pedido
+        clientAccountsReceivable.value = clientAccountsReceivable.value.map(p => ({
+          ...p,
+          total_cancelado_pedido: (p.total - parseFloat(p.saldo_pendiente || p.total || 0))
+        }));
+
+        // Compute oldest pending days from the fetched pedidos (most robust source) and update client object
+        const minDays = clientAccountsReceivable.value.reduce((min, p) => {
+          const d = p.dias_pendiente != null ? parseInt(p.dias_pendiente) : Infinity;
+          return Math.min(min, d);
+        }, Infinity);
+
+        const oldestPending = isFinite(minDays) ? minDays : null;
+        // Update selectedClientForAccounts and the main clients array so the button color updates
+        selectedClientForAccounts.value = Object.assign({}, selectedClientForAccounts.value, { oldest_pending_days: oldestPending });
+
+        const idx = clients.value.findIndex(c => c.id === client.id);
+        if (idx > -1) {
+          clients.value[idx] = Object.assign({}, clients.value[idx], { oldest_pending_days: oldestPending });
+        }
         
       } catch (err) {
         console.error('Error al obtener cuentas por cobrar:', err);
@@ -1244,6 +1286,14 @@ export default {
         loadingClientAccounts.value = false;
         loadingAccountsReceivable.value[client.id] = false;
       }
+    };
+
+    const editPedido = (pedido) => {
+      // Navegar al módulo de ventas con el pedido seleccionado
+      // Usar query param para que la vista de ventas pueda abrir el pedido
+      router.push({ path: '/ventas', query: { pedido: pedido.id } });
+      // cerrar modal
+      closeAccountsReceivableModal();
     };
 
     const closeAccountsReceivableModal = () => {
@@ -1265,6 +1315,33 @@ export default {
     const formatCurrency = (amount) => {
       if (!amount && amount !== 0) return '0.00';
       return parseFloat(amount).toFixed(2);
+    };
+
+    // Helper: determine color class for view button based on oldest pending days
+    const buttonColorClass = (client) => {
+      // If client has no pending orders (oldest_pending_days null) -> default blue
+      const days = client.oldest_pending_days;
+      if (days === null || days === undefined) return 'btn-blue';
+      if (days >= 0 && days <= 30) return 'btn-green';
+      if (days >= 31 && days <= 60) return 'btn-yellow';
+      if (days > 60) return 'btn-red';
+      return 'btn-blue';
+    };
+
+    const buttonTitle = (client) => {
+      const days = client.oldest_pending_days;
+      if (days === null || days === undefined) return 'Sin pedidos pendientes';
+      return `Días sin pagar: ${days}`;
+    };
+
+    // Helper: get class for client id cell based on avg_days_to_pay
+    const idColorClass = (client) => {
+      const avg = client.avg_days_to_pay;
+      if (avg === null || avg === undefined) return '';
+      if (avg >= 0 && avg <= 30) return 'id-green';
+      if (avg >= 31 && avg <= 60) return 'id-yellow';
+      if (avg > 60) return 'id-red';
+      return '';
     };
 
     onMounted(() => {
@@ -1339,6 +1416,8 @@ export default {
       formatCurrency,
       validateGuatemalanNIT,
       formatGuatemalanNIT
+      ,buttonColorClass, buttonTitle, idColorClass
+      ,editPedido
     };
   }
 }

@@ -11,7 +11,7 @@ const routes = [
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('../views/DashboardView.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria', 'Vendedor', 'Encargado de Inventario'] }
+    meta: { requiresAuth: true, allowedRoles: ['Administrador'] }
   },
   {
     path: '/restablecer',
@@ -79,7 +79,21 @@ router.beforeEach((to, from, next) => {
   if (authRequired && token) {
     const allowedRoles = to.meta.allowedRoles;
     if (allowedRoles && !allowedRoles.includes(user?.rol)) {
-      return next('/dashboard'); // Or show access denied
+      // Find the first route the user has access to and redirect there
+      try {
+        const userRole = user?.rol;
+        // find first route in routes array that requiresAuth and allows userRole
+        const firstAllowed = routes.find(r => {
+          if (!r.meta || !r.meta.requiresAuth) return false;
+          if (!r.meta.allowedRoles) return false;
+          return r.meta.allowedRoles.includes(userRole);
+        });
+        if (firstAllowed) return next({ path: firstAllowed.path });
+      } catch (err) {
+        console.error('Error finding first allowed route:', err);
+      }
+      // fallback to login if no allowed route
+      return next('/');
     }
   }
 

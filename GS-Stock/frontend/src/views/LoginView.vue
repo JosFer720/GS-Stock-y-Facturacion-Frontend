@@ -84,9 +84,33 @@ export default {
         const data = await response.json();
         localStorage.setItem('jwtToken', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Redirigir directamente sin mostrar modal de éxito
-        this.$router.push('/dashboard');
+
+        // Redirigir al primer path permitido según el rol del usuario
+        const role = data.user?.rol;
+        const permissions = {
+          'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
+          'Secretaria': ['inventario'],
+          'Vendedor': ['inventario', 'ventas', 'pagosydevoluciones'],
+          'Encargado de Inventario': ['inventario']
+        };
+
+        const routePriority = ['dashboard','inventario','usuarios','rendimiento','clientes','ventas','pagosydevoluciones'];
+        const map = {
+          'dashboard': '/dashboard',
+          'inventario': '/inventario',
+          'usuarios': '/usuarios',
+          'rendimiento': '/rendimiento',
+          'clientes': '/clientes',
+          'ventas': '/ventas',
+          'pagosydevoluciones': '/pagosydevoluciones'
+        };
+
+        const allowed = permissions[role] || [];
+        let target = '/';
+        for (const r of routePriority) {
+          if (allowed.includes(r)) { target = map[r]; break; }
+        }
+        this.$router.push(target);
       } catch (err) {
         this.showMessage('Error', err.message, 'error');
       }

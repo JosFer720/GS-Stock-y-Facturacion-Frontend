@@ -408,6 +408,11 @@
   margin-left: 10px;
 }
 
+/* ID color badges based on average days to pay */
+.client-id.id-green { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.client-id.id-yellow { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+.client-id.id-red { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
 .card-row {
   margin-bottom: 10px;
   display: flex;
@@ -724,6 +729,12 @@
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* Color variants for accounts button */
+.view-accounts-btn.btn-blue { background-color: #17a2b8; }
+.view-accounts-btn.btn-green { background-color: #28a745; }
+.view-accounts-btn.btn-yellow { background-color: #ffc107; color: #2b2b2b; }
+.view-accounts-btn.btn-red { background-color: #dc3545; }
 
 /* Estilos para el modal de cuentas por cobrar */
 .accounts-modal .modal-content {

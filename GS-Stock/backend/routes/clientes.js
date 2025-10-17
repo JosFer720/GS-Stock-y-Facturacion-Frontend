@@ -457,12 +457,46 @@ router.get('/', auth, async (req, res) => {
     }
     
     const clients = formatClientResponse(result.rows);
-    
-    res.status(200).json({
-      message: 'Clientes obtenidos correctamente',
-      count: clients.length,
-      data: clients
-    });
+    // Obtener resúmenes por cliente: oldest pending days, total_cancelado y avg_days_to_pay
+    try {
+      const summaryQuery = `
+        SELECT c.id,
+          (SELECT FLOOR(EXTRACT(epoch FROM (NOW() - MIN(p.fecha))) / 86400) FROM pedidos p WHERE p.id_cliente = c.id AND (p.id_pedido_estado_pago = 1 OR p.id_pedido_estado_pago IS NULL)) AS oldest_pending_days,
+          (SELECT COALESCE(SUM(pp.monto_pagado),0) FROM pagos_pedidos pp JOIN pedidos p2 ON pp.id_pedido = p2.id WHERE p2.id_cliente = c.id) AS total_cancelado,
+          (SELECT FLOOR(AVG(EXTRACT(epoch FROM (pp.fecha_de_pago - p.fecha)) / 86400)) FROM pagos_pedidos pp JOIN pedidos p ON pp.id_pedido = p.id WHERE pp.total_pedido = 0 AND p.id_cliente = c.id) AS avg_days_to_pay
+        FROM clientes c
+      `;
+
+      const summaryResult = await client.query(summaryQuery);
+      const summaryMap = new Map();
+      summaryResult.rows.forEach(r => {
+        summaryMap.set(r.id, r);
+      });
+
+      // Merge summaries into client objects
+      const clientsWithSummary = clients.map(cl => {
+        const s = summaryMap.get(cl.id) || {};
+        return Object.assign({}, cl, {
+          oldest_pending_days: s.oldest_pending_days !== null ? parseInt(s.oldest_pending_days) : null,
+          total_cancelado: s.total_cancelado !== null ? parseFloat(s.total_cancelado) : 0,
+          avg_days_to_pay: s.avg_days_to_pay !== null ? parseInt(s.avg_days_to_pay) : null
+        });
+      });
+
+      res.status(200).json({
+        message: 'Clientes obtenidos correctamente',
+        count: clientsWithSummary.length,
+        data: clientsWithSummary
+      });
+    } catch (summaryErr) {
+      console.error('Error obteniendo resúmenes de clientes:', summaryErr);
+      // Fallback: return clients without summary
+      res.status(200).json({
+        message: 'Clientes obtenidos correctamente (sin resúmenes)',
+        count: clients.length,
+        data: clients
+      });
+    }
     
   } catch (err) {
     console.error('Error al obtener clientes:', err);

@@ -1,7 +1,7 @@
 <template>
   <header class="app-header">
     <div class="logo-container">
-      <router-link to="/dashboard">
+      <router-link :to="firstAllowedRoute()">
         <img src="../assets/images/logo-without-back-letters.png" alt="Logo" class="logo-image" />
       </router-link>
     </div>
@@ -47,6 +47,38 @@ export default {
     }
   },
   methods: {
+    // Return the first route path the current user role has access to
+    firstAllowedRoute() {
+      const role = this.userRole;
+      if (!role) return '/';
+
+      const permissions = {
+        'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
+        'Secretaria': ['inventario'],
+        'Vendedor': ['inventario', 'ventas', 'pagosydevoluciones'],
+        'Encargado de Inventario': ['inventario']
+      };
+
+      const routePriority = ['dashboard','inventario','usuarios','rendimiento','clientes','ventas','pagosydevoluciones'];
+
+      const allowed = permissions[role] || [];
+      for (const r of routePriority) {
+        if (allowed.includes(r)) {
+          // map logical name to path
+          const map = {
+            'dashboard': '/dashboard',
+            'inventario': '/inventario',
+            'usuarios': '/usuarios',
+            'rendimiento': '/rendimiento',
+            'clientes': '/clientes',
+            'ventas': '/ventas',
+            'pagosydevoluciones': '/pagosydevoluciones'
+          };
+          return map[r] || '/';
+        }
+      }
+      return '/';
+    },
     hasAccess(route) {
       const role = this.userRole;
       
@@ -54,9 +86,9 @@ export default {
       
       const permissions = {
         'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
-        'Secretaria': ['dashboard', 'inventario'],
-        'Vendedor': ['dashboard', 'inventario', 'ventas', 'pagosydevoluciones'],
-        'Encargado de Inventario': ['dashboard', 'inventario']
+        'Secretaria': ['inventario'],
+        'Vendedor': ['inventario', 'ventas', 'pagosydevoluciones'],
+        'Encargado de Inventario': ['inventario']
       };
       
       return permissions[role]?.includes(route) || false;
