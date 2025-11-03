@@ -333,12 +333,18 @@
           </div>
           <div class="form-group">
             <label for="edit-rol">Rol (ID):</label>
-            <select id="edit-rol" v-model="editingUser.id_roles" required>
+            <select 
+              id="edit-rol" 
+              v-model="editingUser.id_roles" 
+              :disabled="isEditingSelf"
+              required
+            >
               <option value="1">1 - Administrador</option>
               <option value="2">2 - Vendedor</option>
               <option value="3">3 - Encargado de Inventario</option>
               <option value="4">4 - Secretaria</option>
             </select>
+            <small v-if="isEditingSelf" class="info-text">No puedes cambiar tu propio rol</small>
           </div>
           <div class="form-group">
             <label for="edit-estado">Estado:</label>
@@ -729,6 +735,32 @@ export default {
       }
       return token;
     };
+
+    // Función para decodificar el JWT y obtener el ID del usuario actual
+    const getCurrentUserId = () => {
+      const token = localStorage.getItem('jwtToken');
+      if (!token) return null;
+      
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        
+        const payload = JSON.parse(jsonPayload);
+        return payload.id || payload.userId || null;
+      } catch (error) {
+        console.error('Error al decodificar el token:', error);
+        return null;
+      }
+    };
+
+    // Computed para verificar si el usuario que se está editando es el actual
+    const isEditingSelf = computed(() => {
+      const currentUserId = getCurrentUserId();
+      return currentUserId && editingUser.value.id === currentUserId;
+    });
 
     const showMessage = (title, message, type = 'info') => {
       messageTitle.value = title;
@@ -1165,6 +1197,7 @@ export default {
       showPassword,
       showConfirmPassword,
       passwordMismatch,
+      isEditingSelf,
       togglePassword,
       toggleConfirmPassword,
       showMessage,
@@ -1245,6 +1278,14 @@ export default {
   color: #dc3545;
   font-size: 14px;
   margin-top: 5px;
+}
+
+.info-text {
+  color: #6c757d;
+  font-size: 12px;
+  margin-top: 5px;
+  font-style: italic;
+  display: block;
 }
 
 .input-help {
@@ -1457,6 +1498,12 @@ export default {
   border-radius: 4px;
   font-size: 16px;
   box-sizing: border-box;
+}
+
+.form-group select:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+  color: #6c757d;
 }
 
 .btn-submit {

@@ -121,16 +121,18 @@ router.post('/', auth, apiLimiter, async (req, res) => {
       id_pedido, 
       productos, // Array de {detalle_id, zapato_id, talla_id, cantidad}
       motivo, 
-      id_metodo_devolucion,
       observaciones_adicionales 
     } = req.body;
     
     // Validaciones básicas
-    if (!id_pedido || !productos || productos.length === 0 || !motivo || !id_metodo_devolucion) {
+    if (!id_pedido || !productos || productos.length === 0 || !motivo) {
       return res.status(400).json({ 
-        error: 'Se requieren los campos: id_pedido, productos (array), motivo, id_metodo_devolucion' 
+        error: 'Se requieren los campos: id_pedido, productos (array), motivo' 
       });
     }
+    
+    // Usar método de devolución por defecto (ID 1 - Efectivo)
+    const id_metodo_devolucion = 1;
     
     // Verificar que el pedido existe y está en estado "Despachado"
     const pedidoQuery = `
@@ -173,17 +175,6 @@ router.post('/', auth, apiLimiter, async (req, res) => {
       return res.status(400).json({ 
         error: 'Este pedido ya tiene una devolución registrada' 
       });
-    }
-    
-    // Validar método de devolución
-    const metodoResult = await client.query(
-      'SELECT id, metodo FROM Metodos_Devolucion WHERE id = $1',
-      [id_metodo_devolucion]
-    );
-    
-    if (metodoResult.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Método de devolución no válido' });
     }
     
     // Calcular monto total de devolución basado en productos seleccionados
@@ -284,7 +275,7 @@ router.post('/', auth, apiLimiter, async (req, res) => {
         cliente_nombre: pedido.cliente_nombre,
         motivo,
         monto_devuelto: parseFloat(montoTotalDevolucion),
-        metodo_devolucion: metodoResult.rows[0].metodo,
+        metodo_devolucion: 'Efectivo',
         fecha: fechaDevolucion,
         productos_devueltos: productosValidados.map(p => ({
           codigo: p.codigo,

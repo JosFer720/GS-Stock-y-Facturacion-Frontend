@@ -119,14 +119,13 @@ router.post('/', auth, async (req, res) => {
     const { 
       id_pedido, 
       motivo, 
-      id_metodo_devolucion, 
       monto_devolucion,
       observaciones_adicionales 
     } = req.body;
     
-    if (!id_pedido || !motivo || !id_metodo_devolucion) {
+    if (!id_pedido || !motivo) {
       return res.status(400).json({ 
-        error: 'Se requieren los campos: id_pedido, motivo, id_metodo_devolucion' 
+        error: 'Se requieren los campos: id_pedido, motivo' 
       });
     }
     
@@ -171,15 +170,8 @@ router.post('/', auth, async (req, res) => {
       });
     }
     
-    const metodoResult = await client.query(
-      'SELECT Id, Metodo FROM Metodos_Devolucion WHERE Id = $1',
-      [id_metodo_devolucion]
-    );
-    
-    if (metodoResult.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Método de devolución no válido' });
-    }
+    // Obtener el método de devolución por defecto "Efectivo" (ID 1)
+    const metodoDefaultId = 1; // Efectivo es el método por defecto
     
     const montoFinal = monto_devolucion || pedido.total;
     
@@ -192,31 +184,74 @@ router.post('/', auth, async (req, res) => {
     
     const devolucionResult = await client.query(
       'INSERT INTO Devoluciones (Id_Pedido, Motivo, Id_Metodo_Devolucion, Monto, Fecha) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) RETURNING Id, Fecha',
-      [id_pedido, motivo, id_metodo_devolucion, montoFinal]
+      [id_pedido, motivo, metodoDefaultId, montoFinal]
     );
     
     const devolucionId = devolucionResult.rows[0].id;
     const fechaDevolucion = devolucionResult.rows[0].fecha;
     
+    // LÓGICA DE AUMENTO DE INVENTARIO POR DEVOLUCIÓN
+    // Obtener todos los productos del pedido con sus tallas
     const productosQuery = `
-      SELECT dp.Id_Zapato, dp.Cantidad, zt.Id_Talla
+      SELECT 
+        dp.Id_Zapato, 
+        dp.Id_Talla,
+        dp.Cantidad,
+        z.Codigo as zapato_codigo,
+        z.Nombre as zapato_nombre,
+        t.Talla_EU,
+        t.Talla_US
       FROM Detalle_Pedidos dp
-      INNER JOIN Zapatos_Tallas zt ON dp.Id_Zapato = zt.Id_Zapato
+      INNER JOIN Zapatos z ON dp.Id_Zapato = z.Id
+      LEFT JOIN Tallas t ON dp.Id_Talla = t.Id
       WHERE dp.Id_Pedido = $1
     `;
     
     const productosResult = await client.query(productosQuery, [id_pedido]);
     
+    if (productosResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: 'No se encontraron productos en el pedido para devolver' 
+      });
+    }
+    
+    // Aumentar el inventario para cada producto devuelto
     for (const producto of productosResult.rows) {
-      await client.query(
-        'UPDATE Zapatos_Tallas SET Stock = Stock + $1 WHERE Id_Zapato = $2 AND Id_Talla = $3',
-        [producto.cantidad, producto.id_zapato, producto.id_talla]
-      );
+      // 1. Aumentar stock en Zapatos_Tallas (inventario por talla)
+      if (producto.id_talla) {
+        const updateTallaResult = await client.query(
+          `UPDATE Zapatos_Tallas 
+           SET Stock = Stock + $1 
+           WHERE Id_Zapato = $2 AND Id_Talla = $3
+           RETURNING Stock`,
+          [producto.cantidad, producto.id_zapato, producto.id_talla]
+        );
+        
+        console.log(`✓ Stock actualizado para ${producto.zapato_nombre} (Talla ${producto.talla_eu}EU): +${producto.cantidad} → ${updateTallaResult.rows[0]?.stock || 0}`);
+      }
       
-      await client.query(
-        'UPDATE Inventarios SET Cantidad = Cantidad + $1 WHERE Id_Zapatos = $2',
+      // 2. Aumentar cantidad en Inventarios (inventario general)
+      const updateInventarioResult = await client.query(
+        `UPDATE Inventarios 
+         SET Cantidad = Cantidad + $1 
+         WHERE Id_Zapatos = $2
+         RETURNING Cantidad`,
         [producto.cantidad, producto.id_zapato]
       );
+      
+      if (updateInventarioResult.rows.length === 0) {
+        // Si no existe entrada en inventario, crearla
+        await client.query(
+          `INSERT INTO Inventarios (Id_Zapatos, Cantidad, Fecha_Actualizacion)
+           VALUES ($1, $2, CURRENT_TIMESTAMP)`,
+          [producto.id_zapato, producto.cantidad]
+        );
+        
+        console.log(`✓ Entrada de inventario creada para ${producto.zapato_nombre}: ${producto.cantidad} unidades`);
+      } else {
+        console.log(`✓ Inventario actualizado para ${producto.zapato_nombre}: +${producto.cantidad} → ${updateInventarioResult.rows[0].cantidad}`);
+      }
     }
     
     await client.query(
@@ -235,7 +270,7 @@ router.post('/', auth, async (req, res) => {
         cliente_nombre: pedido.cliente_nombre,
         motivo,
         monto_devuelto: parseFloat(montoFinal),
-        metodo_devolucion: metodoResult.rows[0].metodo,
+        metodo_devolucion: 'Efectivo',
         fecha: fechaDevolucion,
         productos_devueltos: productosResult.rows.length
       }

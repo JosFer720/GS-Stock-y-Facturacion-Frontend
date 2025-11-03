@@ -98,14 +98,13 @@
   flex-direction: column;
   width: 100%;
   max-width: min(800px, 100vw - 30px);
-  gap: 0px;
+  gap: 10px;
   box-sizing: border-box;
 }
 
 .action-button {
   padding: 12px 16px;
   border: 2px solid #007bff;
-  margin-bottom: 3px;
   border-radius: 6px;
   background-color: white;
   color: #007bff;
@@ -1093,7 +1092,7 @@
   }
   
   .actions-section {
-    gap: 0px;
+    gap: 8px;
   }
   
   .filter-section {
@@ -1190,7 +1189,7 @@
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 3px;
+    gap: 15px;
   }
   
   .action-button {

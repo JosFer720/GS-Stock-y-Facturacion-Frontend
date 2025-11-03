@@ -263,17 +263,6 @@
               </div>
             </div>
 
-            <!-- Método de devolución -->
-            <div class="form-group">
-              <label for="dev-metodo">Método de Devolución:</label>
-              <select id="dev-metodo" v-model="nuevaDevolucion.id_metodo_devolucion" required>
-                <option value="">Seleccione un método</option>
-                <option v-for="metodo in metodosDevoluciones" :key="metodo.id" :value="metodo.id">
-                  {{ metodo.metodo }}
-                </option>
-              </select>
-            </div>
-
             <!-- Motivo de devolución -->
             <div class="form-group">
               <label for="dev-motivo">Motivo de Devolución:</label>
@@ -411,7 +400,6 @@ export default {
     const clienteSearchTermDev = ref('');
     const showClienteDropdownDev = ref(false);
     const clientesFiltradosDev = ref([]);
-    const metodosDevoluciones = ref([]);
     const clienteSeleccionadoDev = ref(null);
     const pedidosClienteDev = ref([]);
     const pedidoSeleccionado = ref('');
@@ -421,7 +409,6 @@ export default {
     
     const nuevaDevolucion = ref({
       id_pedido: '',
-      id_metodo_devolucion: '',
       motivo: '',
       observaciones_adicionales: '',
       productos: []
@@ -542,24 +529,6 @@ export default {
         metodosPago.value = data.data || [];
       } catch (err) {
         console.error('Error al obtener métodos de pago:', err);
-      }
-    };
-
-    const fetchMetodosDevoluciones = async () => {
-      try {
-        const token = checkAuth();
-        if (!token) return;
-        
-        const response = await fetch('/api/devoluciones/metodos', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Error al obtener métodos de devolución');
-        
-        const data = await response.json();
-        metodosDevoluciones.value = data.data || [];
-      } catch (err) {
-        console.error('Error al obtener métodos de devolución:', err);
       }
     };
 
@@ -775,7 +744,8 @@ export default {
     };
 
     const getCantidadDevolver = (detalleId) => {
-      return cantidadesDevolver.value[detalleId] || 1;
+      const producto = productosDisponibles.value.find(p => p.detalle_id === detalleId);
+      return cantidadesDevolver.value[detalleId] ?? producto?.cantidad ?? 1;
     };
 
     const updateCantidadDevolver = (detalleId, event) => {
@@ -802,7 +772,7 @@ export default {
     const resumenDevolucion = computed(() => {
       return productosSeleccionados.value.map(detalleId => {
         const producto = productosDisponibles.value.find(p => p.detalle_id === detalleId);
-        const cantidad = cantidadesDevolver.value[detalleId] || 1;
+        const cantidad = cantidadesDevolver.value[detalleId] ?? producto?.cantidad ?? 1;
         
         if (!producto) return null;
         
@@ -833,8 +803,8 @@ export default {
         return;
       }
 
-      if (!nuevaDevolucion.value.id_metodo_devolucion || !nuevaDevolucion.value.motivo) {
-        showMessage('Error', 'Complete el método de devolución y el motivo', 'error');
+      if (!nuevaDevolucion.value.motivo) {
+        showMessage('Error', 'Complete el motivo de la devolución', 'error');
         return;
       }
 
@@ -850,7 +820,7 @@ export default {
             detalle_id: detalleId,
             zapato_id: producto.zapato_id,
             talla_id: producto.talla_id,
-            cantidad: cantidadesDevolver.value[detalleId] || 1
+            cantidad: cantidadesDevolver.value[detalleId] ?? producto.cantidad
           };
         });
 
@@ -858,7 +828,6 @@ export default {
           id_pedido: pedidoSeleccionado.value,
           productos: productosADevolver,
           motivo: nuevaDevolucion.value.motivo,
-          id_metodo_devolucion: nuevaDevolucion.value.id_metodo_devolucion,
           observaciones_adicionales: nuevaDevolucion.value.observaciones_adicionales || ''
         };
 
@@ -886,7 +855,6 @@ export default {
         nuevaDevolucion.value = {
           id_cliente: '',
           id_pedido: '',
-          id_metodo_devolucion: '',
           motivo: '',
           observaciones_adicionales: '',
           productos: []
@@ -1037,7 +1005,6 @@ export default {
         fetchVendedores(),
         fetchClientes(),
         fetchMetodosPago(),
-        fetchMetodosDevoluciones(),
         fetchPagos(),
         fetchDevoluciones()
       ]);
@@ -1081,7 +1048,6 @@ export default {
       clienteSearchTermDev,
       showClienteDropdownDev,
       clientesFiltradosDev,
-      metodosDevoluciones,
       clienteSeleccionadoDev,
       pedidosClienteDev,
       pedidoSeleccionado,
