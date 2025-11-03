@@ -11,7 +11,7 @@ const routes = [
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('../views/DashboardView.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador'] }
+    meta: { requiresAuth: true, allowedRoles: ['Super Admin', 'Administrador'] }
   },
   {
     path: '/restablecer',
@@ -27,37 +27,37 @@ const routes = [
     path: '/usuarios',
     name: 'usuarios',
     component: () => import('../views/UserManagementView.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador'] }
+    meta: { requiresAuth: true, allowedRoles: ['Super Admin', 'Administrador'] }
   },
   {
     path: '/inventario',
     name: 'Inventario',
     component: () => import('../views/ProductManagement.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria', 'Vendedor', 'Encargado de Inventario'] }
+    meta: { requiresAuth: true, allowedRoles: ['Super Admin', 'Administrador', 'Secretaria', 'Vendedor', 'Encargado de Inventario'] }
   },
   {
     path: '/ventas',
     name: 'Ventas',
     component: () => import('../views/SalesManagment.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Vendedor'] }
+    meta: { requiresAuth: true, allowedRoles: ['Super Admin', 'Administrador', 'Vendedor'] }
   },
   {
     path: '/clientes',
     name: 'Clientes',
     component: () => import('../views/ClientsView.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador'] }
+    meta: { requiresAuth: true, allowedRoles: ['Super Admin', 'Administrador'] }
   },
   {
     path: '/pagosydevoluciones',
     name: 'Pagos Y Devoluciones',
     component: () => import('../views/PagosDevolucionesView.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador','Vendedor'] }
+    meta: { requiresAuth: true, allowedRoles: ['Super Admin', 'Administrador','Vendedor'] }
   },
   {
     path: '/rendimiento',
     name: 'Rendimiento',
     component: () => import('../views/Rendimiento/Rendimiento.vue'),
-    meta: { requiresAuth: true, allowedRoles: ['Administrador', 'Secretaria'] }
+    meta: { requiresAuth: true, allowedRoles: ['Super Admin', 'Administrador', 'Secretaria'] }
   }
 ]
 

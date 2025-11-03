@@ -348,6 +348,7 @@ router.get('/vendedor-actual', auth, async (req, res) => {
         rol: usuario.rol,
         es_vendedor: usuario.rol === 'Vendedor',
         es_administrador: usuario.rol === 'Administrador',
+        es_super_admin: usuario.rol === 'Super Admin',
         usuario: usuario.usuario
       },
       message: 'Información del usuario obtenida correctamente'

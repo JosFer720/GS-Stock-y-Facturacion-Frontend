@@ -88,6 +88,7 @@ export default {
         // Redirigir al primer path permitido según el rol del usuario
         const role = data.user?.rol;
         const permissions = {
+          'Super Admin': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
           'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
           'Secretaria': ['inventario'],
           'Vendedor': ['inventario', 'ventas', 'pagosydevoluciones'],

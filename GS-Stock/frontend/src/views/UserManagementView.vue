@@ -291,6 +291,7 @@
               <option value="2">2 - Vendedor</option>
               <option value="3">3 - Encargado de Inventario</option>
               <option value="4">4 - Secretaria</option>
+              <option value="5">5 - Super Admin</option>
             </select>
           </div>
           <div class="form-group">
@@ -336,15 +337,17 @@
             <select 
               id="edit-rol" 
               v-model="editingUser.id_roles" 
-              :disabled="isEditingSelf"
+              :disabled="isRoleSelectDisabled"
               required
             >
               <option value="1">1 - Administrador</option>
               <option value="2">2 - Vendedor</option>
               <option value="3">3 - Encargado de Inventario</option>
               <option value="4">4 - Secretaria</option>
+              <option value="5">5 - Super Admin</option>
             </select>
             <small v-if="isEditingSelf" class="info-text">No puedes cambiar tu propio rol</small>
+            <small v-else-if="isEditingSuperAdmin" class="info-text">Solo otro Super Admin puede modificar el rol de un Super Admin</small>
           </div>
           <div class="form-group">
             <label for="edit-estado">Estado:</label>
@@ -756,10 +759,40 @@ export default {
       }
     };
 
+    // Función para obtener el rol del usuario actual
+    const getCurrentUserRole = () => {
+      const token = localStorage.getItem('jwtToken');
+      if (!token) return null;
+      
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        
+        const payload = JSON.parse(jsonPayload);
+        return payload.rol || null;
+      } catch (error) {
+        console.error('Error al decodificar el token:', error);
+        return null;
+      }
+    };
+
     // Computed para verificar si el usuario que se está editando es el actual
     const isEditingSelf = computed(() => {
       const currentUserId = getCurrentUserId();
       return currentUserId && editingUser.value.id === currentUserId;
+    });
+
+    // Computed para verificar si el usuario que se está editando es super admin
+    const isEditingSuperAdmin = computed(() => {
+      return editingUser.value.es_super_admin === true;
+    });
+
+    // Computed para verificar si el select de rol debe estar deshabilitado
+    const isRoleSelectDisabled = computed(() => {
+      return isEditingSelf.value || isEditingSuperAdmin.value;
     });
 
     const showMessage = (title, message, type = 'info') => {
@@ -803,7 +836,8 @@ export default {
           email: normalizeEmail(user.email), // Normalizar email al cargar
           id_roles: user.id_roles,
           estado: user.estado, 
-          estadoTexto: user.estado ? 'Activo' : 'Inactivo' 
+          estadoTexto: user.estado ? 'Activo' : 'Inactivo',
+          es_super_admin: user.es_super_admin || false
         }));
         
         console.log('Usuarios cargados exitosamente:', users.value.length);
@@ -862,13 +896,38 @@ export default {
         return;
       }
       
+      // DEBUG: Ver qué datos tiene el usuario seleccionado
+      console.log('=== DEBUG EDITAR USUARIO ===');
+      console.log('Usuario seleccionado:', selectedUser.value);
+      console.log('es_super_admin:', selectedUser.value.es_super_admin);
+      console.log('Tipo de es_super_admin:', typeof selectedUser.value.es_super_admin);
+      
+      // Verificar si el usuario seleccionado es Super Admin y el usuario actual NO es Super Admin
+      const currentUserRole = getCurrentUserRole();
+      const targetIsSuperAdmin = selectedUser.value.es_super_admin === true;
+      const currentIsSuperAdmin = currentUserRole === 'Super Admin';
+      
+      console.log('Rol actual:', currentUserRole);
+      console.log('Target es Super Admin?', targetIsSuperAdmin);
+      console.log('Usuario actual es Super Admin?', currentIsSuperAdmin);
+      
+      if (targetIsSuperAdmin && !currentIsSuperAdmin) {
+        showMessage(
+          'Acción No Permitida', 
+          'Solo un Super Admin puede modificar la información de otro Super Admin.', 
+          'warning'
+        );
+        return;
+      }
+      
       editingUser.value = {
         id: selectedUser.value.id,
         nombre: selectedUser.value.nombre,
         apellido: selectedUser.value.apellido,
         email: selectedUser.value.email,
         id_roles: selectedUser.value.id_roles,
-        estado: selectedUser.value.estado
+        estado: selectedUser.value.estado,
+        es_super_admin: selectedUser.value.es_super_admin || false
       };
       
       console.log('Editando usuario:', hidePassword(editingUser.value)); 
@@ -1138,7 +1197,16 @@ export default {
         if (!response.ok) {
           const errorData = await response.json();
           
-          if (response.status === 409 || errorData.message?.includes('email')) {
+          // Manejo específico para errores de permisos
+          if (response.status === 403) {
+            if (errorData.error?.includes('propio rol')) {
+              showMessage('Acción No Permitida', 'No puedes cambiar tu propio rol. Contacta a otro administrador.', 'warning');
+            } else if (errorData.error?.includes('Super Admin')) {
+              showMessage('Permisos Insuficientes', 'Solo un Super Admin puede modificar el rol de otro Super Admin.', 'warning');
+            } else {
+              showMessage('Error de Permisos', errorData.message || 'No tienes permisos para realizar esta acción', 'error');
+            }
+          } else if (response.status === 409 || errorData.message?.includes('email')) {
             showMessage('Error', 'Ya existe un usuario con este email', 'error');
           } else if (response.status === 400) {
             showMessage('Error', 'Datos inválidos: ' + (errorData.message || 'Verifique los campos'), 'error');
@@ -1198,6 +1266,8 @@ export default {
       showConfirmPassword,
       passwordMismatch,
       isEditingSelf,
+      isEditingSuperAdmin,
+      isRoleSelectDisabled,
       togglePassword,
       toggleConfirmPassword,
       showMessage,

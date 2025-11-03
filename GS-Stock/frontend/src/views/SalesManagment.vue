@@ -569,7 +569,7 @@ export default {
         if (result.success) {
           vendedorActual.value = result.data;
           
-          if (!result.data.es_vendedor && !result.data.es_administrador) {
+          if (!result.data.es_vendedor && !result.data.es_administrador && !result.data.es_super_admin) {
             showMessage('Error de Permisos', 
               'Tu usuario no tiene permisos de vendedor o administrador. Contacta al administrador.', 
               'error'
@@ -900,7 +900,7 @@ export default {
 
     const openAddSaleModal = async () => {
       // Verificar permisos de vendedor antes de abrir modal
-      if (!vendedorActual.value || (!vendedorActual.value.es_vendedor && !vendedorActual.value.es_administrador)) {
+      if (!vendedorActual.value || (!vendedorActual.value.es_vendedor && !vendedorActual.value.es_administrador && !vendedorActual.value.es_super_admin)) {
         showMessage('Error de Permisos', 
           'Solo los usuarios con rol de vendedor o administrador pueden crear ventas.', 
           'error'

@@ -53,6 +53,7 @@ export default {
       if (!role) return '/';
 
       const permissions = {
+        'Super Admin': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
         'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
         'Secretaria': ['inventario'],
         'Vendedor': ['inventario', 'ventas', 'pagosydevoluciones'],
@@ -85,6 +86,7 @@ export default {
       if (!role) return false;
       
       const permissions = {
+        'Super Admin': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
         'Administrador': ['dashboard', 'inventario', 'usuarios', 'rendimiento', 'clientes', 'ventas', 'pagosydevoluciones'],
         'Secretaria': ['inventario'],
         'Vendedor': ['inventario', 'ventas', 'pagosydevoluciones'],

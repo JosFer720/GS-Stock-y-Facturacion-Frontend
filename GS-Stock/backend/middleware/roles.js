@@ -26,10 +26,10 @@ const checkRole = (allowedRoles) => {
 };
 
 const roles = {
-  admin: ['Administrador'],
-  secretaria: ['Secretaria', 'Administrador'],
-  vendedor: ['Vendedor', 'Administrador'],
-  inventario: ['Encargado de Inventario', 'Administrador']
+  admin: ['Super Admin', 'Administrador'],
+  secretaria: ['Super Admin', 'Secretaria', 'Administrador'],
+  vendedor: ['Super Admin', 'Vendedor', 'Administrador'],
+  inventario: ['Super Admin', 'Encargado de Inventario', 'Administrador']
 };
 
 module.exports = { checkRole, roles };

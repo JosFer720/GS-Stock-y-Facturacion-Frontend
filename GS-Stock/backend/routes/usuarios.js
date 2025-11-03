@@ -15,7 +15,7 @@ const pool = new Pool({
 // Obtener todos los usuarios
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, id_roles, nombre, apellido, email, estado FROM usuarios');
+    const result = await pool.query('SELECT id, id_roles, nombre, apellido, email, estado, es_super_admin FROM usuarios');
     
     if (result.rows.length === 0) {
       return res.status(200).json({ message: 'No hay usuarios registrados', data: [] });
@@ -494,14 +494,47 @@ router.put('/:id', auth, async (req, res) => {
     const { id } = req.params;
     const { nombre, apellido, email, id_roles, estado } = req.body;
     
+    // REGLA 1: Un usuario NO puede cambiar su propio rol
+    if (req.user.id.toString() === id.toString() && id_roles) {
+      return res.status(403).json({ 
+        error: 'No puedes cambiar tu propio rol',
+        message: 'Por seguridad, no está permitido modificar tu propio rol. Contacta a otro administrador.'
+      });
+    }
+    
+    // Verificar si el usuario objetivo es super admin
+    const userCheck = await pool.query(
+      'SELECT es_super_admin, id_roles FROM usuarios WHERE id = $1',
+      [id]
+    );
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    const targetIsSuperAdmin = userCheck.rows[0].es_super_admin;
+    const currentRoleId = userCheck.rows[0].id_roles;
+    
+    // Verificar si el usuario que hace la petición es super admin
+    const requestingUserCheck = await pool.query(
+      'SELECT es_super_admin FROM usuarios WHERE id = $1',
+      [req.user.id]
+    );
+    
+    const requestingUserIsSuperAdmin = requestingUserCheck.rows[0]?.es_super_admin || false;
+    
+    // REGLA 2: Solo un Super Admin puede modificar CUALQUIER COSA de otro Super Admin
+    if (targetIsSuperAdmin && !requestingUserIsSuperAdmin) {
+      return res.status(403).json({ 
+        error: 'No tienes permisos para modificar un Super Admin',
+        message: 'Solo otro Super Admin puede modificar la información de un Super Admin'
+      });
+    }
+    
     const result = await pool.query(
       'UPDATE usuarios SET nombre = $1, apellido = $2, email = $3, id_roles = $4, estado = $5 WHERE id = $6 RETURNING *',
       [nombre, apellido, email, id_roles, estado, id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
 
     res.status(200).json({
       message: 'Usuario actualizado correctamente',
