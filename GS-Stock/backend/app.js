@@ -22,6 +22,7 @@ const envioNacionalRoutes = require('./routes/envioNacional');
 const envioImportadoraRoutes = require('./routes/envioImportadora');
 const devolucionesRoutes = require('./routes/Devoluciones/devoluciones');
 const pagosRoutes = require('./routes/pagos');
+const dashboardRoutes = require('./routes/dashboard');
 
 const graphicsRoutes = require('./routes/Routesforgraphics/graphics');
 
@@ -59,6 +60,7 @@ app.use('/api/envios/nacional', envioNacionalRoutes);
 app.use('/api/envios/importadora', envioImportadoraRoutes);
 app.use('/api/devoluciones', devolucionesRoutes);
 app.use('/api/pagos', pagosRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/graphics', graphicsRoutes);
 
 
