@@ -760,8 +760,8 @@ const API_BASE_URL = '/api'
     const createLineChart = () => {
       if (!productLinesData.value.length || activeChart.value !== 'comparison') return
 
-      const ctx = document.getElementById('lineChart')
-      if (!ctx) {
+      const canvas = document.getElementById('lineChart')
+      if (!canvas) {
         console.warn('Line chart canvas not found')
         return
       }
@@ -787,7 +787,7 @@ const API_BASE_URL = '/api'
         const nacionalData = labels.map(label => groupedData[label]['Linea Nacional'] || 0)
         const importadoraData = labels.map(label => groupedData[label]['Linea Importadora'] || 0)
 
-        lineChart.value = new Chart(ctx, {
+        lineChart.value = new Chart(canvas, {
           type: 'line',
           data: {
             labels: labels.map(label => {
@@ -798,12 +798,12 @@ const API_BASE_URL = '/api'
               {
                 label: 'Línea Nacional',
                 data: nacionalData,
-                borderColor: '#2196F3',
-                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                borderColor: '#2C3E50',
+                backgroundColor: 'rgba(44, 62, 80, 0.1)',
                 borderWidth: 3,
                 fill: true,
                 tension: 0.4,
-                pointBackgroundColor: '#2196F3',
+                pointBackgroundColor: '#2C3E50',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
                 pointRadius: 6,
@@ -812,12 +812,12 @@ const API_BASE_URL = '/api'
               {
                 label: 'Línea Importadora',
                 data: importadoraData,
-                borderColor: '#4CAF50',
-                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                borderColor: '#34495E',
+                backgroundColor: 'rgba(52, 73, 94, 0.1)',
                 borderWidth: 3,
                 fill: true,
                 tension: 0.4,
-                pointBackgroundColor: '#4CAF50',
+                pointBackgroundColor: '#34495E',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
                 pointRadius: 6,
@@ -880,8 +880,8 @@ const API_BASE_URL = '/api'
     const createBarChart = () => {
       if (!bestSellingData.value.length || activeChart.value !== 'products') return
 
-      const ctx = document.getElementById('barChart')
-      if (!ctx) {
+      const canvas = document.getElementById('barChart')
+      if (!canvas) {
         console.warn('Bar chart canvas not found')
         return
       }
@@ -899,23 +899,17 @@ const API_BASE_URL = '/api'
           item.nombre_zapato
         )
         const data = bestSellingData.value.map(item => parseInt(item.total_vendido))
-        const backgroundColors = bestSellingData.value.map((_, index) => {
-          const colors = [
-            '#FFD700', '#C0C0C0', '#CD7F32', '#2196F3', '#4CAF50', 
-            '#FF9800', '#9C27B0', '#E91E63', '#00BCD4', '#795548'
-          ]
-          return colors[index % colors.length]
-        })
+        const charcoalColor = '#2C3E50'
 
-        barChart.value = new Chart(ctx, {
+        barChart.value = new Chart(canvas, {
           type: 'bar',
           data: {
             labels,
             datasets: [{
               label: 'Cantidad Vendida',
               data,
-              backgroundColor: backgroundColors,
-              borderColor: backgroundColors.map(color => color),
+              backgroundColor: charcoalColor,
+              borderColor: '#1A252F',
               borderWidth: 2,
               borderRadius: {
                 topLeft: 8,
@@ -981,8 +975,8 @@ const API_BASE_URL = '/api'
     const createVendedorChart = () => {
       if (!vendedorData.value.length || activeChart.value !== 'vendedor') return
 
-      const ctx = document.getElementById('vendedorChart')
-      if (!ctx) {
+      const canvas = document.getElementById('vendedorChart')
+      if (!canvas) {
         console.warn('Vendedor chart canvas not found')
         return
       }
@@ -1012,7 +1006,7 @@ const API_BASE_URL = '/api'
 
         // Create datasets for each vendedor
         const datasets = Object.keys(groupedData).map((vendedorName, index) => {
-          const colors = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#E91E63', '#00BCD4', '#795548', '#607D8B']
+          const colors = ['#2C3E50', '#34495E', '#1A252F', '#607D8B', '#546E7A', '#455A64', '#37474F', '#263238']
           const color = colors[index % colors.length]
           
           const data = allPeriods.map(periodo => {
@@ -1024,7 +1018,7 @@ const API_BASE_URL = '/api'
             label: vendedorName,
             data: data,
             borderColor: color,
-            backgroundColor: color + '20',
+            backgroundColor: 'transparent',
             borderWidth: 3,
             fill: false,
             tension: 0.4,
@@ -1036,7 +1030,7 @@ const API_BASE_URL = '/api'
           }
         })
 
-        vendedorChart.value = new Chart(ctx, {
+        vendedorChart.value = new Chart(canvas, {
           type: 'line',
           data: {
             labels: allPeriods,
@@ -1118,8 +1112,8 @@ const API_BASE_URL = '/api'
     const createVentasChart = () => {
       if (!ventasData.value.length || activeChart.value !== 'ventas') return
 
-      const ctx = document.getElementById('ventasChart')
-      if (!ctx) {
+      const canvas = document.getElementById('ventasChart')
+      if (!canvas) {
         console.warn('Ventas chart canvas not found')
         return
       }
@@ -1137,7 +1131,7 @@ const API_BASE_URL = '/api'
         const ventasImportadora = ventasData.value.map(item => parseFloat(item.ventas_importadora))
         const totalPedidos = ventasData.value.map(item => parseInt(item.total_pedidos))
 
-        ventasChart.value = new Chart(ctx, {
+        ventasChart.value = new Chart(canvas, {
           type: 'line',
           data: {
             labels: labels,
@@ -1145,12 +1139,12 @@ const API_BASE_URL = '/api'
               {
                 label: 'Ventas Totales',
                 data: ventasTotales,
-                borderColor: '#333333',
-                backgroundColor: 'rgba(51, 51, 51, 0.1)',
+                borderColor: '#2C3E50',
+                backgroundColor: 'rgba(44, 62, 80, 0.1)',
                 borderWidth: 4,
                 fill: true,
                 tension: 0.4,
-                pointBackgroundColor: '#333333',
+                pointBackgroundColor: '#2C3E50',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
                 pointRadius: 6,
@@ -1160,12 +1154,12 @@ const API_BASE_URL = '/api'
               {
                 label: 'Línea Nacional',
                 data: ventasNacional,
-                borderColor: '#2196F3',
-                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                borderColor: '#34495E',
+                backgroundColor: 'transparent',
                 borderWidth: 3,
                 fill: false,
                 tension: 0.4,
-                pointBackgroundColor: '#2196F3',
+                pointBackgroundColor: '#34495E',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
                 pointRadius: 5,
@@ -1175,12 +1169,12 @@ const API_BASE_URL = '/api'
               {
                 label: 'Línea Importadora',
                 data: ventasImportadora,
-                borderColor: '#4CAF50',
-                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                borderColor: '#607D8B',
+                backgroundColor: 'transparent',
                 borderWidth: 3,
                 fill: false,
                 tension: 0.4,
-                pointBackgroundColor: '#4CAF50',
+                pointBackgroundColor: '#607D8B',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
                 pointRadius: 5,
@@ -1191,8 +1185,8 @@ const API_BASE_URL = '/api'
                 label: 'Total Pedidos',
                 data: totalPedidos,
                 type: 'bar',
-                backgroundColor: 'rgba(255, 152, 0, 0.3)',
-                borderColor: '#FF9800',
+                backgroundColor: 'rgba(26, 37, 47, 0.4)',
+                borderColor: '#1A252F',
                 borderWidth: 1,
                 yAxisID: 'y1'
               }
