@@ -127,8 +127,8 @@
                   </div>
                 </td>
                 <td>
-                  <span :class="getStatusClass(product.inventario_general.estado)">
-                    {{ product.inventario_general.estado }}
+                  <span :class="getStatusClass(getFinalStatus(product))">
+                    {{ getFinalStatus(product) }}
                   </span>
                 </td>
                 <td v-if="isAdmin && !deleteMode">
@@ -199,8 +199,8 @@
               
               <div class="card-row">
                 <strong>Estado:</strong>
-                <span :class="getStatusClass(product.inventario_general.estado)">
-                  {{ product.inventario_general.estado }}
+                <span :class="getStatusClass(getFinalStatus(product))">
+                  {{ getFinalStatus(product) }}
                 </span>
               </div>
               
@@ -409,11 +409,19 @@
 
             <div class="form-group">
               <label for="edit-estado">Estado:</label>
-              <select id="edit-estado" v-model="selectedProduct.inventario_general.estado" required>
-                <option value="Disponible">Disponible</option>
-                <option value="Agotado">Agotado</option>
-                <option value="No Disponible">No Disponible</option>
-              </select>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <span style="flex: 1; padding: 8px; background: #f5f5f5; border-radius: 4px;">
+                  {{ getFinalStatus(selectedProduct) }}
+                </span>
+                <select id="edit-estado" v-model="selectedProduct.inventario_general.estado" required style="flex: 1;">
+                  <option value="Disponible">Disponible</option>
+                  <option value="Agotado">Agotado</option>
+                  <option value="No Disponible">No Disponible</option>
+                </select>
+              </div>
+              <small style="display: block; margin-top: 8px; color: #666;">
+                {{ getEstadoHelpText }}
+              </small>
             </div>
 
             <div class="tallas-section">
@@ -542,6 +550,32 @@ export default {
       return 'stock-normal';
     };
 
+    // Función para obtener el estado automático basado en stock
+    const getAutoStatus = (product) => {
+      const stockTotal = product.resumen_stock?.stock_total || 0;
+      if (stockTotal <= 0) {
+        return 'Agotado';
+      }
+      return 'Disponible';
+    };
+
+    // Función para obtener el estado final (automático o "No disponible" si se seleccionó manualmente)
+    const getFinalStatus = (product) => {
+      const estadoActual = product.inventario_general?.estado || 'Disponible';
+      
+      // Si está marcado como "No disponible" manualmente, respetarlo
+      if (estadoActual === 'No Disponible') {
+        return 'No Disponible';
+      }
+      
+      // Si no es "No disponible", calcular automáticamente basado en stock
+      const stockTotal = product.resumen_stock?.stock_total || 0;
+      if (stockTotal <= 0) {
+        return 'Agotado';
+      }
+      return 'Disponible';
+    };
+
     const getStatusClass = (estado) => {
       switch (estado?.toLowerCase()) {
         case 'disponible': return 'status-disponible';
@@ -551,6 +585,17 @@ export default {
         default: return 'status-default';
       }
     };
+
+    const getEstadoHelpText = computed(() => {
+      if (!selectedProduct.value) return '';
+      
+      const stock = selectedProduct.value.tallas_disponibles?.reduce((sum, t) => sum + (t.stock || 0), 0) || 0;
+      const estadoActual = selectedProduct.value.inventario_general?.estado;
+      
+      if (estadoActual === 'No Disponible') {
+        return 'Estado manual: No Disponible. Cambia a "Disponible" o "Agotado" para activar el cálculo automático.';
+      }
+    });
 
     // Función para aplicar filtros
     const applyFilters = () => {
@@ -586,10 +631,10 @@ export default {
         );
       }
 
-      // Filtro por estado
+      // Filtro por estado (usar estado final)
       if (selectedEstadoFilter.value) {
         filtered = filtered.filter(product => 
-          product.inventario_general?.estado === selectedEstadoFilter.value
+          getFinalStatus(product) === selectedEstadoFilter.value
         );
       }
 
@@ -925,7 +970,13 @@ export default {
     };
 
     const editProduct = (product) => {
-      selectedProduct.value = { ...product };
+      selectedProduct.value = { 
+        ...product,
+        inventario_general: {
+          ...product.inventario_general,
+          estado: product.inventario_general?.estado || 'Disponible'
+        }
+      };
       confirmEdit();
     };
 
@@ -987,16 +1038,24 @@ export default {
               id_talla: talla.id,
               stock: stock
             };
-          })
-          .filter(talla => talla.stock > 0);
+          });
 
+        // Calcular el stock total
+        const stockTotal = tallasParaEnviar.reduce((sum, t) => sum + t.stock, 0);
+
+        // Determinar el estado a enviar
+        let estadoAEnviar = selectedProduct.value.inventario_general.estado;
+        
+        // Si el estado NO es "No Disponible", será calculado automáticamente en el backend
+        // Solo enviamos "No Disponible" si el usuario lo seleccionó explícitamente
+        
         const updateData = {
           codigo: selectedProduct.value.codigo,
           nombre: selectedProduct.value.nombre,
           id_tipo_de_zapato: selectedProduct.value.tipo_zapato.id,
           id_tipo_linea_producto: selectedProduct.value.tipo_linea_producto.id,
           precio_par: parseFloat(selectedProduct.value.precio_par),
-          estado: selectedProduct.value.inventario_general.estado,
+          estado: estadoAEnviar,
           tallas: tallasParaEnviar
         };
 
@@ -1103,6 +1162,8 @@ export default {
       formatPrice,
       getStockClass,
       getStatusClass,
+      getAutoStatus,
+      getFinalStatus,
       showModal,
       selectedProductTallas,
       showTallasModal,
@@ -1111,7 +1172,9 @@ export default {
       userRole,
       isAdmin,
       applyFilters,
-      clearFilters
+      clearFilters,
+      getFinalStatus,
+      getEstadoHelpText
     };
   }
 }

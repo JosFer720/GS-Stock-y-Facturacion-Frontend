@@ -21,6 +21,25 @@ router.use((req, res, next) => {
   next();
 });
 
+// Función para calcular el estado automático basado en stock
+function calcularEstadoAutomatico(stockTotal) {
+  if (stockTotal <= 0) {
+    return 'Agotado';
+  }
+  return 'Disponible';
+}
+
+// Función para determinar el estado final
+function determinarEstadoFinal(estadoManual, stockTotal) {
+  // Si el estado manual es "No Disponible", respetarlo
+  if (estadoManual === 'No Disponible') {
+    return 'No Disponible';
+  }
+  
+  // Si no es "No Disponible", calcular automáticamente
+  return calcularEstadoAutomatico(stockTotal);
+}
+
 // **RUTA GET: Obtener inventario completo con todos los detalles**
 router.get('/', checkRole([...roles.admin, ...roles.secretaria, ...roles.vendedor, ...roles.inventario]), async (req, res) => {
   try {
@@ -34,7 +53,7 @@ router.get('/', checkRole([...roles.admin, ...roles.secretaria, ...roles.vendedo
         tdc.tipo as tipo_zapato,
         -- Información agregada de inventario general
         i.cantidad as inventario_general,
-        ei.estado as estado_inventario,
+        ei.estado as estado_inventario_manual,
         i.fecha_de_ingreso,
         -- Tipo de línea de producto
         tlp.id as id_tipo_linea_producto,
@@ -68,31 +87,38 @@ router.get('/', checkRole([...roles.admin, ...roles.secretaria, ...roles.vendedo
     
     const result = await pool.query(query);
     
-    const inventario = result.rows.map(row => ({
-      id: row.id,
-      codigo: row.codigo,
-      nombre: row.nombre,
-      precio_par: parseFloat(row.precio_par || 0),
-      tipo_zapato: {
-        id: row.id_tipo_de_zapato,
-        nombre: row.tipo_zapato
-      },
-      tipo_linea_producto: {
-        id: row.id_tipo_linea_producto,
-        nombre: row.tipo_linea_producto
-      },
-      inventario_general: {
-        cantidad: row.inventario_general || 0,
-        estado: row.estado_inventario || 'Sin registrar',
-        fecha_ingreso: row.fecha_de_ingreso
-      },
-      tallas_disponibles: row.tallas_disponibles || [],
-      resumen_stock: {
-        stock_total: parseInt(row.stock_total_tallas || 0),
-        tallas_con_stock: parseInt(row.tallas_con_stock || 0),
-        tallas_agotadas: (row.tallas_disponibles?.length || 0) - parseInt(row.tallas_con_stock || 0)
-      }
-    }));
+    const inventario = result.rows.map(row => {
+      const stockTotal = parseInt(row.stock_total_tallas || 0);
+      const estadoManual = row.estado_inventario_manual || 'Disponible';
+      const estadoFinal = determinarEstadoFinal(estadoManual, stockTotal);
+      
+      return {
+        id: row.id,
+        codigo: row.codigo,
+        nombre: row.nombre,
+        precio_par: parseFloat(row.precio_par || 0),
+        tipo_zapato: {
+          id: row.id_tipo_de_zapato,
+          nombre: row.tipo_zapato
+        },
+        tipo_linea_producto: {
+          id: row.id_tipo_linea_producto,
+          nombre: row.tipo_linea_producto
+        },
+        inventario_general: {
+          cantidad: row.inventario_general || 0,
+          estado: estadoManual, // Estado guardado en BD
+          estado_final: estadoFinal, // Estado calculado para mostrar
+          fecha_ingreso: row.fecha_de_ingreso
+        },
+        tallas_disponibles: row.tallas_disponibles || [],
+        resumen_stock: {
+          stock_total: stockTotal,
+          tallas_con_stock: parseInt(row.tallas_con_stock || 0),
+          tallas_agotadas: (row.tallas_disponibles?.length || 0) - parseInt(row.tallas_con_stock || 0)
+        }
+      };
+    });
     
     res.json({
       success: true,
@@ -166,6 +192,9 @@ router.put('/:id', checkRole([...roles.admin, ...roles.secretaria]), async (req,
     const zapatoId = req.params.id;
     const updateData = req.body;
     
+    console.log('UPDATE DATA RECIBIDA:', updateData);
+    console.log('ESTADO A ENVIAR:', updateData.estado);
+    
     const updatedZapato = await updateZapatoInDB(zapatoId, updateData);
     
     // Emitir evento de actualización si el servicio de socket está disponible
@@ -232,8 +261,16 @@ async function addZapatoToDB(zapatoData) {
     const zapatoResult = await client.query(zapatoQuery, zapatoValues);
     const newZapato = zapatoResult.rows[0];
 
-    // Insertar en inventario
-    const estadoInventarioId = await getEstadoInventarioId(estado || 'Disponible');
+    // Calcular stock total para determinar estado inicial
+    const stockTotal = tallas ? tallas.reduce((sum, t) => sum + (t.stock || 0), 0) : 0;
+    
+    // Si el estado es "No Disponible", usarlo; si no, calcular automáticamente
+    let estadoFinal = estado;
+    if (estado !== 'No Disponible') {
+      estadoFinal = calcularEstadoAutomatico(stockTotal);
+    }
+    
+    const estadoInventarioId = await getEstadoInventarioId(estadoFinal);
     
     const inventarioQuery = `
       INSERT INTO Inventarios (cantidad, id_zapatos, id_usuarios, id_estado_inventario, id_tipo_linea_producto)
@@ -264,7 +301,7 @@ async function addZapatoToDB(zapatoData) {
   }
 }
 
-// Actualizar zapato (versión corregida)
+// Actualizar zapato - VERSIÓN CORREGIDA
 async function updateZapatoInDB(zapatoId, updateData) {
   const client = await pool.connect();
   
@@ -290,36 +327,10 @@ async function updateZapatoInDB(zapatoId, updateData) {
       await client.query(zapatoQuery, zapatoValues);
     }
 
-    // Actualizar inventario (tipo de línea y estado)
-    if (updateData.id_tipo_linea_producto || updateData.estado) {
-      const inventarioFields = [];
-      const inventarioValues = [];
-      let invIdx = 1;
-
-      if (updateData.id_tipo_linea_producto) {
-        inventarioFields.push(`id_tipo_linea_producto = $${invIdx}`);
-        inventarioValues.push(updateData.id_tipo_linea_producto);
-        invIdx++;
-      }
-
-      if (updateData.estado) {
-        const estadoId = await getEstadoInventarioId(updateData.estado);
-        inventarioFields.push(`id_estado_inventario = $${invIdx}`);
-        inventarioValues.push(estadoId);
-        invIdx++;
-      }
-
-      if (inventarioFields.length > 0) {
-        inventarioValues.push(zapatoId);
-        const inventarioQuery = `UPDATE Inventarios SET ${inventarioFields.join(', ')} WHERE id_zapatos = $${invIdx}`;
-        await client.query(inventarioQuery, inventarioValues);
-      }
-    }
-
-    // Actualizar tallas si se proporcionan (versión corregida sin ON CONFLICT)
+    // Actualizar tallas primero (si se proporcionan)
     if (updateData.tallas && updateData.tallas.length > 0) {
       for (const talla of updateData.tallas) {
-        // Primero verifica si ya existe
+        // Verificar si ya existe
         const checkQuery = 'SELECT id FROM Zapatos_Tallas WHERE id_zapato = $1 AND id_talla = $2';
         const checkResult = await client.query(checkQuery, [zapatoId, talla.id_talla]);
         
@@ -335,11 +346,88 @@ async function updateZapatoInDB(zapatoId, updateData) {
       }
     }
 
-    await client.query('COMMIT');
+    // Calcular el stock total DESPUÉS de actualizar las tallas
+    const stockQuery = 'SELECT COALESCE(SUM(stock), 0) as stock_total FROM Zapatos_Tallas WHERE id_zapato = $1';
+    const stockResult = await client.query(stockQuery, [zapatoId]);
+    const stockTotal = parseInt(stockResult.rows[0].stock_total);
+
+    // Actualizar inventario (tipo de línea y estado)
+    const inventarioFields = [];
+    const inventarioValues = [];
+    let invIdx = 1;
+
+    if (updateData.id_tipo_linea_producto) {
+      inventarioFields.push(`id_tipo_linea_producto = $${invIdx}`);
+      inventarioValues.push(updateData.id_tipo_linea_producto);
+      invIdx++;
+    }
+
+    // ===== CORRECCIÓN DEL MANEJO DE ESTADO =====
+    let estadoFinal = 'Disponible';
     
-    // Obtener el zapato actualizado
-    const result = await pool.query(`
-      SELECT z.*, tlp.nombre as tipo_linea_producto, ei.estado as estado_inventario
+    // IMPORTANTE: Verificar si se envió un estado explícitamente
+    if (updateData.estado !== undefined && updateData.estado !== null) {
+      const estadoEnviado = String(updateData.estado).trim();
+      
+      console.log('🔥 ESTADO RECIBIDO DEL FRONTEND:', estadoEnviado);
+      console.log('📊 STOCK TOTAL CALCULADO:', stockTotal);
+      
+      // Si es "No Disponible", respetarlo SIEMPRE sin importar el stock
+      if (estadoEnviado === 'No Disponible') {
+        estadoFinal = 'No Disponible';
+        console.log('✅ ESTADO MANUAL "No Disponible" - Se guardará aunque haya stock');
+      } 
+      // Si es "Disponible" o "Agotado", calcular automáticamente basado en stock
+      else if (estadoEnviado === 'Disponible' || estadoEnviado === 'Agotado') {
+        estadoFinal = calcularEstadoAutomatico(stockTotal);
+        console.log('✅ ESTADO AUTOMÁTICO CALCULADO:', estadoFinal, '(basado en stock:', stockTotal, ')');
+      } else {
+        // Cualquier otro valor, usar el enviado
+        estadoFinal = estadoEnviado;
+        console.log('⚠️ ESTADO PERSONALIZADO:', estadoFinal);
+      }
+    } else {
+      // Si no se proporciona estado, calcular automáticamente
+      estadoFinal = calcularEstadoAutomatico(stockTotal);
+      console.log('✅ SIN ESTADO ENVIADO - Calculado automáticamente:', estadoFinal);
+    }
+    
+    console.log('💾 ESTADO FINAL A GUARDAR EN BD:', estadoFinal);
+
+    // Obtener el ID del estado y actualizar SIEMPRE
+    const estadoId = await getEstadoInventarioId(estadoFinal);
+    console.log('🔑 ID del estado "' + estadoFinal + '":', estadoId);
+    
+    if (!estadoId) {
+      throw new Error(`No se encontró el ID para el estado "${estadoFinal}"`);
+    }
+    
+    // Agregar el estado a los campos a actualizar
+    inventarioFields.push(`id_estado_inventario = $${invIdx}`);
+    inventarioValues.push(estadoId);
+    invIdx++;
+
+    // Ejecutar la actualización del inventario
+    if (inventarioFields.length > 0) {
+      inventarioValues.push(zapatoId);
+      const inventarioQuery = `UPDATE Inventarios SET ${inventarioFields.join(', ')} WHERE id_zapatos = $${invIdx}`;
+      console.log('📝 Query de actualización:', inventarioQuery);
+      console.log('📝 Valores:', inventarioValues);
+      
+      const updateResult = await client.query(inventarioQuery, inventarioValues);
+      console.log('✅ Filas actualizadas:', updateResult.rowCount);
+    }
+
+    await client.query('COMMIT');
+    console.log('✅ COMMIT exitoso');
+    
+    // Obtener el zapato actualizado con su estado
+    const result = await client.query(`
+      SELECT 
+        z.*,
+        tlp.nombre as tipo_linea_producto,
+        ei.estado as estado_inventario,
+        i.id_estado_inventario
       FROM Zapatos z
       LEFT JOIN Inventarios i ON z.id = i.id_zapatos
       LEFT JOIN Tipos_Linea_Producto tlp ON i.id_tipo_linea_producto = tlp.id
@@ -347,9 +435,12 @@ async function updateZapatoInDB(zapatoId, updateData) {
       WHERE z.id = $1
     `, [zapatoId]);
     
+    console.log('📋 Zapato actualizado:', result.rows[0]);
+    
     return result.rows[0];
   } catch (error) {
     await client.query('ROLLBACK');
+    console.error('❌ ERROR en updateZapatoInDB:', error);
     throw error;
   } finally {
     client.release();
