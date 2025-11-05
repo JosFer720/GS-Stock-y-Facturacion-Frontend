@@ -146,7 +146,7 @@ router.post('/pedidos', auth, async (req, res) => {
     const montoDescuento = subtotal * descuento;
     const total = subtotal - montoDescuento;
 
-    // CORREGIDO: Crear el pedido con id_pedido_estado_pago = 1 por defecto
+    // CORREGIDO: Crear el pedido con id_pedido_estado_pago = 1 por defecto (PENDIENTE)
     const pedidoResult = await client.query(`
       INSERT INTO Pedidos (
         id_cliente, 

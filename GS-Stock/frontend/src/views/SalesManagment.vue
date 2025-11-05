@@ -749,6 +749,37 @@ export default {
       if (producto.id_zapato) {
         const zapato = zapatosDisponibles.value.find(z => z.id === parseInt(producto.id_zapato));
         if (zapato) {
+          // Función para determinar el estado final (automático o "No disponible" manual)
+          const getZapatoFinalStatus = (z) => {
+            const estado = z.inventario_general?.estado || 'Disponible';
+            if (estado === 'No disponible') {
+              return 'No disponible';
+            }
+            // Calcular automáticamente basado en stock
+            const stockTotal = z.resumen_stock?.stock_total || 0;
+            if (stockTotal <= 0) {
+              return 'Agotado';
+            }
+            return 'Disponible';
+          };
+          
+          // Validar que el zapato esté disponible
+          const estadoFinal = getZapatoFinalStatus(zapato);
+          if (estadoFinal !== 'Disponible') {
+            let mensaje = `El zapato "${zapato.nombre}" está ${estadoFinal} y no puede ser vendido.`;
+            if (estadoFinal === 'No disponible') {
+              mensaje = `El zapato está No disponible.`;
+            }
+            showMessage(
+              'Zapato Agotado',
+              mensaje,
+              'error'
+            );
+            producto.id_zapato = '';
+            updateTotal();
+            return;
+          }
+          
           producto.precio_unitario = parseFloat(zapato.precio_par);
         }
       }
@@ -954,6 +985,35 @@ export default {
         const productosParaEnviar = [];
         
         newSale.value.productos.forEach((producto, pIndex) => {
+          // Validar que cada zapato esté disponible
+          const zapato = zapatosDisponibles.value.find(z => z.id === parseInt(producto.id_zapato));
+          if (zapato) {
+            // Función para determinar el estado final
+            const getZapatoFinalStatus = (z) => {
+              const estado = z.inventario_general?.estado || 'Disponible';
+              if (estado === 'No disponible') {
+                return 'No disponible';
+              }
+              const stockTotal = z.resumen_stock?.stock_total || 0;
+              if (stockTotal <= 0) {
+                return 'Agotado';
+              }
+              return 'Disponible';
+            };
+            
+            const estadoFinal = getZapatoFinalStatus(zapato);
+            if (estadoFinal !== 'Disponible') {
+              let mensaje = `El zapato "${zapato.nombre}" está ${estadoFinal} y no puede ser vendido.`;
+              if (estadoFinal === 'No disponible') {
+                mensaje = `El zapato está No disponible.`;
+              }
+              throw {
+                tipo: 'ZAPATO_NO_DISPONIBLE',
+                mensaje: mensaje
+              };
+            }
+          }
+          
           producto.tallas.forEach((talla, tIndex) => {
             if (talla.id_talla && talla.cantidad > 0 && !talla.error_stock) {
               productosParaEnviar.push({
@@ -1020,7 +1080,13 @@ export default {
         
       } catch (error) {
         console.error('Error al crear pedido:', error);
-        showMessage('Error', `Error al crear el pedido: ${error.message}`, 'error');
+        
+        // Manejar error de zapato no disponible
+        if (error.tipo === 'ZAPATO_NO_DISPONIBLE') {
+          showMessage('Zapato No Disponible', error.mensaje, 'error');
+        } else {
+          showMessage('Error', `Error al crear el pedido: ${error.message}`, 'error');
+        }
       } finally {
         creatingPedido.value = false;
       }

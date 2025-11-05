@@ -119,9 +119,10 @@ for (let i = 0; i < items.length; i++) {
         id_metodo_de_pago, 
         fecha, 
         subtotal, 
-        total
+        total,
+        id_pedido_estado_pago
       )
-      VALUES ($1, 1, $2, $3, NOW(), $4, $5)
+      VALUES ($1, 1, $2, $3, NOW(), $4, $5, 1)
       RETURNING id;
     `;
     const pedidoResult = await pool.query(pedidoQuery, [
