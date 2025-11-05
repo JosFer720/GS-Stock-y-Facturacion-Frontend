@@ -124,15 +124,19 @@ export default {
       };
 
       try {
+        // Build API base URL from env variable when provided (Vite exposes VITE_ prefixed vars via import.meta.env)
+        // If VITE_API_URL is not set, fall back to relative path so requests go to the same origin (recommended for production behind proxy)
+        const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+
         // Load all dashboard data
         const [ingresosRes, pedidosRes, clientesRes, ventasRes, productosRes, actividadRes, alertasRes] = await Promise.all([
-          axios.get('http://localhost:3000/api/dashboard/ingresos', config),
-          axios.get('http://localhost:3000/api/dashboard/pedidos-pendientes', config),
-          axios.get('http://localhost:3000/api/dashboard/nuevos-clientes', config),
-          axios.get('http://localhost:3000/api/dashboard/ventas-mensuales', config),
-          axios.get('http://localhost:3000/api/dashboard/productos-mas-vendidos', config),
-          axios.get('http://localhost:3000/api/dashboard/actividad-reciente', config),
-          axios.get('http://localhost:3000/api/dashboard/alertas', config)
+          axios.get(`${API_BASE}/api/dashboard/ingresos`, config),
+          axios.get(`${API_BASE}/api/dashboard/pedidos-pendientes`, config),
+          axios.get(`${API_BASE}/api/dashboard/nuevos-clientes`, config),
+          axios.get(`${API_BASE}/api/dashboard/ventas-mensuales`, config),
+          axios.get(`${API_BASE}/api/dashboard/productos-mas-vendidos`, config),
+          axios.get(`${API_BASE}/api/dashboard/actividad-reciente`, config),
+          axios.get(`${API_BASE}/api/dashboard/alertas`, config)
         ]);
 
         this.ingresos = ingresosRes.data.data;
