@@ -11,7 +11,6 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Test database connection
 pool.on('connect', () => {
   console.log('Connected to PostgreSQL database');
 });
@@ -20,14 +19,11 @@ pool.on('error', (err) => {
   console.error('Database connection error:', err);
 });
 
-// Función para validar NIT guatemalteco
 const validateGuatemalanNIT = (nit) => {
-  if (!nit) return { valid: true, message: '' }; // NIT opcional
+  if (!nit) return { valid: true, message: '' };
   
-  // Limpiar el NIT (quitar espacios y convertir a mayúsculas)
   const nitClean = nit.replace(/[\s-]/g, '').toUpperCase();
   
-  // Verificar si es "CF" (Consumidor Final)
   if (nitClean === 'CF') {
     return { 
       valid: true, 
@@ -35,47 +31,45 @@ const validateGuatemalanNIT = (nit) => {
     };
   }
   
-  // Verificar longitud para NITs regulares (debe ser 8 o 9 dígitos)
-  if (!/^[0-9]{8,9}$/.test(nitClean)) {
+  // Validar que sea alfanumérico (solo letras y números)
+  if (!/^[A-Z0-9]{1,20}$/.test(nitClean)) {
     return { 
       valid: false, 
-      message: 'El NIT debe tener 8-9 dígitos o ser "CF" para Consumidor Final' 
+      message: 'El NIT debe ser alfanumérico (letras y números), o "CF" para Consumidor Final' 
     };
   }
   
-  // Para NITs de 8 dígitos, agregar un 0 al inicio
-  const nitPadded = nitClean.length === 8 ? '0' + nitClean : nitClean;
-  
-  // Extraer dígitos y dígito verificador
-  const nitDigits = nitPadded.substring(0, 8);
-  const checkDigit = parseInt(nitPadded.substring(8, 9));
-  
-  // Calcular dígito verificador
-  let sum = 0;
-  let multiplier = 2;
-  
-  for (let i = 7; i >= 0; i--) {
-    sum += parseInt(nitDigits[i]) * multiplier;
-    multiplier++;
-  }
-  
-  let calculatedDigit = 11 - (sum % 11);
-  
-  // Casos especiales
-  if (calculatedDigit === 11) {
-    calculatedDigit = 0;
-  } else if (calculatedDigit === 10) {
-    return { 
-      valid: false, 
-      message: 'NIT inválido - dígito verificador incorrecto' 
-    };
-  }
-  
-  if (calculatedDigit !== checkDigit) {
-    return { 
-      valid: false, 
-      message: 'Dígito verificador incorrecto' 
-    };
+  // Si es solo dígitos, realizar validación de dígito verificador
+  if (/^[0-9]{8,9}$/.test(nitClean)) {
+    const nitPadded = nitClean.length === 8 ? '0' + nitClean : nitClean;
+    const nitDigits = nitPadded.substring(0, 8);
+    const checkDigit = parseInt(nitPadded.substring(8, 9));
+    
+    let sum = 0;
+    let multiplier = 2;
+    
+    for (let i = 7; i >= 0; i--) {
+      sum += parseInt(nitDigits[i]) * multiplier;
+      multiplier++;
+    }
+    
+    let calculatedDigit = 11 - (sum % 11);
+    
+    if (calculatedDigit === 11) {
+      calculatedDigit = 0;
+    } else if (calculatedDigit === 10) {
+      return { 
+        valid: false, 
+        message: 'NIT inválido - dígito verificador incorrecto' 
+      };
+    }
+    
+    if (calculatedDigit !== checkDigit) {
+      return { 
+        valid: false, 
+        message: 'Dígito verificador incorrecto' 
+      };
+    }
   }
   
   return { 
@@ -84,19 +78,21 @@ const validateGuatemalanNIT = (nit) => {
   };
 };
 
-// Función para formatear NIT guatemalteco
 const formatGuatemalanNIT = (nit) => {
   if (!nit) return '';
   
-  // Limpiar el NIT y convertir a mayúsculas
   const nitClean = nit.replace(/[\s-]/g, '').toUpperCase();
   
-  // Si es CF, devolverlo tal como está
   if (nitClean === 'CF') {
     return 'CF';
   }
   
-  // Formatear NITs regulares
+  // Para NITs alfanuméricos puros (no numéricos), retornar como está
+  if (!/^[0-9]+$/.test(nitClean)) {
+    return nitClean;
+  }
+  
+  // Para NITs numéricos, aplicar formato con guión
   if (nitClean.length === 8) {
     return `${nitClean.substring(0, 7)}-${nitClean.substring(7)}`;
   } else if (nitClean.length === 9) {
@@ -106,7 +102,6 @@ const formatGuatemalanNIT = (nit) => {
   return nitClean;
 };
 
-// Función para obtener o crear NIT
 const getOrCreateNIT = async (client, nitValue) => {
   if (!nitValue || nitValue.trim() === '') {
     return null;
@@ -115,7 +110,6 @@ const getOrCreateNIT = async (client, nitValue) => {
   const nitFormatted = formatGuatemalanNIT(nitValue.trim());
   
   try {
-    // Verificar si el NIT ya existe
     const existingNIT = await client.query(
       'SELECT id FROM nits WHERE nit = $1',
       [nitFormatted]
@@ -125,7 +119,6 @@ const getOrCreateNIT = async (client, nitValue) => {
       return existingNIT.rows[0].id;
     }
     
-    // Crear nuevo NIT
     const newNIT = await client.query(
       'INSERT INTO nits (nit) VALUES ($1) RETURNING id',
       [nitFormatted]
@@ -232,21 +225,18 @@ async function getFullClientData(clientId) {
   }
 }
 
-// Obtener cuentas por cobrar de un cliente específico
 router.get('/:id/cuentas-por-cobrar', auth, async (req, res) => {
   let client;
   
   try {
     const { id } = req.params;
     
-    // Validar que el ID sea un número
     if (isNaN(id) || parseInt(id) <= 0) {
       return res.status(400).json({ error: 'ID de cliente inválido' });
     }
     
     client = await pool.connect();
     
-    // Verificar que el cliente existe
     const clientCheck = await client.query('SELECT id FROM clientes WHERE id = $1', [id]);
     if (clientCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
@@ -254,16 +244,15 @@ router.get('/:id/cuentas-por-cobrar', auth, async (req, res) => {
 
     console.log(`Checking pending accounts receivable for client ${id}`);
     
-    // Query corregida para obtener el saldo pendiente real
     const query = `
-      WITH ultimo_pago_por_pedido AS (
+      WITH pagos_por_pedido AS (
         SELECT 
           id_pedido,
-          total_pedido as saldo_actual,
-          ROW_NUMBER() OVER (PARTITION BY id_pedido ORDER BY fecha_de_pago DESC, id DESC) as rn
+          COALESCE(SUM(monto_pagado), 0) as total_pagado
         FROM pagos_pedidos
+        GROUP BY id_pedido
       ),
-      saldos_pedidos AS (
+      pedidos_info AS (
         SELECT 
           p.id,
           p.total as total_original,
@@ -271,68 +260,65 @@ router.get('/:id/cuentas-por-cobrar', auth, async (req, res) => {
           p.subtotal,
           COALESCE(pep.estado, 'Pendiente') as estado_pago,
           p.id_pedido_estado_pago,
-          COALESCE(upp.saldo_actual, p.total) as saldo_pendiente
+          COALESCE(ppp.total_pagado, 0) as total_cancelado,
+          (p.total - COALESCE(ppp.total_pagado, 0)) as saldo_pendiente,
+          FLOOR(EXTRACT(epoch FROM (NOW() - p.fecha)) / 86400) as dias_desde_creacion
         FROM pedidos p
         LEFT JOIN pedidos_estado_pago pep ON p.id_pedido_estado_pago = pep.id
-        LEFT JOIN ultimo_pago_por_pedido upp ON p.id = upp.id_pedido AND upp.rn = 1
-        WHERE p.id_cliente = $1 
-          AND (p.id_pedido_estado_pago = 1 OR p.id_pedido_estado_pago IS NULL)
+        LEFT JOIN pagos_por_pedido ppp ON p.id = ppp.id_pedido
+        WHERE p.id_cliente = $1
       )
       SELECT *
-      FROM saldos_pedidos
-      WHERE saldo_pendiente > 0
-      ORDER BY fecha DESC
+      FROM pedidos_info
+      WHERE id_pedido_estado_pago = 1
+      ORDER BY fecha ASC
     `;
     
-    console.log('Executing corrected query for pending payments with real balance');
-    console.log('Query:', query);
+    console.log('Executing query for pending payments');
     
     const result = await client.query(query, [id]);
     
     console.log(`Found ${result.rows.length} pending pedidos for client ${id}`);
     
-    // Si no hay resultados, verificar si el cliente tiene pedidos en general
     if (result.rows.length === 0) {
-      const allPedidos = await client.query(
-        'SELECT COUNT(*) as total FROM pedidos WHERE id_cliente = $1', 
-        [id]
-      );
-      
-      const totalPedidos = parseInt(allPedidos.rows[0].total);
-      
-      if (totalPedidos > 0) {
-        console.log(`Client ${id} has ${totalPedidos} total pedidos but none are pending payment`);
-        return res.status(200).json({
-          message: 'El cliente no tiene pedidos pendientes de pago',
-          count: 0,
-          data: [],
-          info: `El cliente tiene ${totalPedidos} pedidos en total, pero todos están pagados`
-        });
-      } else {
-        console.log(`Client ${id} has no pedidos at all`);
-        return res.status(200).json({
-          message: 'El cliente no tiene pedidos registrados',
-          count: 0,
-          data: []
-        });
-      }
+      return res.status(200).json({
+        message: 'El cliente no tiene pedidos pendientes de pago',
+        count: 0,
+        data: [],
+        hasPendingOrders: false
+      });
     }
     
-    // Agregar información adicional a cada pedido
+    // Obtener el promedio de días para pedidos PAGADOS (para colorear ID del cliente)
+    const promedioQuery = `
+      SELECT 
+        AVG(FLOOR(EXTRACT(epoch FROM (pp.fecha_de_pago - p.fecha)) / 86400)) as promedio_dias_pagados
+      FROM pedidos p
+      INNER JOIN pagos_pedidos pp ON p.id = pp.id_pedido
+      WHERE p.id_cliente = $1 
+        AND p.id_pedido_estado_pago = 2
+    `;
+    
+    const promedioResult = await client.query(promedioQuery, [id]);
+    const promedioDiasPagados = promedioResult.rows[0]?.promedio_dias_pagados 
+      ? Math.floor(parseFloat(promedioResult.rows[0].promedio_dias_pagados))
+      : null;
+    
     const enhancedData = result.rows.map(pedido => ({
       ...pedido,
-      total: pedido.total_original, // Mantener el total original para compatibilidad
-      dias_pendiente: pedido.fecha ? Math.floor((new Date() - new Date(pedido.fecha)) / (1000 * 60 * 60 * 24)) : 0,
-      estado_descripcion: pedido.id_pedido_estado_pago === 1 ? 'Pendiente de Pago' : 
-                         pedido.id_pedido_estado_pago === null ? 'Sin Estado Definido' : 'Otro Estado'
+      dias_pendiente: pedido.dias_desde_creacion
     }));
     
     res.status(200).json({
       message: 'Cuentas por cobrar obtenidas correctamente',
       count: enhancedData.length,
       data: enhancedData,
+      promedioDiasPagados: promedioDiasPagados,
+      pedidoMasAntiguo: enhancedData.length > 0 ? enhancedData[0] : null,
       resumen: {
         total_pendiente: enhancedData.reduce((sum, pedido) => sum + parseFloat(pedido.saldo_pendiente || 0), 0),
+        total_general: enhancedData.reduce((sum, pedido) => sum + parseFloat(pedido.total_original || 0), 0),
+        total_cancelado: enhancedData.reduce((sum, pedido) => sum + parseFloat(pedido.total_cancelado || 0), 0),
         pedidos_count: enhancedData.length
       }
     });
@@ -353,7 +339,6 @@ router.get('/:id/cuentas-por-cobrar', auth, async (req, res) => {
   }
 });
 
-// Endpoint para buscar clientes por nombre, empresa o NIT 
 router.get('/buscar/:termino', auth, async (req, res) => {
   try {
     const { termino } = req.params;
@@ -397,33 +382,11 @@ router.get('/buscar/:termino', auth, async (req, res) => {
   }
 });
 
-// Endpoint para obtener todos los clientes con sus direcciones, teléfonos y NITs
 router.get('/', auth, async (req, res) => {
   let client;
   
   try {
     client = await pool.connect();
-    
-    // First, let's check if the tables exist
-    const tablesCheck = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      AND table_name IN ('clientes', 'nits', 'direcciones', 'telefonos', 'cliente_direcciones', 'cliente_telefonos')
-      ORDER BY table_name;
-    `);
-    
-    console.log('Available tables:', tablesCheck.rows.map(r => r.table_name));
-    
-    // Check clientes table structure
-    const clientesStructure = await client.query(`
-      SELECT column_name, data_type, is_nullable
-      FROM information_schema.columns 
-      WHERE table_name = 'clientes' 
-      ORDER BY ordinal_position;
-    `);
-    
-    console.log('Clientes table structure:', clientesStructure.rows);
     
     const result = await client.query(`
       SELECT 
@@ -448,7 +411,6 @@ router.get('/', auth, async (req, res) => {
     console.log(`Found ${result.rows.length} rows`);
     
     if (result.rows.length === 0) {
-      // If no data, return empty array
       return res.status(200).json({
         message: 'No hay clientes registrados',
         count: 0,
@@ -457,13 +419,46 @@ router.get('/', auth, async (req, res) => {
     }
     
     const clients = formatClientResponse(result.rows);
-    // Obtener resúmenes por cliente: oldest pending days, total_cancelado y avg_days_to_pay
+    
     try {
       const summaryQuery = `
-        SELECT c.id,
-          (SELECT FLOOR(EXTRACT(epoch FROM (NOW() - MIN(p.fecha))) / 86400) FROM pedidos p WHERE p.id_cliente = c.id AND (p.id_pedido_estado_pago = 1 OR p.id_pedido_estado_pago IS NULL)) AS oldest_pending_days,
-          (SELECT COALESCE(SUM(pp.monto_pagado),0) FROM pagos_pedidos pp JOIN pedidos p2 ON pp.id_pedido = p2.id WHERE p2.id_cliente = c.id) AS total_cancelado,
-          (SELECT FLOOR(AVG(EXTRACT(epoch FROM (pp.fecha_de_pago - p.fecha)) / 86400)) FROM pagos_pedidos pp JOIN pedidos p ON pp.id_pedido = p.id WHERE pp.total_pedido = 0 AND p.id_cliente = c.id) AS avg_days_to_pay
+        WITH pagos_por_pedido AS (
+          SELECT 
+            id_pedido,
+            COALESCE(SUM(monto_pagado), 0) as total_pagado
+          FROM pagos_pedidos
+          GROUP BY id_pedido
+        ),
+        pedidos_con_saldo AS (
+          SELECT 
+            p.id,
+            p.id_cliente,
+            p.fecha,
+            p.total,
+            p.id_pedido_estado_pago,
+            (p.total - COALESCE(ppp.total_pagado, 0)) as saldo_pendiente,
+            CASE 
+              WHEN (p.total - COALESCE(ppp.total_pagado, 0)) > 0 
+              THEN FLOOR(EXTRACT(epoch FROM (NOW() - p.fecha)) / 86400)
+              ELSE NULL
+            END as dias_pendiente
+          FROM pedidos p
+          LEFT JOIN pagos_por_pedido ppp ON p.id = ppp.id_pedido
+        )
+        SELECT 
+          c.id,
+          (SELECT MAX(dias_pendiente)
+           FROM pedidos_con_saldo pcs 
+           WHERE pcs.id_cliente = c.id 
+           AND pcs.saldo_pendiente > 0) AS oldest_pending_days,
+          (SELECT COALESCE(SUM(pp.monto_pagado), 0) 
+           FROM pagos_pedidos pp 
+           JOIN pedidos p2 ON pp.id_pedido = p2.id 
+           WHERE p2.id_cliente = c.id) AS total_cancelado,
+          (SELECT FLOOR(AVG(EXTRACT(epoch FROM (NOW() - p3.fecha)) / 86400))
+           FROM pedidos_con_saldo p3
+           WHERE p3.id_cliente = c.id 
+           AND p3.id_pedido_estado_pago = 2) AS avg_days_to_pay
         FROM clientes c
       `;
 
@@ -473,7 +468,6 @@ router.get('/', auth, async (req, res) => {
         summaryMap.set(r.id, r);
       });
 
-      // Merge summaries into client objects
       const clientsWithSummary = clients.map(cl => {
         const s = summaryMap.get(cl.id) || {};
         return Object.assign({}, cl, {
@@ -483,6 +477,8 @@ router.get('/', auth, async (req, res) => {
         });
       });
 
+      console.log('Clientes loaded:', clientsWithSummary.length);
+
       res.status(200).json({
         message: 'Clientes obtenidos correctamente',
         count: clientsWithSummary.length,
@@ -490,7 +486,6 @@ router.get('/', auth, async (req, res) => {
       });
     } catch (summaryErr) {
       console.error('Error obteniendo resúmenes de clientes:', summaryErr);
-      // Fallback: return clients without summary
       res.status(200).json({
         message: 'Clientes obtenidos correctamente (sin resúmenes)',
         count: clients.length,
@@ -514,12 +509,10 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Endpoint para obtener un cliente específico por ID - CORREGIDO
 router.get('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Validar que el ID sea un número
     if (isNaN(id) || parseInt(id) <= 0) {
       return res.status(400).json({ error: 'ID de cliente inválido' });
     }
@@ -549,7 +542,6 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
     
-    // Agrupar los datos del cliente
     const clienteData = {
       id: result.rows[0].id,
       nombre: result.rows[0].nombre,
@@ -589,7 +581,6 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Endpoint para validar NIT
 router.post('/validar-nit', auth, async (req, res) => {
   try {
     const { nit } = req.body;
@@ -615,14 +606,12 @@ router.post('/validar-nit', auth, async (req, res) => {
   }
 });
 
-// Crear un nuevo cliente con direcciones, teléfonos y NIT
 router.post('/', auth, async (req, res) => {
   const client = await pool.connect();
   
   try {
     const { nombre, apellido, empresa, nit, direcciones, telefonos } = req.body;
     
-    // Validaciones básicas
     if (!nombre || !apellido) {
       return res.status(400).json({ 
         error: 'Los campos nombre y apellido son obligatorios' 
@@ -641,9 +630,8 @@ router.post('/', auth, async (req, res) => {
       });
     }
     
-    // Validar NIT si se proporciona
     if (nit && nit.trim() !== '') {
-      if (!validateGuatemalanNIT(nit)) {
+      if (!validateGuatemalanNIT(nit).valid) {
         return res.status(400).json({ 
           error: 'El NIT proporcionado no es válido según el formato guatemalteco' 
         });
@@ -652,13 +640,11 @@ router.post('/', auth, async (req, res) => {
     
     await client.query('BEGIN');
     
-    // Manejar NIT
     let nitId = null;
     if (nit && nit.trim() !== '') {
       nitId = await getOrCreateNIT(client, nit);
     }
     
-    // Crear el cliente
     const clienteResult = await client.query(
       'INSERT INTO clientes (nombre, apellido, empresa, id_nit) VALUES ($1, $2, $3, $4) RETURNING *',
       [nombre.trim(), apellido.trim(), empresa?.trim() || null, nitId]
@@ -666,7 +652,6 @@ router.post('/', auth, async (req, res) => {
     
     const clienteId = clienteResult.rows[0].id;
     
-    // Insertar direcciones
     const direccionesInsertadas = [];
     let primeraDireccionId = null;
     
@@ -674,7 +659,6 @@ router.post('/', auth, async (req, res) => {
       if (direccion && direccion.trim()) {
         const direccionTrimmed = direccion.trim();
         
-        // Crear nueva dirección
         const direccionResult = await client.query(
           'INSERT INTO direcciones (direccion) VALUES ($1) RETURNING *',
           [direccionTrimmed]
@@ -682,7 +666,6 @@ router.post('/', auth, async (req, res) => {
         
         const direccionId = direccionResult.rows[0].id;
         
-        // Relacionar cliente con dirección
         await client.query(
           'INSERT INTO cliente_direcciones (id_cliente, id_direccion) VALUES ($1, $2)',
           [clienteId, direccionId]
@@ -690,14 +673,12 @@ router.post('/', auth, async (req, res) => {
         
         direccionesInsertadas.push(direccionResult.rows[0]);
         
-        // Guardar el ID de la primera dirección
         if (primeraDireccionId === null) {
           primeraDireccionId = direccionId;
         }
       }
     }
     
-    // Insertar teléfonos
     const telefonosInsertados = [];
     let primerClienteTelefonoId = null;
     
@@ -705,7 +686,6 @@ router.post('/', auth, async (req, res) => {
       if (telefono && telefono.trim()) {
         const telefonoTrimmed = telefono.trim();
         
-        // Crear nuevo teléfono
         const telefonoResult = await client.query(
           'INSERT INTO telefonos (telefono) VALUES ($1) RETURNING *',
           [telefonoTrimmed]
@@ -713,7 +693,6 @@ router.post('/', auth, async (req, res) => {
         
         const telefonoId = telefonoResult.rows[0].id;
         
-        // Relacionar cliente con teléfono
         const clienteTelefonoResult = await client.query(
           'INSERT INTO cliente_telefonos (id_cliente, id_telefono) VALUES ($1, $2) RETURNING *',
           [clienteId, telefonoId]
@@ -721,27 +700,23 @@ router.post('/', auth, async (req, res) => {
         
         telefonosInsertados.push(telefonoResult.rows[0]);
         
-        // Guardar el ID del primer cliente_telefono
         if (primerClienteTelefonoId === null) {
           primerClienteTelefonoId = clienteTelefonoResult.rows[0].id;
         }
       }
     }
     
-    // Actualizar el cliente con las referencias (si existen estos campos)
     try {
       await client.query(
         'UPDATE clientes SET id_direcciones = $1, id_cliente_telefono = $2 WHERE id = $3',
         [primeraDireccionId, primerClienteTelefonoId, clienteId]
       );
     } catch (updateErr) {
-      // Si los campos no existen, continuar sin error
       console.log('Warning: Could not update reference fields, they might not exist in the schema');
     }
     
     await client.query('COMMIT');
     
-    // Obtener el cliente completo creado
     const clienteCompleto = await getFullClientData(clienteId);
     
     res.status(201).json({
@@ -761,7 +736,6 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Actualizar un cliente existente con NIT
 router.put('/:id', auth, async (req, res) => {
   const client = await pool.connect();
   
@@ -769,14 +743,12 @@ router.put('/:id', auth, async (req, res) => {
     const { id } = req.params;
     const { nombre, apellido, empresa, nit, direcciones, telefonos } = req.body;
     
-    // Validación básica
     if (!nombre || !apellido) {
       return res.status(400).json({ 
         error: 'Los campos nombre y apellido son obligatorios' 
       });
     }
     
-    // Validar que el cliente existe
     const checkResult = await client.query(
       'SELECT * FROM clientes WHERE id = $1',
       [id]
@@ -786,9 +758,8 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
     
-    // Validar NIT si se proporciona
     if (nit && nit.trim() !== '') {
-      if (!validateGuatemalanNIT(nit)) {
+      if (!validateGuatemalanNIT(nit).valid) {
         return res.status(400).json({ 
           error: 'El NIT proporcionado no es válido según el formato guatemalteco' 
         });
@@ -797,19 +768,16 @@ router.put('/:id', auth, async (req, res) => {
     
     await client.query('BEGIN');
     
-    // Manejar NIT
     let nitId = null;
     if (nit && nit.trim() !== '') {
       nitId = await getOrCreateNIT(client, nit);
     }
     
-    // Actualizar datos del cliente
     const clienteResult = await client.query(
       'UPDATE clientes SET nombre = $1, apellido = $2, empresa = $3, id_nit = $4 WHERE id = $5 RETURNING *',
       [nombre, apellido, empresa || null, nitId, id]
     );
     
-    // Manejar direcciones
     const currentDirecciones = await client.query(
       'SELECT d.id, d.direccion FROM direcciones d JOIN cliente_direcciones cd ON d.id = cd.id_direccion WHERE cd.id_cliente = $1',
       [id]
@@ -817,23 +785,19 @@ router.put('/:id', auth, async (req, res) => {
     
     let primeraDireccionId = null;
     
-    // Actualizar las direcciones existentes o agregar nuevas
     for (const direccion of direcciones) {
       if (direccion.id) {
-        // Actualizar dirección existente
         await client.query(
           'UPDATE direcciones SET direccion = $1 WHERE id = $2',
           [direccion.direccion.trim(), direccion.id]
         );
         
-        // Marcar como primera dirección si es la primera en el array
         if (primeraDireccionId === null) {
           primeraDireccionId = direccion.id;
         }
       } else if (direccion.direccion?.trim()) {
         const direccionTrimmed = direccion.direccion.trim();
         
-        // Verificar si la dirección ya existe
         const existingDireccionResult = await client.query(
           'SELECT * FROM direcciones WHERE LOWER(direccion) = LOWER($1)',
           [direccionTrimmed]
@@ -842,10 +806,8 @@ router.put('/:id', auth, async (req, res) => {
         let direccionId;
         
         if (existingDireccionResult.rows.length > 0) {
-          // Usar la dirección existente
           direccionId = existingDireccionResult.rows[0].id;
         } else {
-          // Insertar nueva dirección
           const direccionResult = await client.query(
             'INSERT INTO direcciones (direccion) VALUES ($1) RETURNING *',
             [direccionTrimmed]
@@ -853,7 +815,6 @@ router.put('/:id', auth, async (req, res) => {
           direccionId = direccionResult.rows[0].id;
         }
         
-        // Verificar si la relación ya existe
         const existingRelationResult = await client.query(
           'SELECT * FROM cliente_direcciones WHERE id_cliente = $1 AND id_direccion = $2',
           [id, direccionId]
@@ -866,14 +827,12 @@ router.put('/:id', auth, async (req, res) => {
           );
         }
         
-        // Marcar como primera dirección si es la primera en el array
         if (primeraDireccionId === null) {
           primeraDireccionId = direccionId;
         }
       }
     }
     
-    // Eliminar direcciones que ya no están en la lista
     const direccionesActualesIds = direcciones.filter(d => d.id).map(d => d.id);
     for (const dir of currentDirecciones.rows) {
       if (!direccionesActualesIds.includes(dir.id)) {
@@ -882,7 +841,6 @@ router.put('/:id', auth, async (req, res) => {
       }
     }
     
-    // Manejar teléfonos (similar a direcciones)
     const currentTelefonos = await client.query(
       'SELECT t.id, t.telefono FROM telefonos t JOIN cliente_telefonos ct ON t.id = ct.id_telefono WHERE ct.id_cliente = $1',
       [id]
@@ -897,7 +855,6 @@ router.put('/:id', auth, async (req, res) => {
           [telefono.telefono.trim(), telefono.id]
         );
         
-        // Obtener el cliente_telefono ID para este teléfono
         if (primerClienteTelefonoId === null) {
           const ctResult = await client.query(
             'SELECT id FROM cliente_telefonos WHERE id_cliente = $1 AND id_telefono = $2',
@@ -918,7 +875,6 @@ router.put('/:id', auth, async (req, res) => {
           [id, telefonoResult.rows[0].id]
         );
         
-        // Marcar como primer cliente_telefono si es el primero en el array
         if (primerClienteTelefonoId === null) {
           primerClienteTelefonoId = clienteTelefonoResult.rows[0].id;
         }
@@ -933,7 +889,6 @@ router.put('/:id', auth, async (req, res) => {
       }
     }
     
-    // Actualizar las referencias principales en la tabla clientes
     await client.query(
       'UPDATE clientes SET id_direcciones = $1, id_cliente_telefono = $2 WHERE id = $3',
       [primeraDireccionId, primerClienteTelefonoId, id]
@@ -941,7 +896,6 @@ router.put('/:id', auth, async (req, res) => {
     
     await client.query('COMMIT');
     
-    // Obtener el cliente actualizado
     const updatedClient = await getFullClientData(id);
     
     res.status(200).json({
@@ -960,14 +914,12 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Eliminar un cliente (versión corregida)
 router.delete('/:id', auth, async (req, res) => {
   const client = await pool.connect();
   
   try {
     const { id } = req.params;
     
-    // Validar que el cliente existe
     const checkResult = await client.query(
       'SELECT * FROM clientes WHERE id = $1',
       [id]
@@ -977,7 +929,6 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
 
-    // Verificar si el cliente tiene pedidos asociados
     const pedidosResult = await client.query(
       'SELECT COUNT(*) as count FROM pedidos WHERE id_cliente = $1',
       [id]
@@ -1051,7 +1002,6 @@ router.delete('/:id', auth, async (req, res) => {
     await client.query('ROLLBACK');
     console.error('Error al eliminar cliente:', err);
     
-    // Manejo de errores específicos
     if (err.code === '23503') { 
       res.status(400).json({ 
         error: 'No se puede eliminar el cliente porque está referenciado en otras tablas',
@@ -1068,7 +1018,6 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Endpoint para obtener solo direcciones de un cliente 
 router.get('/:id/direcciones', auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -1090,7 +1039,6 @@ router.get('/:id/direcciones', auth, async (req, res) => {
   }
 });
 
-// Endpoint para obtener solo teléfonos de un cliente 
 router.get('/:id/telefonos', auth, async (req, res) => {
   try {
     const { id } = req.params;
