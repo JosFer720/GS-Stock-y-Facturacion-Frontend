@@ -973,3 +973,183 @@
 .account-item:nth-child(n+5) {
   animation-delay: 0.4s;
 }
+
+/* Estilos para el botón PDF */
+.pdf-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  min-width: 60px;
+}
+
+.pdf-btn:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.pdf-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Estilos para la celda de datos */
+.datos-cell {
+  text-align: center;
+  padding: 8px;
+}
+
+/* Estilos para el resumen general de cuentas por cobrar */
+.resumen-general {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 25px;
+  padding: 15px;
+  background-color: #f0f7ff;
+  border-radius: 8px;
+  border-left: 4px solid #2980b9;
+}
+
+.resumen-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
+.resumen-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 13px;
+}
+
+.resumen-value {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-weight: 700;
+  font-size: 14px;
+  color: #2980b9;
+}
+
+.resumen-value.pagado {
+  color: #28a745;
+}
+
+.resumen-value.pendiente {
+  color: #dc3545;
+}
+
+.resumen-value.color-verde {
+  color: #28a745;
+}
+
+.resumen-value.color-amarillo {
+  color: #ffc107;
+}
+
+.resumen-value.color-rojo {
+  color: #dc3545;
+}
+
+/* Estilos para el badge de días */
+.dias-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dias-verde {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.dias-amarillo {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+
+.dias-rojo {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.dias-gris {
+  background-color: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+/* Badge para indicar pedido más antiguo */
+.badge-antiguo {
+  display: inline-block;
+  padding: 4px 10px;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Estilos actualizados para account-item */
+.account-item {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.account-item:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-color: #2980b9;
+}
+
+/* Actualizar estilos del header del account item */
+.account-header {
+  background: linear-gradient(135deg, #2980b9, #1f618d);
+  color: white;
+  padding: 14px 16px;
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.account-details .amount {
+  font-size: 14px;
+}
+
+.account-details .amount.pagado {
+  color: #28a745;
+}
+
+.account-details .amount.pendiente {
+  color: #dc3545;
+}
+
+/* Color de status actualizado */
+.account-details .status {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}

@@ -46,9 +46,7 @@
         {{ error }}
       </div>
 
-      <!-- Tabla integrada directamente -->
       <div v-if="!loading && !error" class="clients-table-container">
-        <!-- Vista de tabla -->
         <div class="table-responsive">
           <table class="clients-table">
             <thead>
@@ -68,6 +66,7 @@
                 <th>Direcciones</th>
                 <th>Teléfonos</th>
                 <th>Cuentas por Cobrar</th>
+                <th>Datos</th>
                 <th v-if="!deleteMode">Acciones</th>
               </tr>
             </thead>
@@ -109,7 +108,16 @@
                     :disabled="loadingAccountsReceivable[client.id]"
                     :title="buttonTitle(client)"
                   >
-                    {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : 'Ver' }}
+                    {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : (client.oldest_pending_days !== null && client.oldest_pending_days !== undefined ? client.oldest_pending_days + 'd' : 'Ver') }}
+                  </button>
+                </td>
+                <td class="datos-cell">
+                  <button 
+                    @click.stop="downloadClientPDF(client)" 
+                    class="pdf-btn"
+                    title="Descargar PDF del cliente"
+                  >
+                    PDF
                   </button>
                 </td>
                 <td v-if="!deleteMode" class="actions-cell">
@@ -119,7 +127,7 @@
                 </td>
               </tr>
               <tr v-if="paginatedClients.length === 0">
-                <td :colspan="deleteMode ? 10 : 9" class="empty-table">
+                <td :colspan="deleteMode ? 11 : 10" class="empty-table">
                   No hay clientes disponibles
                 </td>
               </tr>
@@ -127,7 +135,6 @@
           </table>
         </div>
 
-        <!-- Vista de tarjetas para móviles -->
         <div class="card-view">
           <div v-for="client in paginatedClients" :key="client.id" class="client-card">
             <div class="card-content">
@@ -184,7 +191,18 @@
                   :disabled="loadingAccountsReceivable[client.id]"
                   :title="buttonTitle(client)"
                 >
-                  {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : 'Ver' }}
+                  {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : (client.oldest_pending_days !== null && client.oldest_pending_days !== undefined ? client.oldest_pending_days + 'd' : 'Ver') }}
+                </button>
+              </div>
+
+              <div class="card-row">
+                <strong>Datos:</strong>
+                <button 
+                  @click="downloadClientPDF(client)" 
+                  class="pdf-btn"
+                  title="Descargar PDF del cliente"
+                >
+                  PDF
                 </button>
               </div>
               
@@ -197,7 +215,6 @@
           </div>
         </div>
 
-        <!-- Paginación -->
         <div class="pagination">
           <button 
             @click="previousPage" 
@@ -229,7 +246,6 @@
       </div>
     </div>
 
-    <!-- Modal para crear cliente -->
     <div v-if="showCreateModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showCreateModal = false">&times;</span>
@@ -325,7 +341,6 @@
       </div>
     </div>
 
-    <!-- Modal para editar cliente -->
     <div v-if="showEditModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showEditModal = false">&times;</span>
@@ -421,7 +436,6 @@
       </div>
     </div>
 
-    <!-- Modal para confirmación de eliminación -->
     <div v-if="showDeleteModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showDeleteModal = false">&times;</span>
@@ -439,7 +453,6 @@
       </div>
     </div>
 
-    <!-- Modal para Cuentas por Cobrar -->
     <div v-if="showAccountsReceivableModal" class="modal accounts-modal">
       <div class="modal-content">
         <span class="close" @click="closeAccountsReceivableModal">&times;</span>
@@ -449,40 +462,65 @@
           <p>Cargando pedidos pendientes...</p>
         </div>
 
-        <div v-else-if="clientAccountsReceivable.length === 0" class="no-accounts-section">
-          <p>Este cliente no tiene pedidos pendientes de pago.</p>
+        <div v-else-if="!selectedClientForAccounts?.hasPendingOrders" class="no-accounts-section">
+          <p style="font-size: 16px; color: #28a745; font-weight: bold;">✓ {{ selectedClientForAccounts?.nombre }} {{ selectedClientForAccounts?.apellido }} no tiene pedidos pendientes.</p>
+          <p style="color: #666; margin-top: 10px;">Todos los pedidos de este cliente han sido cancelados correctamente.</p>
         </div>
 
         <div v-else class="accounts-list">
-          <div v-for="pedido in clientAccountsReceivable" :key="pedido.id" class="account-item">
-            <div class="account-header">
-              <div style="display:flex; align-items:center; gap:12px;">
-                <h3>Pedido #{{ pedido.id }}</h3>
-                <button type="button" @click.stop="editPedido(pedido)" class="edit-btn-small">Editar</button>
-              </div>
-              <span class="account-date">{{ formatDate(pedido.fecha) }}</span>
+          <!-- Resumen General -->
+          <div class="resumen-general">
+            <div class="resumen-item">
+              <span class="resumen-label">Total General:</span>
+              <span class="resumen-value">Q{{ formatCurrency(selectedClientForAccounts.resumen?.total_general || 0) }}</span>
             </div>
-            <div class="account-details">
-              <div class="account-row">
-                <span class="label">Total Original:</span>
-                <span class="amount original">Q{{ formatCurrency(pedido.total) }}</span>
-              </div>
-              <div class="account-row">
-                <span class="label">Total Cancelado:</span>
-                <span class="amount original">Q{{ formatCurrency(pedido.total_cancelado_pedido || (pedido.total - (parseFloat(pedido.saldo_pendiente || 0)))) }}</span>
-              </div>
-              <div class="account-row">
-                <span class="label">Saldo Pendiente:</span>
-                <span class="amount pending">Q{{ formatCurrency(pedido.saldo_pendiente) }}</span>
-              </div>
-              <div class="account-row">
-                <span class="label">Estado:</span>
-                <span class="status pending">{{ pedido.estado_pago }}</span>
-              </div>
+            <div class="resumen-item">
+              <span class="resumen-label">Total Cancelado:</span>
+              <span class="resumen-value pagado">Q{{ formatCurrency(selectedClientForAccounts.resumen?.total_cancelado || 0) }}</span>
+            </div>
+            <div class="resumen-item">
+              <span class="resumen-label">Total Pendiente:</span>
+              <span class="resumen-value pendiente">Q{{ formatCurrency(selectedClientForAccounts.resumen?.total_pendiente || 0) }}</span>
+            </div>
+            <div class="resumen-item" v-if="selectedClientForAccounts.promedioDiasPagados !== null">
+              <span class="resumen-label">Promedio de Pago:</span>
+              <span :class="['resumen-value', getColorClasForAvgDays(selectedClientForAccounts.promedioDiasPagados)]">
+                {{ selectedClientForAccounts.promedioDiasPagados }} días
+              </span>
             </div>
           </div>
 
-          <!-- (Resumen final removido por petición) -->
+          <!-- Lista de Pedidos Pendientes -->
+          <div v-for="(pedido, idx) in clientAccountsReceivable" :key="pedido.id" class="account-item">
+            <div class="account-header">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <h3>Pedido #{{ pedido.id }}</h3>
+                <span :class="['dias-badge', getDiasBadgeColor(pedido.dias_pendiente)]">
+                  {{ pedido.dias_pendiente }} días
+                </span>
+                <span v-if="pedido.es_mas_antiguo" class="badge-antiguo">MÁS ANTIGUO</span>
+              </div>
+              <span class="account-date">Creado: {{ formatDate(pedido.fecha) }}</span>
+            </div>
+            <div class="account-details">
+              <div class="account-row">
+                <span class="label">Total:</span>
+                <span class="amount">Q{{ formatCurrency(pedido.total_original) }}</span>
+              </div>
+              <div class="account-row">
+                <span class="label">Cancelado:</span>
+                <span class="amount pagado">Q{{ formatCurrency(pedido.total_cancelado || 0) }}</span>
+              </div>
+              <div class="account-row">
+                <span class="label">Pendiente:</span>
+                <span class="amount pendiente">Q{{ formatCurrency(pedido.saldo_pendiente) }}</span>
+              </div>
+              <div class="account-row">
+                <span class="label">Estado:</span>
+                <span class="status">{{ pedido.estado_pago }}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="modal-actions">
@@ -491,7 +529,6 @@
       </div>
     </div>
 
-    <!-- Modal para confirmaciones -->
     <modal-message 
       :show="showMessageModal"
       :title="messageTitle"
@@ -503,10 +540,11 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
 import { useRouter } from 'vue-router';
+import { generateClientPDF } from '@/services/pdfGeneratorService';
 
 export default {
   name: 'ClientsView',
@@ -533,13 +571,11 @@ export default {
     const perPage = ref(15);
     const isMobile = ref(false);
 
-    // Estados para validación de NIT
     const nitValidationMessage = ref('');
     const nitValidationClass = ref('');
     const editNitValidationMessage = ref('');
     const editNitValidationClass = ref('');
 
-    // Estados para Cuentas por Cobrar
     const showAccountsReceivableModal = ref(false);
     const selectedClientForAccounts = ref(null);
     const clientAccountsReceivable = ref([]);
@@ -557,14 +593,11 @@ export default {
 
     const searchQuery = ref({ nombre: '' });
 
-    // Función para validar NIT guatemalteco en el frontend
     const validateGuatemalanNIT = (nit) => {
-      if (!nit || nit.trim() === '') return { valid: true, message: '' }; // NIT opcional
+      if (!nit || nit.trim() === '') return { valid: true, message: '' };
       
-      // Limpiar el NIT (quitar espacios y convertir a mayúsculas)
       const nitClean = nit.replace(/[\s-]/g, '').toUpperCase();
       
-      // Verificar si es "CF" (Consumidor Final)
       if (nitClean === 'CF') {
         return { 
           valid: true, 
@@ -572,47 +605,45 @@ export default {
         };
       }
       
-      // Verificar longitud (debe ser 8 o 9 dígitos)
-      if (!/^[0-9]{8,9}$/.test(nitClean)) {
+      // Validar que sea alfanumérico (solo letras y números)
+      if (!/^[A-Z0-9]{1,20}$/.test(nitClean)) {
         return { 
           valid: false, 
-          message: 'El NIT debe tener 8-9 dígitos o ser "CF" para Consumidor Final' 
+          message: 'El NIT debe ser alfanumérico (letras y números), o "CF" para Consumidor Final' 
         };
       }
       
-      // Para NITs de 8 dígitos, agregar un 0 al inicio
-      const nitPadded = nitClean.length === 8 ? '0' + nitClean : nitClean;
-      
-      // Extraer dígitos y dígito verificador
-      const nitDigits = nitPadded.substring(0, 8);
-      const checkDigit = parseInt(nitPadded.substring(8, 9));
-      
-      // Calcular dígito verificador
-      let sum = 0;
-      let multiplier = 2;
-      
-      for (let i = 7; i >= 0; i--) {
-        sum += parseInt(nitDigits[i]) * multiplier;
-        multiplier++;
-      }
-      
-      let calculatedDigit = 11 - (sum % 11);
-      
-      // Casos especiales
-      if (calculatedDigit === 11) {
-        calculatedDigit = 0;
-      } else if (calculatedDigit === 10) {
-        return { 
-          valid: false, 
-          message: 'NIT inválido - dígito verificador incorrecto' 
-        };
-      }
-      
-      if (calculatedDigit !== checkDigit) {
-        return { 
-          valid: false, 
-          message: 'Dígito verificador incorrecto' 
-        };
+      // Si es solo dígitos, realizar validación de dígito verificador
+      if (/^[0-9]{8,9}$/.test(nitClean)) {
+        const nitPadded = nitClean.length === 8 ? '0' + nitClean : nitClean;
+        const nitDigits = nitPadded.substring(0, 8);
+        const checkDigit = parseInt(nitPadded.substring(8, 9));
+        
+        let sum = 0;
+        let multiplier = 2;
+        
+        for (let i = 7; i >= 0; i--) {
+          sum += parseInt(nitDigits[i]) * multiplier;
+          multiplier++;
+        }
+        
+        let calculatedDigit = 11 - (sum % 11);
+        
+        if (calculatedDigit === 11) {
+          calculatedDigit = 0;
+        } else if (calculatedDigit === 10) {
+          return { 
+            valid: false, 
+            message: 'NIT inválido - dígito verificador incorrecto' 
+          };
+        }
+        
+        if (calculatedDigit !== checkDigit) {
+          return { 
+            valid: false, 
+            message: 'Dígito verificador incorrecto' 
+          };
+        }
       }
       
       return { 
@@ -621,7 +652,6 @@ export default {
       };
     };
 
-    // Función para formatear NIT guatemalteco
     const formatGuatemalanNIT = (nit) => {
       if (!nit) return '';
       
@@ -631,6 +661,12 @@ export default {
         return 'CF';
       }
       
+      // Para NITs alfanuméricos puros (no numéricos), retornar como está
+      if (!/^[0-9]+$/.test(nitClean)) {
+        return nitClean;
+      }
+      
+      // Para NITs numéricos, aplicar formato con guión
       if (nitClean.length === 8) {
         return `${nitClean.substring(0, 7)}-${nitClean.substring(7)}`;
       } else if (nitClean.length === 9) {
@@ -640,7 +676,6 @@ export default {
       return nitClean;
     };
 
-    // Validar NIT en tiempo real para nuevo cliente
     const validateNITInput = () => {
       if (newClient.value.nit) {
         newClient.value.nit = formatGuatemalanNIT(newClient.value.nit);
@@ -653,7 +688,6 @@ export default {
       }
     };
 
-    // Validar NIT en tiempo real para editar cliente
     const validateEditNITInput = () => {
       if (selectedClient.value.nit) {
         selectedClient.value.nit = formatGuatemalanNIT(selectedClient.value.nit);
@@ -666,7 +700,6 @@ export default {
       }
     };
 
-    // Validar formulario de creación
     const isFormValid = computed(() => {
       const nitValid = !newClient.value.nit || validateGuatemalanNIT(newClient.value.nit).valid;
       return newClient.value.nombre && 
@@ -676,7 +709,6 @@ export default {
              newClient.value.telefonos.some(t => t.trim());
     });
 
-    // Validar formulario de edición
     const isEditFormValid = computed(() => {
       const nitValid = !selectedClient.value?.nit || validateGuatemalanNIT(selectedClient.value.nit).valid;
       return selectedClient.value?.nombre && 
@@ -991,11 +1023,13 @@ export default {
           nit: cliente.nit,
           direcciones: cliente.direcciones,
           telefonos: cliente.telefonos,
-          // Summary fields added by backend (may be null)
           total_cancelado: cliente.total_cancelado || 0,
-          oldest_pending_days: cliente.oldest_pending_days || null,
-          avg_days_to_pay: cliente.avg_days_to_pay || null
+          oldest_pending_days: cliente.oldest_pending_days !== null && cliente.oldest_pending_days !== undefined ? cliente.oldest_pending_days : null,
+          promedioDiasPagados: cliente.avg_days_to_pay !== null && cliente.avg_days_to_pay !== undefined ? cliente.avg_days_to_pay : null
         }));
+
+        console.log('Clients loaded:', clients.value.length);
+
       } catch (err) {
         error.value = `Error: ${err.message}`;
         console.error('Error al obtener clientes:', err);
@@ -1228,12 +1262,7 @@ export default {
     };
 
     const verCuentasPorCobrar = async (client) => {
-      // Ensure we have total_cancelado and avg_days_to_pay from the client list if present
-      selectedClientForAccounts.value = Object.assign({}, client, {
-        total_cancelado: client.total_cancelado || 0,
-        avg_days_to_pay: client.avg_days_to_pay || null,
-        oldest_pending_days: client.oldest_pending_days || null
-      });
+      selectedClientForAccounts.value = Object.assign({}, client);
       showAccountsReceivableModal.value = true;
       loadingClientAccounts.value = true;
       loadingAccountsReceivable.value[client.id] = true;
@@ -1256,27 +1285,28 @@ export default {
         }
 
         const data = await response.json();
-        clientAccountsReceivable.value = data.data || [];
-        // Attach 'dias_pendiente' already computed by backend; also compute total paid per pedido
-        clientAccountsReceivable.value = clientAccountsReceivable.value.map(p => ({
-          ...p,
-          total_cancelado_pedido: (p.total - parseFloat(p.saldo_pendiente || p.total || 0))
-        }));
-
-        // Compute oldest pending days from the fetched pedidos (most robust source) and update client object
-        const minDays = clientAccountsReceivable.value.reduce((min, p) => {
-          const d = p.dias_pendiente != null ? parseInt(p.dias_pendiente) : Infinity;
-          return Math.min(min, d);
-        }, Infinity);
-
-        const oldestPending = isFinite(minDays) ? minDays : null;
-        // Update selectedClientForAccounts and the main clients array so the button color updates
-        selectedClientForAccounts.value = Object.assign({}, selectedClientForAccounts.value, { oldest_pending_days: oldestPending });
-
-        const idx = clients.value.findIndex(c => c.id === client.id);
-        if (idx > -1) {
-          clients.value[idx] = Object.assign({}, clients.value[idx], { oldest_pending_days: oldestPending });
+        
+        // Si no hay pedidos pendientes
+        if (!data.data || data.data.length === 0) {
+          clientAccountsReceivable.value = [];
+          selectedClientForAccounts.value.hasPendingOrders = false;
+          loadingClientAccounts.value = false;
+          loadingAccountsReceivable.value[client.id] = false;
+          return;
         }
+        
+        selectedClientForAccounts.value.hasPendingOrders = true;
+        
+        // Procesar los datos
+        clientAccountsReceivable.value = data.data.map((pedido, idx) => ({
+          ...pedido,
+          indice: idx,
+          es_mas_antiguo: idx === 0 // El primero es el más antiguo (ORDER BY fecha ASC)
+        }));
+        
+        // Guardar información del resumen
+        selectedClientForAccounts.value.resumen = data.resumen;
+        selectedClientForAccounts.value.promedioDiasPagados = data.promedioDiasPagados;
         
       } catch (err) {
         console.error('Error al obtener cuentas por cobrar:', err);
@@ -1289,10 +1319,7 @@ export default {
     };
 
     const editPedido = (pedido) => {
-      // Navegar al módulo de ventas con el pedido seleccionado
-      // Usar query param para que la vista de ventas pueda abrir el pedido
       router.push({ path: '/ventas', query: { pedido: pedido.id } });
-      // cerrar modal
       closeAccountsReceivableModal();
     };
 
@@ -1300,6 +1327,8 @@ export default {
       showAccountsReceivableModal.value = false;
       selectedClientForAccounts.value = null;
       clientAccountsReceivable.value = [];
+      // Refrescar la lista de clientes para actualizar colores
+      fetchClients();
     };
 
     const formatDate = (dateString) => {
@@ -1317,9 +1346,7 @@ export default {
       return parseFloat(amount).toFixed(2);
     };
 
-    // Helper: determine color class for view button based on oldest pending days
     const buttonColorClass = (client) => {
-      // If client has no pending orders (oldest_pending_days null) -> default blue
       const days = client.oldest_pending_days;
       if (days === null || days === undefined) return 'btn-blue';
       if (days >= 0 && days <= 30) return 'btn-green';
@@ -1331,12 +1358,14 @@ export default {
     const buttonTitle = (client) => {
       const days = client.oldest_pending_days;
       if (days === null || days === undefined) return 'Sin pedidos pendientes';
-      return `Días sin pagar: ${days}`;
+      if (days >= 0 && days <= 30) return `${days} días pendiente (0-30 días)`;
+      if (days >= 31 && days <= 60) return `${days} días pendiente (31-60 días)`;
+      if (days > 60) return `${days} días pendiente (>60 días)`;
+      return `${days} días pendiente`;
     };
 
-    // Helper: get class for client id cell based on avg_days_to_pay
     const idColorClass = (client) => {
-      const avg = client.avg_days_to_pay;
+      const avg = client.promedioDiasPagados;
       if (avg === null || avg === undefined) return '';
       if (avg >= 0 && avg <= 30) return 'id-green';
       if (avg >= 31 && avg <= 60) return 'id-yellow';
@@ -1344,10 +1373,72 @@ export default {
       return '';
     };
 
+    const getDiasBadgeColor = (dias) => {
+      if (dias >= 0 && dias <= 30) return 'dias-verde';
+      if (dias >= 31 && dias <= 60) return 'dias-amarillo';
+      if (dias > 60) return 'dias-rojo';
+      return 'dias-gris';
+    };
+
+    const getColorClasForAvgDays = (dias) => {
+      if (dias >= 0 && dias <= 30) return 'color-verde';
+      if (dias >= 31 && dias <= 60) return 'color-amarillo';
+      if (dias > 60) return 'color-rojo';
+      return '';
+    };
+
+    const downloadClientPDF = async (client) => {
+      try {
+        // Obtener las cuentas por cobrar del cliente
+        let accountsData = [];
+        
+        try {
+          const token = checkAuth();
+          if (token) {
+            const response = await fetch(`/api/clientes/${client.id}/cuentas-por-cobrar`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              accountsData = data.data || [];
+            }
+          }
+        } catch (err) {
+          console.warn('Error al obtener cuentas por cobrar para PDF:', err);
+        }
+
+        // Generar el PDF
+        await generateClientPDF(client, accountsData);
+        showMessage('Éxito', 'PDF descargado correctamente', 'success');
+      } catch (err) {
+        console.error('Error generando PDF:', err);
+        showMessage('Error', `Error al generar PDF: ${err.message}`, 'error');
+      }
+    };
+
+    let refreshInterval;
+    
     onMounted(() => {
       fetchClients();
       checkScreenSize();
       window.addEventListener('resize', checkScreenSize);
+      
+      // Refrescar lista de clientes cada 15 segundos para actualizar colores de botones
+      refreshInterval = setInterval(() => {
+        if (!showAccountsReceivableModal.value && !showCreateModal.value && !showEditModal.value) {
+          fetchClients();
+        }
+      }, 15000);
+    });
+    
+    onUnmounted(() => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('resize', checkScreenSize);
     });
 
     return {
@@ -1415,16 +1506,20 @@ export default {
       formatDate,
       formatCurrency,
       validateGuatemalanNIT,
-      formatGuatemalanNIT
-      ,buttonColorClass, buttonTitle, idColorClass
-      ,editPedido
+      formatGuatemalanNIT,
+      buttonColorClass,
+      buttonTitle,
+      idColorClass,
+      editPedido,
+      downloadClientPDF,
+      getDiasBadgeColor,
+      getColorClasForAvgDays
     };
   }
 }
 </script>
 
 <style scoped src="../styles/clientes.css">
-/* Estilos adicionales para validación de NIT */
 .nit-validation {
   font-size: 0.8em;
   margin-top: 4px;
@@ -1449,14 +1544,12 @@ export default {
   cursor: not-allowed;
 }
 
-/* Estilos para el campo NIT */
 .form-group input[type="text"]#nit,
 .form-group input[type="text"]#edit-nit {
   font-family: monospace;
   letter-spacing: 0.5px;
 }
 
-/* Mejoras para la tabla en móviles */
 @media (max-width: 768px) {
   .clients-table th:nth-child(6),
   .clients-table td:nth-child(6) {
