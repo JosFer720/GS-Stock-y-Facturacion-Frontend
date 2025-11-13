@@ -63,7 +63,7 @@ router.post('/pedidos', auth, async (req, res) => {
       SELECT u.id as vendedor_id, u.nombre, u.apellido, r.rol 
       FROM Usuarios u
       JOIN Roles r ON u.id_roles = r.id
-      WHERE u.id = $1 AND r.rol IN ('Vendedor','Administrador')
+      WHERE u.id = $1 AND r.rol IN ('Vendedor','Administrador','Super Admin')
     `, [req.user.id]);
 
     if (vendedorResult.rows.length === 0) {

@@ -567,7 +567,7 @@ const API_BASE_URL = '/api'
           ...(selectedMonth.value && { month: selectedMonth.value })
         }
         
-        const response = await axios.get(`$/api/graphics/comparison/product-lines`, {
+        const response = await axios.get(`/api/graphics/comparison/product-lines`, {
           headers: { Authorization: `Bearer ${token}` },
           params
         })

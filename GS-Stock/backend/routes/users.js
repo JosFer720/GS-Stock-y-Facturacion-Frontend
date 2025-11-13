@@ -58,7 +58,7 @@ router.get('/profile', authenticateJWT(), (req, res) => {
 });
 
 // Ruta protegida admin
-router.get('/admin', authenticateJWT(['Administrador']), (req, res) => {
+router.get('/admin', authenticateJWT(['Administrador', 'Super Admin']), (req, res) => {
   res.json({
     message: 'Acceso administrativo',
     user: req.user
@@ -117,7 +117,7 @@ router.get('/usuario-actual', authenticateJWT(), async (req, res) => {
 });
 
 // NUEVO ENDPOINT 1: Crear nuevo usuario 
-router.post('/create', authenticateJWT(['Administrador']), async (req, res) => {
+router.post('/create', authenticateJWT(['Administrador', 'Super Admin']), async (req, res) => {
   try {
     const { nombre, apellido, usuario, email, contrasena, id_roles } = req.body;
     
@@ -204,7 +204,7 @@ router.put('/update/:id', authenticateJWT(), async (req, res) => {
     const userId = req.user.id;
     
     // Verificar permisos: solo el propio usuario o un administrador pueden actualizar
-    if (userId != id && userRole !== 'Administrador') {
+    if (userId != id && userRole !== 'Administrador' && userRole !== 'Super Admin') {
       return res.status(403).json({ error: 'No tienes permisos para actualizar este usuario' });
     }
     
@@ -335,7 +335,7 @@ router.delete('/delete/:id', authenticateJWT(), async (req, res) => {
     const userId = req.user.id;
     
     // Verificar permisos: solo el propio usuario o un administrador pueden desactivar/eliminar
-    if (userId != id && userRole !== 'Administrador') {
+    if (userId != id && userRole !== 'Administrador' && userRole !== 'Super Admin') {
       return res.status(403).json({ error: 'No tienes permisos para esta acción' });
     }
     
@@ -387,8 +387,8 @@ router.delete('/delete/:id', authenticateJWT(), async (req, res) => {
 // ENDPOINT MANTENIDO: Para compatibilidad con el código de ventas
 router.get('/vendedor', authenticateJWT(), async (req, res) => {
   try {
-    // Permitir Vendedor o Administrador
-    if (req.user.rol !== 'Vendedor' && req.user.rol !== 'Administrador') {
+    // Permitir Vendedor o Administrador o Super Admin
+    if (req.user.rol !== 'Vendedor' && req.user.rol !== 'Administrador' && req.user.rol !== 'Super Admin') {
       return res.status(403).json({
         success: false,
         error: 'El usuario actual no tiene permisos de vendedor o administrador'

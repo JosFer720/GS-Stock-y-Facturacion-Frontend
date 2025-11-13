@@ -531,12 +531,12 @@ export default {
     const selectedEstadoFilter = ref('');
 
     const showActions = computed(() => {
-      return userRole.value && ['Administrador', 'Secretaria'].includes(userRole.value);
+      return userRole.value && ['Administrador', 'Secretaria', 'Super Admin'].includes(userRole.value);
     });
 
     // Nueva computed para verificar si es admin
     const isAdmin = computed(() => {
-      return userRole.value === 'Administrador';
+      return userRole.value === 'Administrador' || userRole.value === 'Super Admin';
     });
 
     const formatPrice = (price) => {
