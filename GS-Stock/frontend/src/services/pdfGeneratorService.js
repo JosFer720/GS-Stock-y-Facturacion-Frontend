@@ -46,53 +46,6 @@ function buildClientHTML(client, accountsReceivable = []) {
         .join('')
     : '<li>Sin teléfonos registrados</li>';
   
-  let tablaCuentasHTML = '';
-  let totalPendiente = 0;
-  
-  if (accountsReceivable && accountsReceivable.length > 0) {
-    const filas = accountsReceivable
-      .map((pedido, idx) => {
-        const saldoPendiente = parseFloat(pedido.saldo_pendiente || 0);
-        totalPendiente += saldoPendiente;
-        return `
-          <tr style="background-color: ${idx % 2 === 0 ? '#f9f9f9' : '#ffffff'};">
-            <td style="padding: 8px; border: 1px solid #ddd;">${pedido.id}</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">${formatDate(pedido.fecha)}</td>
-            <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">Q${formatCurrency(pedido.total_original || pedido.total)}</td>
-            <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">Q${formatCurrency(saldoPendiente)}</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">${pedido.estado_pago || 'Pendiente'}</td>
-          </tr>
-        `;
-      })
-      .join('');
-    
-    tablaCuentasHTML = `
-      <h2 style="color: #333; font-size: 18px; margin-top: 20px; margin-bottom: 10px;">CUENTAS POR COBRAR (PENDIENTES)</h2>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-        <thead>
-          <tr style="background-color: #2980b9; color: white;">
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Pedido</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Fecha</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: right;">Total</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: right;">Saldo Pte.</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filas}
-        </tbody>
-      </table>
-      <div style="text-align: right; font-size: 16px; font-weight: bold; color: #c0392b; margin-bottom: 20px;">
-        TOTAL PENDIENTE: Q${formatCurrency(totalPendiente)}
-      </div>
-    `;
-  } else {
-    tablaCuentasHTML = `
-      <h2 style="color: #333; font-size: 18px; margin-top: 20px; margin-bottom: 10px;">CUENTAS POR COBRAR (PENDIENTES)</h2>
-      <p style="color: #666;">No hay cuentas por cobrar pendientes</p>
-    `;
-  }
-  
   return `
     <!DOCTYPE html>
     <html lang="es">
@@ -254,8 +207,6 @@ function buildClientHTML(client, accountsReceivable = []) {
           <div class="section-title">TELÉFONOS</div>
           <ul>${telefonosHTML}</ul>
         </div>
-        
-        ${tablaCuentasHTML}
         
         <div class="footer">
           <p>Este documento fue generado automáticamente por el sistema GS-Stock</p>
