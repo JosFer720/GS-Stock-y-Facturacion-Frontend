@@ -1,99 +1,118 @@
 <template>
-  <div class="login-container">
-    <div class="logo-container">
-      <img src="/src/assets/images/logo.svg" alt="GS Stock Logo">
-    </div>
-    
-    <!-- Loading de validación de token -->
-    <div v-if="validandoToken" class="loading-container">
-      <div class="spinner"></div>
-      <p>Validando enlace de recuperación...</p>
-    </div>
-    
-    <!-- Formulario de cambio de contraseña -->
-    <div v-else-if="tokenValido">
-      <h2>Cambiar Contraseña</h2>
-      <p v-if="nombreUsuario" class="welcome-message">
-        Hola <strong>{{ nombreUsuario }}</strong>, ingresa tu nueva contraseña
-      </p>
-      
-      <form @submit.prevent="cambiarContrasena">
-        <div class="input-group">
-          <label for="nuevaContrasena">Nueva Contraseña:</label>
-          <input 
-            type="password" 
-            id="nuevaContrasena" 
-            v-model="nuevaContrasena" 
-            :disabled="loading"
-            required 
-            minlength="8"
-            placeholder="Mínimo 8 caracteres"
-          >
-          <small class="password-hint">La contraseña debe tener al menos 8 caracteres</small>
-        </div>
-        <div class="input-group">
-          <label for="confirmarContrasena">Confirmar Contraseña:</label>
-          <input 
-            type="password" 
-            id="confirmarContrasena" 
-            v-model="confirmarContrasena" 
-            :disabled="loading"
-            required
-            placeholder="Confirma tu nueva contraseña"
-          >
-        </div>
-        
-        <!-- Indicador de fortaleza de contraseña -->
-        <div v-if="nuevaContrasena" class="password-strength">
-          <div class="strength-bar">
-            <div 
-              class="strength-fill" 
-              :class="passwordStrength.class"
-              :style="{ width: passwordStrength.width }"
-            ></div>
+  <div class="login-wrapper">
+    <div class="login-split-container">
+      <!-- Sección Izquierda - Formulario -->
+      <div class="login-form-section">
+        <div class="form-content">
+          <!-- Loading de validación de token -->
+          <div v-if="validandoToken" class="loading-container">
+            <div class="spinner"></div>
+            <p>Validando enlace de recuperación...</p>
           </div>
-          <small :class="passwordStrength.class">{{ passwordStrength.text }}</small>
+          
+          <!-- Formulario de cambio de contraseña -->
+          <div v-else-if="tokenValido">
+            <h2 class="login-title">Cambiar Contraseña</h2>
+            <p v-if="nombreUsuario" class="welcome-message">
+              Hola <strong>{{ nombreUsuario }}</strong>, ingresa tu nueva contraseña
+            </p>
+            
+            <form @submit.prevent="cambiarContrasena" class="login-form">
+              <div class="input-group">
+                <label for="nuevaContrasena">Nueva Contraseña:</label>
+                <input 
+                  type="password" 
+                  id="nuevaContrasena" 
+                  v-model="nuevaContrasena" 
+                  :disabled="loading"
+                  required 
+                  minlength="8"
+                  placeholder="Mínimo 8 caracteres"
+                >
+                <small class="password-hint">La contraseña debe tener al menos 8 caracteres</small>
+              </div>
+              
+              <div class="input-group">
+                <label for="confirmarContrasena">Confirmar Contraseña:</label>
+                <input 
+                  type="password" 
+                  id="confirmarContrasena" 
+                  v-model="confirmarContrasena" 
+                  :disabled="loading"
+                  required
+                  placeholder="Confirma tu nueva contraseña"
+                >
+              </div>
+              
+              <!-- Indicador de fortaleza de contraseña -->
+              <div v-if="nuevaContrasena" class="password-strength">
+                <div class="strength-bar">
+                  <div 
+                    class="strength-fill" 
+                    :class="passwordStrength.class"
+                    :style="{ width: passwordStrength.width }"
+                  ></div>
+                </div>
+                <small :class="passwordStrength.class">{{ passwordStrength.text }}</small>
+              </div>
+              
+              <button type="submit" class="btn-ingresar" :disabled="loading || !puedeEnviar">
+                {{ loading ? 'Actualizando...' : 'Actualizar Contraseña' }}
+              </button>
+            </form>
+            
+            <div class="back-link">
+              <a href="#" @click.prevent="volverALogin">Volver al inicio de sesión</a>
+            </div>
+          </div>
+          
+          <!-- Error de token -->
+          <div v-else class="error-container">
+            <div class="error-icon">⚠️</div>
+            <h3>Enlace no válido</h3>
+            <p>{{ mensajeError }}</p>
+            <button @click="volverALogin" class="btn-secondary">
+              Volver al inicio de sesión
+            </button>
+          </div>
+          
+          <div class="footer-text">
+            GENSER - COMERCIALIZADORA E IMPORTADORA
+          </div>
         </div>
-        
-        <button type="submit" :disabled="loading || !puedeEnviar">
-          {{ loading ? 'Actualizando...' : 'Actualizar Contraseña' }}
-        </button>
-      </form>
-    </div>
-    
-    <!-- Error de token -->
-    <div v-else class="error-container">
-      <div class="error-icon">⚠️</div>
-      <h3>Enlace no válido</h3>
-      <p>{{ mensajeError }}</p>
-      <button @click="volverALogin" class="secondary-button">
-        Volver al inicio de sesión
-      </button>
-    </div>
-    
-    <div class="recover-link" v-if="tokenValido">
-      <a href="#" @click.prevent="volverALogin">Volver al inicio de sesión</a>
+      </div>
+      
+      <!-- Sección Derecha - Logo -->
+      <div class="login-brand-section">
+        <div class="brand-content">
+          <div class="logo-display">
+            <img src="@/assets/images/logo.svg" alt="GENSER Logo" class="main-logo">
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Modal de mensaje -->
-    <modal-message 
-      :show="showMessageModal"
-      :title="messageTitle"
-      :message="messageContent"
-      :type="messageType"
-      @close="hideMessage"
-    />
+    <!-- Modal Message -->
+    <div v-if="showMessageModal" class="modal-overlay" @click="hideMessage">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header" :class="'modal-' + messageType">
+          <h3>{{ messageTitle }}</h3>
+          <button class="modal-close" @click="hideMessage">×</button>
+        </div>
+        <div class="modal-body">
+          <p>{{ messageContent }}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn" @click="hideMessage">Cerrar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import ModalMessage from '@/components/ModalMessage.vue';
-
 export default {
   name: 'CambiarView',
-  components: {
-    ModalMessage
-  },
   data() {
     return {
       nuevaContrasena: '',
@@ -142,12 +161,43 @@ export default {
   methods: {
     async inicializar() {
       // Obtener token de los parámetros de la URL
-      this.token = this.$route.query.token;
+      let rawToken = this.$route.query.token;
       
-      if (!this.token) {
+      console.log('🔍 Inicializando cambio de contraseña...');
+      console.log('📦 Token de URL query (raw):', rawToken);
+      console.log('📏 Token length (raw):', rawToken?.length);
+      console.log('🔤 Token type:', typeof rawToken);
+      
+      if (!rawToken) {
+        console.log('❌ No hay token en la URL');
         this.validandoToken = false;
         this.tokenValido = false;
         this.mensajeError = 'No se proporcionó un token de recuperación válido.';
+        return;
+      }
+      
+      // Limpiar el token de espacios y caracteres extraños
+      // 1. Eliminar espacios al inicio y final
+      let cleanToken = rawToken.trim();
+      // 2. Eliminar caracteres invisibles Unicode (espacios de ancho cero, etc)
+      cleanToken = cleanToken.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
+      // 3. Decodificar URL encoding si existe
+      cleanToken = decodeURIComponent(cleanToken);
+      // 4. Eliminar cualquier carácter que no sea hexadecimal válido
+      cleanToken = cleanToken.replace(/[^a-fA-F0-9]/g, '');
+      
+      this.token = cleanToken;
+      
+      console.log('🧹 Token después de limpieza:', this.token);
+      console.log('📏 Token length después de limpieza:', this.token.length);
+      console.log('✅ Token es hexadecimal válido:', /^[a-fA-F0-9]+$/.test(this.token));
+      
+      // Validar longitud esperada del token (debe ser 64 caracteres hex = 32 bytes)
+      if (this.token.length !== 64) {
+        console.log('⚠️ Token con longitud incorrecta. Esperado: 64, Recibido:', this.token.length);
+        this.validandoToken = false;
+        this.tokenValido = false;
+        this.mensajeError = 'El token de recuperación tiene un formato inválido.';
         return;
       }
       
@@ -156,31 +206,45 @@ export default {
     
     async validarToken() {
       try {
+        console.log('=== VALIDANDO TOKEN EN FRONTEND ===');
+        console.log('🔐 Token a validar:', this.token);
+        console.log('📏 Token length:', this.token.length);
+        
+        const requestBody = { token: this.token };
+        console.log('📤 Request body:', JSON.stringify(requestBody));
+        
         const response = await fetch('/api/auth/validate-reset-token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ token: this.token }),
-          mode: 'cors'
+          body: JSON.stringify(requestBody)
         });
         
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response ok:', response.ok);
+        
         const data = await response.json();
+        console.log('📦 Response data:', data);
         
         if (response.ok && data.valid) {
           this.tokenValido = true;
           this.nombreUsuario = data.userName || '';
+          console.log('✅ Token válido - Usuario:', this.nombreUsuario);
         } else {
           this.tokenValido = false;
           this.mensajeError = data.error || 'El enlace de recuperación no es válido o ha expirado.';
+          console.log('❌ Token inválido:', this.mensajeError);
         }
         
       } catch (error) {
-        console.error('Error validando token:', error);
+        console.error('💀 Error validando token:', error);
+        console.error('Error stack:', error.stack);
         this.tokenValido = false;
         this.mensajeError = 'Error al validar el enlace de recuperación. Por favor, intenta más tarde.';
       } finally {
         this.validandoToken = false;
+        console.log('🏁 Validación completada. Token válido:', this.tokenValido);
       }
     },
     
@@ -196,87 +260,65 @@ export default {
     },
 
     async cambiarContrasena() {
-      console.log('Iniciando cambio de contraseña...');
-      console.log('Token:', this.token);
-      console.log('Nueva contraseña length:', this.nuevaContrasena.length);
-      
+      console.log('=== INICIANDO CAMBIO DE CONTRASEÑA ===');
       this.loading = true;
       
       // Validaciones frontend
       if (!this.nuevaContrasena || !this.confirmarContrasena) {
+        console.log('❌ Campos vacíos');
         this.showMessage('Error', 'Por favor, complete todos los campos', 'error');
         this.loading = false;
         return;
       }
       
       if (this.nuevaContrasena.length < 8) {
+        console.log('❌ Contraseña muy corta');
         this.showMessage('Error', 'La contraseña debe tener al menos 8 caracteres', 'error');
         this.loading = false;
         return;
       }
       
       if (this.nuevaContrasena !== this.confirmarContrasena) {
+        console.log('❌ Contraseñas no coinciden');
         this.showMessage('Error', 'Las contraseñas no coinciden', 'error');
         this.loading = false;
         return;
       }
       
       try {
-        console.log('Enviando petición a reset-password...');
+        console.log('✅ Validaciones pasadas');
+        console.log('🚀 Enviando solicitud de cambio de contraseña...');
+        console.log('🔑 Token a usar:', this.token);
+        console.log('📏 Token length:', this.token.length);
         
         const requestBody = {
           token: this.token,
           newPassword: this.nuevaContrasena
         };
         
-        console.log('Body de la petición:', requestBody);
+        console.log('📤 Enviando request a /api/auth/reset-password');
         
-        // Llamada al endpoint de reset-password
         const response = await fetch('/api/auth/reset-password', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestBody),
-          mode: 'cors'
+          body: JSON.stringify(requestBody)
         });
         
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
+        console.log('📡 Reset password response status:', response.status);
+        console.log('📡 Response ok:', response.ok);
         
-        let data;
-        try {
-          const responseText = await response.text();
-          console.log('Response text:', responseText);
-          
-          if (responseText) {
-            data = JSON.parse(responseText);
-          } else {
-            data = {};
-          }
-          console.log('Response data:', data);
-        } catch (parseError) {
-          console.error('Error parsing JSON response:', parseError);
-          throw new Error('Respuesta inválida del servidor');
-        }
+        const data = await response.json();
+        console.log('📦 Reset password response data:', data);
         
         if (!response.ok) {
-          // Manejar diferentes tipos de error del servidor
-          let errorMessage = 'Error desconocido';
-          
-          if (data && data.error) {
-            errorMessage = data.error;
-          } else if (data && data.message) {
-            errorMessage = data.message;
-          } else {
-            errorMessage = `Error ${response.status}: ${response.statusText}`;
-          }
-          
-          throw new Error(errorMessage);
+          console.log('❌ Response no OK, lanzando error');
+          throw new Error(data.error || data.message || `Error ${response.status}`);
         }
         
         // Éxito
-        console.log('Contraseña cambiada exitosamente');
+        console.log('🎉 Contraseña cambiada exitosamente');
         this.showMessage(
           'Éxito', 
           'Contraseña actualizada correctamente. Serás redirigido al login en 3 segundos.', 
@@ -289,283 +331,31 @@ export default {
         
         // Redirigir al login después de 3 segundos
         setTimeout(() => {
-          this.$router.push('/');
+          console.log('🔄 Redirigiendo al login...');
+          this.$router.push('/').catch(err => {
+            console.log('⚠️ Error en redirección (ignorado):', err);
+          });
         }, 3000);
         
       } catch (error) {
-        console.error('Error completo cambiando contraseña:', error);
+        console.error('💀 Error cambiando contraseña:', error);
+        console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
-        
-        let errorMessage = 'Error desconocido';
-        
-        // Mejor manejo de errores
-        if (error instanceof TypeError && error.message.includes('fetch')) {
-          errorMessage = 'Error de conexión. Verifica que el servidor esté funcionando.';
-        } else if (error.message) {
-          errorMessage = error.message;
-        } else if (error.error) {
-          errorMessage = error.error;
-        }
-        
-        this.showMessage('Error', errorMessage, 'error');
+        this.showMessage('Error', error.message || 'Error al actualizar la contraseña', 'error');
       } finally {
         this.loading = false;
+        console.log('🏁 Proceso de cambio de contraseña finalizado');
       }
     },
     
     volverALogin() {
-      this.$router.push('/');
+      console.log('🔙 Volviendo al login...');
+      this.$router.push('/').catch(err => {
+        console.log('⚠️ Error en navegación (ignorado):', err);
+      });
     }
   }
 }
 </script>
 
-<style scoped>
-.login-container {
-  background-color: var(--card-bg);
-  border-radius: 10px;
-  box-shadow: var(--shadow);
-  width: 100%;
-  max-width: 400px;
-  padding: 35px;
-  margin: 20px auto;
-  transition: all 0.3s ease;
-}
-
-.logo-container {
-  text-align: center;
-  margin-bottom: 30px;
-  padding: 10px;
-  border-radius: 8px;
-  display: inline-block;
-  width: auto;
-  margin-left: auto;
-  margin-right: auto;
-  display: block;
-}
-
-.logo-container img {
-  max-width: 230px;
-  height: auto;
-}
-
-.loading-container {
-  text-align: center;
-  padding: 2rem 0;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #4CAF50;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.error-container {
-  text-align: center;
-  padding: 2rem 0;
-}
-
-.error-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-.error-container h3 {
-  color: #f44336;
-  margin-bottom: 1rem;
-}
-
-.error-container p {
-  color: #666;
-  margin-bottom: 1.5rem;
-}
-
-h2 {
-  text-align: center;
-  color: var(--text-color);
-  margin-top: 0;
-  margin-bottom: 25px;
-  font-weight: 500;
-  font-size: 24px;
-}
-
-.welcome-message {
-  text-align: center;
-  color: var(--text-secondary);
-  margin-bottom: 25px;
-  font-size: 14px;
-}
-
-form {
-  display: flex;
-  flex-direction: column;
-}
-
-.input-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: var(--text-color);
-  font-size: 16px;
-}
-
-input {
-  width: 100%;
-  padding: 12px 15px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-sizing: border-box;
-  font-size: 15px;
-  transition: all 0.2s;
-  background-color: var(--input-bg);
-}
-
-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
-}
-
-input:disabled {
-  background-color: #f5f5f5;
-  cursor: not-allowed;
-}
-
-.password-hint {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-  display: block;
-}
-
-.password-strength {
-  margin-bottom: 15px;
-}
-
-.strength-bar {
-  width: 100%;
-  height: 4px;
-  background-color: #e0e0e0;
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 5px;
-}
-
-.strength-fill {
-  height: 100%;
-  transition: all 0.3s ease;
-}
-
-.strength-fill.weak {
-  background-color: #f44336;
-}
-
-.strength-fill.medium {
-  background-color: #ff9800;
-}
-
-.strength-fill.good {
-  background-color: #2196f3;
-}
-
-.strength-fill.strong {
-  background-color: #4caf50;
-}
-
-small.weak {
-  color: #f44336;
-}
-
-small.medium {
-  color: #ff9800;
-}
-
-small.good {
-  color: #2196f3;
-}
-
-small.strong {
-  color: #4caf50;
-}
-
-button {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 14px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
-  transition: background-color 0.2s, transform 0.1s;
-  letter-spacing: 0.5px;
-}
-
-button:hover:not(:disabled) {
-  background-color: var(--primary-hover);
-}
-
-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.secondary-button {
-  background-color: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
-}
-
-.secondary-button:hover:not(:disabled) {
-  background-color: #e9e9e9;
-}
-
-.recover-link {
-  text-align: center;
-  margin-top: 20px;
-}
-
-.recover-link a {
-  color: var(--primary-color);
-  text-decoration: none;
-  font-size: 14px;
-  transition: color 0.2s;
-}
-
-.recover-link a:hover {
-  color: var(--primary-hover);
-  text-decoration: underline;
-}
-
-@media (max-width: 480px) {
-  .login-container {
-    margin: 15px;
-    padding: 25px;
-  }
-  
-  h2 {
-    font-size: 22px;
-  }
-  
-  .error-container, .loading-container {
-    padding: 1.5rem 0;
-  }
-}
-</style>
+<style src="@/styles/cambiar.css"></style>

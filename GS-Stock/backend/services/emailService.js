@@ -12,6 +12,13 @@ const createTransporter = () => {
 
 const sendPasswordResetEmail = async (email, userName, resetLink) => {
   const transporter = createTransporter();
+  
+  // Asegurar que el resetLink no tenga caracteres invisibles
+  const cleanResetLink = resetLink.trim().replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
+  
+  console.log('📧 Preparando email de recuperación...');
+  console.log('🔗 Reset link limpio:', cleanResetLink);
+  console.log('📏 Reset link length:', cleanResetLink.length);
 
   const mailOptions = {
     from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
@@ -71,13 +78,13 @@ const sendPasswordResetEmail = async (email, userName, resetLink) => {
             <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Importadora Genser.</p>
             <p>Para crear una nueva contraseña, haz clic en el siguiente botón:</p>
             <div style="text-align: center;">
-              <a href="${resetLink}" class="reset-button">Restablecer Contraseña</a>
+              <a href="${cleanResetLink}" class="reset-button">Restablecer Contraseña</a>
             </div>
             <p><strong>Este enlace expirará en 1 hora por seguridad.</strong></p>
             <p>Si no solicitaste este cambio, puedes ignorar este correo de forma segura. Tu contraseña no será cambiada.</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
             <p><small>Si el botón no funciona, copia y pega este enlace en tu navegador:</small></p>
-            <p><small><a href="${resetLink}">${resetLink}</a></small></p>
+            <p><small><a href="${cleanResetLink}">${cleanResetLink}</a></small></p>
           </div>
           <div class="footer">
             <p>Este es un mensaje automático, por favor no responder a este correo.</p>

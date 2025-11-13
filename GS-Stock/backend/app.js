@@ -32,6 +32,12 @@ const app = express();
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 
+// Middleware de logging para TODOS los requests
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.url} - Body:`, JSON.stringify(req.body).substring(0, 100));
+  next();
+});
+
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,

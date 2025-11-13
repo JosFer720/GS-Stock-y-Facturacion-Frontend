@@ -1,46 +1,98 @@
 <template>
-  <div class="login-container">
-    <div class="logo-container">
-      <img src="/src/assets/images/logo.svg" alt="GS Stock Logo">
-    </div>
-    <h2>Iniciar Sesión</h2>
-    <form @submit.prevent="handleLogin">
-      <div class="input-group">
-        <label for="usuario">Usuario:</label>
-        <input type="text" id="usuario" v-model="usuario" required>
+  <div class="login-wrapper">
+    <div class="login-split-container">
+      <!-- Sección Izquierda - Formulario -->
+      <div class="login-form-section">
+        <div class="form-content">
+          <h2 class="login-title">Iniciar Sesión</h2>
+          
+          <div class="login-form">
+            <div class="input-group">
+              <label for="usuario">Usuario:</label>
+              <input 
+                type="text" 
+                id="usuario" 
+                v-model="usuario" 
+                placeholder="Ingresa tu usuario"
+                @keyup.enter="handleLogin"
+                required
+              >
+            </div>
+            
+            <div class="input-group">
+              <label for="contrasena">Contraseña:</label>
+              <div class="password-wrapper">
+                <input 
+                  :type="showPassword ? 'text' : 'password'" 
+                  id="contrasena" 
+                  v-model="contrasena" 
+                  placeholder="Ingresa tu contraseña"
+                  @keyup.enter="handleLogin"
+                  required
+                >
+                <button 
+                  type="button"
+                  class="toggle-password" 
+                  @click="togglePasswordVisibility"
+                  :title="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <button @click="handleLogin" class="btn-ingresar">Ingresar</button>
+            
+            <div class="recover-link">
+              <a href="#" @click.prevent="irARestablecer">Recuperar contraseña</a>
+            </div>
+          </div>
+          
+          <div class="footer-text">
+            GENSER - COMERCIALIZADORA E IMPORTADORA
+          </div>
+        </div>
       </div>
-      <div class="input-group">
-        <label for="contrasena">Contraseña:</label>
-        <input type="password" id="contrasena" v-model="contrasena" required>
+      
+      <!-- Sección Derecha - Logo -->
+      <div class="login-brand-section">
+        <div class="brand-content">
+          <div class="logo-display">
+            <img src="@/assets/images/logo.svg" alt="GENSER Logo" class="main-logo">
+          </div>
+        </div>
       </div>
-      <button type="submit">Ingresar</button>
-    </form>
-    <div class="recover-link">
-      <a href="#" @click.prevent="irARestablecer">Recuperar contraseña</a>
     </div>
 
-    <modal-message 
-      :show="showMessageModal"
-      :title="messageTitle"
-      :message="messageContent"
-      :type="messageType"
-      @close="hideMessage"
-    />
+    <!-- Modal Message -->
+    <div v-if="showMessageModal" class="modal-overlay" @click="hideMessage">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header" :class="'modal-' + messageType">
+          <h3>{{ messageTitle }}</h3>
+          <button class="modal-close" @click="hideMessage">×</button>
+        </div>
+        <div class="modal-body">
+          <p>{{ messageContent }}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn" @click="hideMessage">Cerrar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import ModalMessage from '@/components/ModalMessage.vue';
-
 export default {
   name: 'LoginView',
-  components: {
-    ModalMessage
-  },
   data() {
     return {
       usuario: '',
       contrasena: '',
+      showPassword: false,
       showMessageModal: false,
       messageTitle: '',
       messageContent: '',
@@ -48,6 +100,9 @@ export default {
     }
   },
   methods: {
+    togglePasswordVisibility() {
+      this.showPassword = !this.showPassword;
+    },
     showMessage(title, message, type = 'info') {
       this.messageTitle = title;
       this.messageContent = message;
@@ -117,12 +172,10 @@ export default {
       }
     },
     irARestablecer() {
-      this.$router.push('/restablecer');
+      this.$router.push('/restablecer').catch(() => {});
     }
   }
 }
 </script>
 
-<style scoped src="../styles/login.css">
-
-</style>
+<style src="@/styles/login.css"></style>

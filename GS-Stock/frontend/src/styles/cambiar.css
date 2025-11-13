@@ -43,8 +43,15 @@
   font-size: 2rem;
   font-weight: 600;
   color: #2c3e50;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   text-align: left;
+}
+
+.welcome-message {
+  text-align: left;
+  color: #666;
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
 }
 
 .login-form {
@@ -79,52 +86,74 @@
   background: white;
 }
 
-.password-wrapper {
-  position: relative;
+.input-group input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.password-wrapper input {
-  padding-right: 45px;
-}
-
-.toggle-password {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  width: auto;
-  margin: 0;
-  color: #888;
-}
-
-.toggle-password:hover {
-  color: #555;
-  transform: translateY(-50%) scale(1.1);
-  box-shadow: none;
-}
-
-.toggle-password svg {
+.password-hint {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 0.25rem;
   display: block;
 }
 
-.lock-icon {
-  position: absolute;
-  right: 15px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 1.2rem;
+.password-strength {
+  margin-bottom: 1rem;
 }
 
-.btn-ingresar,
-button[type="submit"] {
+.strength-bar {
+  width: 100%;
+  height: 4px;
+  background-color: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.strength-fill.weak {
+  background-color: #f44336;
+}
+
+.strength-fill.medium {
+  background-color: #ff9800;
+}
+
+.strength-fill.good {
+  background-color: #2196f3;
+}
+
+.strength-fill.strong {
+  background-color: #4caf50;
+}
+
+small.weak {
+  color: #f44336;
+  font-size: 0.85rem;
+}
+
+small.medium {
+  color: #ff9800;
+  font-size: 0.85rem;
+}
+
+small.good {
+  color: #2196f3;
+  font-size: 0.85rem;
+}
+
+small.strong {
+  color: #4caf50;
+  font-size: 0.85rem;
+}
+
+.btn-ingresar {
   width: 100%;
   padding: 14px;
   font-size: 1rem;
@@ -138,30 +167,109 @@ button[type="submit"] {
   margin-top: 1rem;
 }
 
-.btn-ingresar:hover,
-button[type="submit"]:hover {
+.btn-ingresar:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
 }
 
-.btn-ingresar:active,
-button[type="submit"]:active {
+.btn-ingresar:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.recover-link {
+.btn-ingresar:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  background: #f5f5f5;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+}
+
+.btn-secondary:hover {
+  background: #e9e9e9;
+  border-color: #d0d0d0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+}
+
+.loading-container {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4CAF50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1.5rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-container p {
+  color: #666;
+  font-size: 1rem;
+}
+
+.error-container {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-container h3 {
+  color: #f44336;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.error-container p {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.back-link {
   text-align: center;
   margin-top: 1.5rem;
 }
 
-.recover-link a {
+.back-link a {
   color: #4CAF50;
   text-decoration: none;
   font-size: 0.9rem;
   transition: color 0.3s ease;
 }
 
-.recover-link a:hover {
+.back-link a:hover {
   color: #45a049;
   text-decoration: underline;
 }
@@ -194,10 +302,6 @@ button[type="submit"]:active {
   height: 100%;
 }
 
-.logo-header {
-  margin-bottom: 3rem;
-}
-
 .logo-display {
   display: flex;
   justify-content: center;
@@ -218,84 +322,6 @@ button[type="submit"]:active {
   }
   50% {
     transform: translateY(-10px);
-  }
-}
-
-.brand-name {
-  font-size: 4rem;
-  font-weight: 900;
-  letter-spacing: 2px;
-  margin-bottom: 0.5rem;
-  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.brand-subtitle {
-  font-size: 0.9rem;
-  letter-spacing: 2px;
-  opacity: 0.9;
-  margin-bottom: 1.5rem;
-}
-
-.logo-icons {
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  margin-top: 1rem;
-}
-
-.shoe-icon,
-.heel-icon {
-  font-size: 3rem;
-  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
-}
-
-.product-showcase {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 3rem;
-  margin-top: 3rem;
-}
-
-.product-image {
-  font-size: 5rem;
-  filter: drop-shadow(4px 4px 10px rgba(0, 0, 0, 0.3));
-  animation: float 3s ease-in-out infinite;
-}
-
-.product-image.sneaker {
-  animation-delay: 0s;
-}
-
-.product-image.heel {
-  animation-delay: 1.5s;
-}
-
-.decorative-sparkle {
-  position: absolute;
-  bottom: 40px;
-  right: 40px;
-  font-size: 3rem;
-  animation: sparkle 2s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-}
-
-@keyframes sparkle {
-  0%, 100% {
-    opacity: 0.3;
-    transform: scale(1) rotate(0deg);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2) rotate(180deg);
   }
 }
 
@@ -431,18 +457,6 @@ button[type="submit"]:active {
     order: -1;
     min-height: 300px;
   }
-  
-  .product-showcase {
-    gap: 2rem;
-  }
-  
-  .product-image {
-    font-size: 3rem;
-  }
-  
-  .brand-name {
-    font-size: 3rem;
-  }
 
   .main-logo {
     max-width: 70%;
@@ -458,17 +472,17 @@ button[type="submit"]:active {
   .login-title {
     font-size: 1.5rem;
   }
-  
-  .brand-name {
-    font-size: 2rem;
-  }
-  
-  .product-image {
-    font-size: 2.5rem;
-  }
 
   .main-logo {
     max-width: 80%;
     width: 250px;
+  }
+  
+  .error-container h3 {
+    font-size: 1.3rem;
+  }
+  
+  .error-icon {
+    font-size: 2.5rem;
   }
 }

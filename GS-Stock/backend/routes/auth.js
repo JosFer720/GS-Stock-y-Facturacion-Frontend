@@ -87,7 +87,7 @@ router.post('/register', async (req, res) => {
       const rolDefault = 2; // Asumiendo 2 para usuario normal, 1 para admin
       const userResult = await client.query(
         'INSERT INTO usuarios (nombre, apellido, email, id_roles, estado) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [normalizedNombre, '', rolDefault, true] 
+        [normalizedNombre, '', normalizedEmail, rolDefault, true] 
       );
       
       const userId = userResult.rows[0].id;
@@ -98,7 +98,7 @@ router.post('/register', async (req, res) => {
         [normalizedUsuario, normalizedEmail, hashedPassword, userId]
       );
       
-      console.log('🔑 Cuenta creada en cuentas_usuarios');
+      console.log('🔐 Cuenta creada en cuentas_usuarios');
       
       await client.query('COMMIT');
       console.log('✅ Registro completado exitosamente');
@@ -252,7 +252,9 @@ router.post('/forgot-password', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
 
-    console.log('🔑 Token generado, guardando en BD...');
+    console.log('🔐 Token generado, guardando en BD...');
+    console.log('📏 Token length:', token.length);
+    console.log('🔑 Token (DEBUG):', token);
 
     // Guardar token en la base de datos
     await pool.query(
@@ -262,6 +264,7 @@ router.post('/forgot-password', async (req, res) => {
     );
 
     const resetLink = `${process.env.FRONTEND_URL}/cambiar?token=${token}`;
+    console.log('🔗 Reset link generado:', resetLink);
 
     await sendPasswordResetEmail(normalizedEmail, user.nombre, resetLink);
 
@@ -274,12 +277,165 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
+// ENDPOINT TEMPORAL DE DEBUG - Obtener último token generado
+router.get('/debug-last-token', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT token, expires_at, used, created_at, u.nombre, u.email
+       FROM password_reset_tokens prt
+       JOIN usuarios u ON prt.user_id = u.id
+       ORDER BY created_at DESC
+       LIMIT 1`
+    );
+    
+    if (result.rows.length === 0) {
+      return res.json({ message: 'No hay tokens' });
+    }
+    
+    const tokenData = result.rows[0];
+    res.json({
+      token: tokenData.token,
+      usuario: tokenData.nombre,
+      email: tokenData.email,
+      expires_at: tokenData.expires_at,
+      used: tokenData.used,
+      created_at: tokenData.created_at,
+      url_local: `http://localhost:3001/cambiar?token=${tokenData.token}`,
+      url_prod: `https://importadoragenser.com/cambiar?token=${tokenData.token}`
+    });
+  } catch (err) {
+    console.error('Error obteniendo último token:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para validar token de reset - MEJORADO
+router.post('/validate-reset-token', async (req, res) => {
+  console.log('🚨 ENDPOINT /validate-reset-token ALCANZADO');
+  console.log('📦 Request body completo:', req.body);
+  console.log('📦 Request headers:', req.headers);
+  
+  const { token } = req.body;
+  
+  console.log('=== VALIDANDO TOKEN ===');
+  console.log('Token recibido (raw):', token);
+  console.log('Token presente?:', token ? 'SÍ' : 'NO');
+  console.log('Token length:', token?.length);
+  console.log('Token bytes:', token ? Buffer.from(token).toString('hex').substring(0, 100) : 'N/A');
+  
+  try {
+    if (!token?.trim()) {
+      console.log('❌ Token vacío');
+      return res.status(400).json({ error: 'Token es requerido', valid: false });
+    }
+    
+    // Normalizar el token - eliminar espacios, caracteres especiales invisibles y solo tomar caracteres válidos hex
+    let normalizedToken = token.trim();
+    // Eliminar caracteres de espacio de ancho cero y otros caracteres invisibles Unicode
+    normalizedToken = normalizedToken.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
+    // Asegurar que solo contenga caracteres hexadecimales válidos
+    normalizedToken = normalizedToken.replace(/[^a-fA-F0-9]/g, '');
+    
+    console.log('🔍 Token normalizado length:', normalizedToken.length);
+    console.log('🔍 Token normalizado:', normalizedToken);
+    
+    // Validar que el token tenga el tamaño correcto (64 caracteres hex)
+    if (normalizedToken.length !== 64) {
+      console.log('❌ Token con longitud incorrecta. Esperado: 64, Recibido:', normalizedToken.length);
+      return res.status(400).json({ 
+        error: 'Token inválido (longitud incorrecta)',
+        valid: false 
+      });
+    }
+    
+    console.log('🔍 Buscando token en BD...');
+    
+    const tokenResult = await pool.query(
+      `SELECT prt.id, prt.user_id, prt.expires_at, prt.used, prt.token, u.nombre 
+       FROM password_reset_tokens prt
+       JOIN usuarios u ON prt.user_id = u.id
+       WHERE prt.token = $1`,
+      [normalizedToken]
+    );
+    
+    console.log('📊 Tokens encontrados:', tokenResult.rows.length);
+    
+    if (tokenResult.rows.length === 0) {
+      console.log('❌ Token no encontrado en BD');
+      
+      // DEBUG: Mostrar tokens recientes en desarrollo
+      if (process.env.NODE_ENV === 'development') {
+        const allTokens = await pool.query(
+          `SELECT LEFT(token, 10) as token_preview, LENGTH(token) as length, 
+           used, expires_at, created_at 
+           FROM password_reset_tokens 
+           ORDER BY created_at DESC LIMIT 5`
+        );
+        console.log('🔍 Últimos 5 tokens en BD:', allTokens.rows);
+      }
+      
+      return res.status(400).json({ 
+        error: 'Token inválido o expirado',
+        valid: false 
+      });
+    }
+    
+    const resetData = tokenResult.rows[0];
+    const now = new Date();
+    const expiresAt = new Date(resetData.expires_at);
+    
+    console.log('📋 Validando datos del token:', {
+      id: resetData.id,
+      used: resetData.used,
+      expires_at: expiresAt.toISOString(),
+      now: now.toISOString(),
+      expired: expiresAt < now
+    });
+    
+    // Verificar si está usado
+    if (resetData.used) {
+      console.log('❌ Token ya fue usado');
+      return res.status(400).json({ 
+        error: 'Este enlace ya fue utilizado',
+        valid: false 
+      });
+    }
+    
+    // Verificar si expiró
+    if (expiresAt < now) {
+      console.log('❌ Token expirado');
+      return res.status(400).json({ 
+        error: 'El enlace ha expirado. Solicita uno nuevo.',
+        valid: false 
+      });
+    }
+    
+    console.log('✅ Token válido');
+    
+    res.json({ 
+      valid: true,
+      message: 'Token válido',
+      userName: resetData.nombre,
+      expiresAt: resetData.expires_at
+    });
+    
+  } catch (err) {
+    console.error('💀 Error validando token:', err);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      valid: false 
+    });
+  }
+});
+
 // Endpoint para cambiar contraseña - VERSIÓN MEJORADA
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
   
   console.log('=== INICIANDO RESET-PASSWORD ===');
   console.log('Token recibido:', token ? 'presente' : 'ausente');
+  console.log('Token length:', token?.length);
+  console.log('Token bytes:', token ? Buffer.from(token).toString('hex').substring(0, 100) : 'N/A');
   console.log('Password recibido:', newPassword ? `presente (${newPassword.length} chars)` : 'ausente');
   
   try {
@@ -295,6 +451,24 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
     }
     
+    // Normalizar el token - eliminar espacios, caracteres especiales invisibles y solo tomar caracteres válidos hex
+    let normalizedToken = token.trim();
+    // Eliminar caracteres de espacio de ancho cero y otros caracteres invisibles Unicode
+    normalizedToken = normalizedToken.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
+    // Asegurar que solo contenga caracteres hexadecimales válidos
+    normalizedToken = normalizedToken.replace(/[^a-fA-F0-9]/g, '');
+    
+    console.log('🔍 Token normalizado length:', normalizedToken.length);
+    console.log('🔍 Token normalizado:', normalizedToken);
+    
+    // Validar que el token tenga el tamaño correcto (64 caracteres hex)
+    if (normalizedToken.length !== 64) {
+      console.log('❌ Token con longitud incorrecta. Esperado: 64, Recibido:', normalizedToken.length);
+      return res.status(400).json({ 
+        error: 'Token inválido (longitud incorrecta)'
+      });
+    }
+    
     console.log('✅ Validaciones básicas pasadas');
     console.log('🔍 Buscando token en la base de datos...');
     
@@ -304,7 +478,7 @@ router.post('/reset-password', async (req, res) => {
        FROM password_reset_tokens prt
        JOIN usuarios u ON prt.user_id = u.id
        WHERE prt.token = $1`,
-      [token.trim()]
+      [normalizedToken]
     );
     
     console.log('📊 Resultados de búsqueda de token:', tokenResult.rows.length);
@@ -329,9 +503,10 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Este enlace ya fue utilizado.' });
     }
     
-    // Verificar si el token ha expirado
+    // Verificar si el token expiró
     const now = new Date();
     const expiresAt = new Date(resetData.expires_at);
+    
     if (expiresAt < now) {
       console.log('❌ Token expirado:', { expiresAt: expiresAt.toISOString(), now: now.toISOString() });
       return res.status(400).json({ error: 'El enlace ha expirado. Solicita uno nuevo.' });
@@ -424,12 +599,6 @@ router.post('/reset-password', async (req, res) => {
   } catch (err) {
     console.error('💀 ERROR COMPLETO EN RESET-PASSWORD:', err);
     console.error('Stack trace:', err.stack);
-    console.error('Error details:', {
-      message: err.message,
-      code: err.code,
-      detail: err.detail,
-      where: err.where
-    });
     
     let errorMessage = 'Error interno del servidor. Por favor, intenta más tarde.';
     let statusCode = 500;
@@ -443,77 +612,35 @@ router.post('/reset-password', async (req, res) => {
     } else if (err.message && (err.message.includes('actualizar') || err.message.includes('encontrado'))) {
       errorMessage = err.message;
       statusCode = 400;
-    } else if (err.code === 'ECONNREFUSED') {
-      errorMessage = 'Error de conexión a la base de datos.';
-      console.error('🔌 Error de conexión a PostgreSQL');
     }
     
     res.status(statusCode).json({ error: errorMessage });
   }
 });
 
-// Endpoint para validar token de reset
-router.post('/validate-reset-token', async (req, res) => {
-  const { token } = req.body;
-  
-  console.log('=== VALIDANDO TOKEN ===');
-  console.log('Token recibido:', token ? 'presente' : 'ausente');
-  
-  try {
-    if (!token?.trim()) {
-      return res.status(400).json({ error: 'Token es requerido', valid: false });
+// Endpoint de DEBUG - SOLO DESARROLLO
+if (process.env.NODE_ENV === 'development') {
+  router.get('/debug-tokens', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT 
+          id, 
+          user_id, 
+          LEFT(token, 10) as token_preview, 
+          LENGTH(token) as token_length,
+          used, 
+          expires_at,
+          created_at,
+          expires_at > NOW() as is_valid
+         FROM password_reset_tokens 
+         ORDER BY created_at DESC 
+         LIMIT 10`
+      );
+      res.json(result.rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-    
-    const tokenResult = await pool.query(
-      `SELECT prt.id, prt.user_id, prt.expires_at, prt.used, u.nombre 
-       FROM password_reset_tokens prt
-       JOIN usuarios u ON prt.user_id = u.id
-       WHERE prt.token = $1`,
-      [token.trim()]
-    );
-    
-    console.log('📊 Resultado validación token:', tokenResult.rows.length);
-    
-    if (tokenResult.rows.length === 0) {
-      console.log('❌ Token no encontrado');
-      return res.status(400).json({ 
-        error: 'Token inválido o expirado',
-        valid: false 
-      });
-    }
-    
-    const resetData = tokenResult.rows[0];
-    console.log('📋 Validando datos del token:', {
-      used: resetData.used,
-      expires_at: resetData.expires_at,
-      now: new Date().toISOString()
-    });
-    
-    // Verificar si está usado o expirado
-    if (resetData.used || new Date(resetData.expires_at) < new Date()) {
-      console.log('❌ Token usado o expirado');
-      return res.status(400).json({ 
-        error: 'Token inválido o expirado',
-        valid: false 
-      });
-    }
-    
-    console.log('✅ Token válido');
-    
-    res.json({ 
-      valid: true,
-      message: 'Token válido',
-      userName: resetData.nombre,
-      expiresAt: resetData.expires_at
-    });
-    
-  } catch (err) {
-    console.error('💀 Error validando token:', err);
-    res.status(500).json({ 
-      error: 'Error interno del servidor',
-      valid: false 
-    });
-  }
-});
+  });
+}
 
 module.exports = router;
