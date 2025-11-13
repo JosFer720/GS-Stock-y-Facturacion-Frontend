@@ -458,7 +458,11 @@ router.get('/', auth, async (req, res) => {
           (SELECT FLOOR(AVG(EXTRACT(epoch FROM (NOW() - p3.fecha)) / 86400))
            FROM pedidos_con_saldo p3
            WHERE p3.id_cliente = c.id 
-           AND p3.id_pedido_estado_pago = 2) AS avg_days_to_pay
+           AND p3.id_pedido_estado_pago = 2) AS avg_days_to_pay,
+          (SELECT COUNT(*)
+           FROM pedidos p4
+           WHERE p4.id_cliente = c.id
+           AND p4.id_pedido_estado_pago = 1) AS pedidos_activos
         FROM clientes c
       `;
 
@@ -473,7 +477,8 @@ router.get('/', auth, async (req, res) => {
         return Object.assign({}, cl, {
           oldest_pending_days: s.oldest_pending_days !== null ? parseInt(s.oldest_pending_days) : null,
           total_cancelado: s.total_cancelado !== null ? parseFloat(s.total_cancelado) : 0,
-          avg_days_to_pay: s.avg_days_to_pay !== null ? parseInt(s.avg_days_to_pay) : null
+          avg_days_to_pay: s.avg_days_to_pay !== null ? parseInt(s.avg_days_to_pay) : null,
+          pedidos_activos: s.pedidos_activos !== null ? parseInt(s.pedidos_activos) : 0
         });
       });
 
