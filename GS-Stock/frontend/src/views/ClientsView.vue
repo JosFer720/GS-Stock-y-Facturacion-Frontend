@@ -13,14 +13,14 @@
           v-if="!deleteMode" 
           class="action-button delete-button" 
           @click="enterDeleteMode">
-          Eliminar Cliente
+          Desactivar Cliente
         </button>
         <div v-if="deleteMode" class="delete-mode-actions">
           <button 
             class="action-button delete-button" 
             @click="confirmBulkDelete" 
             :disabled="selectedClients.length === 0">
-            Eliminar Seleccionados ({{ selectedClients.length }})
+            Desactivar Seleccionados ({{ selectedClients.length }})
           </button>
           <button class="action-button cancel-button" @click="cancelDeleteMode">
             Cancelar
@@ -65,6 +65,7 @@
                 <th>NIT</th>
                 <th>Direcciones</th>
                 <th>Teléfonos</th>
+                <th>Pedidos Activos</th>
                 <th>Cuentas por Cobrar</th>
                 <th>Datos</th>
                 <th v-if="!deleteMode">Acciones</th>
@@ -101,14 +102,20 @@
                     </li>
                   </ul>
                 </td>
+                <td class="pedidos-activos-cell">
+                  <span v-if="client.pedidos_activos > 0" class="pedidos-activos-badge">
+                    {{ client.pedidos_activos }}
+                  </span>
+                  <span v-else class="no-pedidos">-</span>
+                </td>
                 <td class="accounts-receivable-cell">
                   <button 
                     @click="verCuentasPorCobrar(client)" 
-                    :class="['view-accounts-btn', buttonColorClass(client)]"
+                    class="view-accounts-btn"
                     :disabled="loadingAccountsReceivable[client.id]"
-                    :title="buttonTitle(client)"
+                    title="Ver cuentas por cobrar"
                   >
-                    {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : (client.oldest_pending_days !== null && client.oldest_pending_days !== undefined ? client.oldest_pending_days + 'd' : 'Ver') }}
+                    {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : 'Ver' }}
                   </button>
                 </td>
                 <td class="datos-cell">
@@ -184,14 +191,22 @@
               </div>
 
               <div class="card-row">
+                <strong>Pedidos Activos:</strong>
+                <span v-if="client.pedidos_activos > 0" class="pedidos-activos-badge">
+                  {{ client.pedidos_activos }}
+                </span>
+                <span v-else>Sin pedidos activos</span>
+              </div>
+
+              <div class="card-row">
                 <strong>Cuentas por Cobrar:</strong>
                 <button 
                   @click="verCuentasPorCobrar(client)" 
-                  :class="['view-accounts-btn', buttonColorClass(client)]"
+                  class="view-accounts-btn"
                   :disabled="loadingAccountsReceivable[client.id]"
-                  :title="buttonTitle(client)"
+                  title="Ver cuentas por cobrar"
                 >
-                  {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : (client.oldest_pending_days !== null && client.oldest_pending_days !== undefined ? client.oldest_pending_days + 'd' : 'Ver') }}
+                  {{ loadingAccountsReceivable[client.id] ? 'Cargando...' : 'Ver' }}
                 </button>
               </div>
 
@@ -439,16 +454,16 @@
     <div v-if="showDeleteModal" class="modal">
       <div class="modal-content">
         <span class="close" @click="showDeleteModal = false">&times;</span>
-        <h2>Eliminar Cliente{{ selectedClients.length > 1 ? 's' : '' }}</h2>
+        <h2>Desactivar Cliente{{ selectedClients.length > 1 ? 's' : '' }}</h2>
         <p v-if="selectedClients.length <= 1">
-          ¿Está seguro que desea eliminar al cliente {{ selectedClient ? selectedClient.nombre + ' ' + selectedClient.apellido : '' }}?
+          ¿Está seguro que desea desactivar al cliente {{ selectedClient ? selectedClient.nombre + ' ' + selectedClient.apellido : '' }}?
         </p>
         <p v-else>
-          ¿Está seguro que desea eliminar {{ selectedClients.length }} clientes seleccionados?
+          ¿Está seguro que desea desactivar {{ selectedClients.length }} clientes seleccionados?
         </p>
         <div class="modal-actions">
           <button @click="showDeleteModal = false" class="btn-cancel">Cancelar</button>
-          <button @click="deleteClients" class="btn-delete">Eliminar</button>
+          <button @click="deleteClients" class="btn-delete">Desactivar</button>
         </div>
       </div>
     </div>
@@ -808,7 +823,7 @@ export default {
 
     const confirmBulkDelete = () => {
       if (selectedClients.value.length === 0) {
-        showMessage('Error', 'No hay clientes seleccionados para eliminar', 'error');
+        showMessage('Error', 'No hay clientes seleccionados para desactivar', 'error');
         return;
       }
 
@@ -1025,7 +1040,8 @@ export default {
           telefonos: cliente.telefonos,
           total_cancelado: cliente.total_cancelado || 0,
           oldest_pending_days: cliente.oldest_pending_days !== null && cliente.oldest_pending_days !== undefined ? cliente.oldest_pending_days : null,
-          promedioDiasPagados: cliente.avg_days_to_pay !== null && cliente.avg_days_to_pay !== undefined ? cliente.avg_days_to_pay : null
+          promedioDiasPagados: cliente.avg_days_to_pay !== null && cliente.avg_days_to_pay !== undefined ? cliente.avg_days_to_pay : null,
+          pedidos_activos: cliente.pedidos_activos || 0
         }));
 
         console.log('Clients loaded:', clients.value.length);
@@ -1235,19 +1251,19 @@ export default {
         const failed = deleteResults.filter(r => !r.success);
 
         if (successful.length > 0 && failed.length === 0) {
-          showMessage('Éxito', `${successful.length} cliente(s) eliminado(s) correctamente`, 'success');
+          showMessage('Éxito', `${successful.length} cliente(s) desactivado(s) correctamente`, 'success');
         } else if (successful.length > 0 && failed.length > 0) {
           const failedNames = failed.map(f => `• ${f.clientName}: ${f.message}`).join('\n');
           showMessage(
             'Parcialmente completado', 
-            `${successful.length} cliente(s) eliminado(s) correctamente.\n\nNo se pudieron eliminar ${failed.length} cliente(s):\n${failedNames}`, 
+            `${successful.length} cliente(s) desactivado(s) correctamente.\n\nNo se pudieron desactivar ${failed.length} cliente(s):\n${failedNames}`, 
             'warning'
           );
         } else {
           const failedNames = failed.map(f => `• ${f.clientName}: ${f.message}`).join('\n');
           showMessage(
             'Error', 
-            `No se pudo eliminar ningún cliente:\n${failedNames}`, 
+            `No se pudo desactivar ningún cliente:\n${failedNames}`, 
             'error'
           );
         }
@@ -1257,7 +1273,7 @@ export default {
         cancelDeleteMode();
         fetchClients();
       } catch (err) {
-        showMessage('Error', 'Error general al eliminar los clientes', 'error');
+        showMessage('Error', 'Error general al desactivar los clientes', 'error');
       }
     };
 
@@ -1421,23 +1437,13 @@ export default {
       }
     };
 
-    let refreshInterval;
-    
     onMounted(() => {
       fetchClients();
       checkScreenSize();
       window.addEventListener('resize', checkScreenSize);
-      
-      // Refrescar lista de clientes cada 15 segundos para actualizar colores de botones
-      refreshInterval = setInterval(() => {
-        if (!showAccountsReceivableModal.value && !showCreateModal.value && !showEditModal.value) {
-          fetchClients();
-        }
-      }, 15000);
     });
     
     onUnmounted(() => {
-      clearInterval(refreshInterval);
       window.removeEventListener('resize', checkScreenSize);
     });
 

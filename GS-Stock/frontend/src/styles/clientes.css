@@ -436,7 +436,7 @@
 
 /* ACTUALIZADO: Botón de editar con el mismo estilo que cuentas por cobrar */
 .edit-btn-small {
-  background-color: #2196F3;
+  background-color: #17a2b8;
   color: white;
   border: none;
   border-radius: 4px;
@@ -445,10 +445,11 @@
   cursor: pointer;
   transition: background-color 0.3s ease;
   min-width: 60px;
+  font-weight: 500;
 }
 
 .edit-btn-small:hover:not(:disabled) {
-  background-color: #1976D2;
+  background-color: #138496;
 }
 
 .edit-btn-small:disabled {
@@ -709,7 +710,7 @@
 }
 
 .view-accounts-btn {
-  background-color: #17a2b8;
+  background-color: #28a745;
   color: white;
   border: none;
   border-radius: 4px;
@@ -718,10 +719,11 @@
   cursor: pointer;
   transition: background-color 0.3s ease;
   min-width: 60px;
+  font-weight: 500;
 }
 
 .view-accounts-btn:hover:not(:disabled) {
-  background-color: #138496;
+  background-color: #218838;
 }
 
 .view-accounts-btn:disabled {
@@ -735,6 +737,29 @@
 .view-accounts-btn.btn-green { background-color: #28a745; }
 .view-accounts-btn.btn-yellow { background-color: #ffc107; color: #2b2b2b; }
 .view-accounts-btn.btn-red { background-color: #dc3545; }
+
+/* Estilos para pedidos activos */
+.pedidos-activos-cell {
+  text-align: center;
+  padding: 8px;
+}
+
+.pedidos-activos-badge {
+  background-color: #007bff;
+  color: white;
+  border-radius: 12px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  display: inline-block;
+  min-width: 30px;
+  text-align: center;
+}
+
+.no-pedidos {
+  color: #999;
+  font-size: 14px;
+}
 
 /* Estilos para el modal de cuentas por cobrar */
 .accounts-modal .modal-content {
@@ -985,6 +1010,7 @@
   cursor: pointer;
   transition: background-color 0.3s ease;
   min-width: 60px;
+  font-weight: 500;
 }
 
 .pdf-btn:hover:not(:disabled) {
