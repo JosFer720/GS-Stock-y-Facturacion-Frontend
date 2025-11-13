@@ -539,3 +539,50 @@
   color: #6c757d;
   font-style: italic;
 }
+
+/* Información del pedido */
+.pedido-info {
+  background-color: #e7f3ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.pedido-info p {
+  margin: 6px 0;
+  font-size: 14px;
+  color: #495057;
+}
+
+.pedido-info strong {
+  color: #0066cc;
+  font-weight: 600;
+}
+
+/* Mensaje de error y hint */
+.hint-text {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: #28a745;
+  font-weight: 500;
+}
+
+.error-text {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.error-input {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5 !important;
+}
+
+.error-input:focus {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}

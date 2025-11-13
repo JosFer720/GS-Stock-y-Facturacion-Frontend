@@ -70,6 +70,7 @@
                 v-model="nuevoPago.id_pedido" 
                 :disabled="!clienteSeleccionadoPago || pedidosClientePago.length === 0"
                 required
+                @change="onPedidoChange"
               >
                 <option value="">Seleccione un pedido</option>
                 <option 
@@ -83,6 +84,13 @@
               </select>
               <div v-if="clienteSeleccionadoPago && pedidosClientePago.length === 0" class="no-orders-message">
                 Este cliente no tiene pedidos pendientes de pago.
+              </div>
+              <div v-if="pedidoSeleccionadoPago" class="pedido-info">
+                <p><strong>Total del pedido:</strong> Q{{ formatCurrency(pedidoSeleccionadoPago.total) }}</p>
+                <p v-if="pedidoSeleccionadoPago.monto_pagado > 0">
+                  <strong>Monto pagado:</strong> Q{{ formatCurrency(pedidoSeleccionadoPago.monto_pagado) }}
+                </p>
+                <p><strong>Saldo pendiente:</strong> Q{{ formatCurrency(montoPendiente) }}</p>
               </div>
             </div>
 
@@ -109,9 +117,17 @@
                   required
                   step="0.01"
                   min="0"
+                  :max="montoPendiente"
                   placeholder="0.00"
+                  :class="{ 'error-input': errorMontoExcedido }"
                 />
               </div>
+              <small v-if="pedidoSeleccionadoPago" class="hint-text">
+                Monto máximo: Q{{ formatCurrency(montoPendiente) }}
+              </small>
+              <small v-if="errorMontoExcedido" class="error-text">
+                El monto ingresado excede el saldo pendiente del pedido
+              </small>
             </div>
 
             <!-- Observaciones -->
@@ -340,7 +356,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import HeaderComponent from '@/components/HeaderComponent.vue';
 import ModalMessage from '@/components/ModalMessage.vue';
 import PagosTable from '@/components/PagosTable.vue';
@@ -379,6 +395,8 @@ export default {
     const clientesFiltradosPago = ref([]);
     const clienteSeleccionadoPago = ref(null);
     const pedidosClientePago = ref([]);
+    const pedidoSeleccionadoPago = ref(null);
+    const errorMontoExcedido = ref(false);
     
     const nuevoPago = ref({
       id_pedido: '',
@@ -391,6 +409,14 @@ export default {
     const filtrosPagos = ref({
       cliente: '',
       fechaPago: ''
+    });
+    
+    // Computed para calcular el monto pendiente del pedido seleccionado
+    const montoPendiente = computed(() => {
+      if (!pedidoSeleccionadoPago.value) return 0;
+      const total = parseFloat(pedidoSeleccionadoPago.value.total) || 0;
+      const pagado = parseFloat(pedidoSeleccionadoPago.value.monto_pagado) || 0;
+      return Math.max(0, total - pagado);
     });
     
     // Estados de devoluciones - NUEVOS Y MODIFICADOS
@@ -618,13 +644,40 @@ export default {
       clientesFiltradosPago.value = [];
       
       nuevoPago.value.id_pedido = '';
+      pedidoSeleccionadoPago.value = null;
       
       await fetchPedidosClientePago(cliente.id);
     };
+    
+    // Función para manejar el cambio de pedido
+    const onPedidoChange = () => {
+      const pedidoId = nuevoPago.value.id_pedido;
+      pedidoSeleccionadoPago.value = pedidosClientePago.value.find(p => p.id === parseInt(pedidoId));
+      nuevoPago.value.monto_pagado = null;
+      errorMontoExcedido.value = false;
+    };
+    
+    // Watch para validar el monto ingresado
+    watch(() => nuevoPago.value.monto_pagado, (nuevoMonto) => {
+      if (nuevoMonto && pedidoSeleccionadoPago.value) {
+        errorMontoExcedido.value = nuevoMonto > montoPendiente.value;
+      } else {
+        errorMontoExcedido.value = false;
+      }
+    });
 
     const registrarPago = async () => {
       if (!nuevoPago.value.id_pedido || !nuevoPago.value.id_metodo_pago || !nuevoPago.value.monto_pagado) {
         showMessage('Error', 'Complete todos los campos requeridos', 'error');
+        return;
+      }
+      
+      // Validar que el monto no exceda el saldo pendiente
+      if (nuevoPago.value.monto_pagado > montoPendiente.value) {
+        showMessage('Error', 
+          `El monto ingresado (Q${formatCurrency(nuevoPago.value.monto_pagado)}) excede el saldo pendiente (Q${formatCurrency(montoPendiente.value)})`, 
+          'error'
+        );
         return;
       }
 
@@ -1037,6 +1090,10 @@ export default {
       clientesFiltradosPago,
       clienteSeleccionadoPago,
       pedidosClientePago,
+      pedidoSeleccionadoPago,
+      montoPendiente,
+      errorMontoExcedido,
+      onPedidoChange,
       
       // Devoluciones
       devoluciones,

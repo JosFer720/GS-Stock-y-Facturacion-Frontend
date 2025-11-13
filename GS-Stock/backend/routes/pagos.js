@@ -50,7 +50,19 @@ router.get('/pedidos-cliente/:clienteId', auth, async (req, res) => {
         p.fecha,
         pep.estado as estado_pago,
         CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
-        c.empresa
+        c.empresa,
+        COALESCE((
+          SELECT pp.total_pedido
+          FROM pagos_pedidos pp
+          WHERE pp.id_pedido = p.id
+          ORDER BY pp.id DESC
+          LIMIT 1
+        ), p.total) as saldo_pendiente,
+        COALESCE((
+          SELECT SUM(pp.monto_pagado)
+          FROM pagos_pedidos pp
+          WHERE pp.id_pedido = p.id
+        ), 0) as monto_pagado
       FROM Pedidos p
       INNER JOIN Clientes c ON p.id_cliente = c.id
       INNER JOIN pedidos_estado_pago pep ON p.id_pedido_estado_pago = pep.id
@@ -85,6 +97,11 @@ router.post('/', auth, async (req, res) => {
     const { id_pedido, id_metodo_pago, monto_pagado, observaciones } = req.body;
     
     console.log('Registrando pago:', { id_pedido, id_metodo_pago, monto_pagado });
+    
+    // Validate that monto_pagado is a positive number
+    if (!monto_pagado || monto_pagado <= 0) {
+      throw new Error('El monto pagado debe ser mayor a cero');
+    }
     
     // Get the order details including the current total from pedidos
     const orderQuery = `
@@ -122,6 +139,11 @@ router.post('/', auth, async (req, res) => {
     // If there are previous payments, use the latest total_pedido (which is the remaining balance)
     if (latestPaymentResult.rows.length > 0) {
       currentBalance = parseFloat(latestPaymentResult.rows[0].total_pedido);
+    }
+    
+    // VALIDACIÓN: No permitir que el monto pagado sea mayor al saldo pendiente
+    if (monto_pagado > currentBalance) {
+      throw new Error(`El monto ingresado (Q${monto_pagado.toFixed(2)}) excede el saldo pendiente (Q${currentBalance.toFixed(2)})`);
     }
     
     // Calculate change if payment amount exceeds the remaining balance
