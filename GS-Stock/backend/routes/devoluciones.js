@@ -15,29 +15,31 @@ router.get('/', auth, async (req, res) => {
   try {
     const query = `
       SELECT 
-        d.Id as id,
+        d.Id as devolucion_id,
         d.Fecha as fecha,
         d.Motivo as motivo,
-        d.Monto as monto,
+        d.Monto as monto_total,
         p.Id as pedido_id,
         CONCAT(c.Nombre, ' ', c.Apellido) as cliente_nombre,
         c.Empresa as cliente_empresa,
+        t.telefono as cliente_telefono,
         md.Metodo as metodo_devolucion,
-        STRING_AGG(
-          CONCAT(z.Codigo, ' - ', z.Nombre, ' (', t.Talla_EU, 'EU)'), 
-          ', '
-        ) as productos,
-        SUM(dp.Cantidad) as cantidad_total
+        z.Codigo as codigo,
+        z.Nombre as nombre_zapato,
+        talla.Talla_EU as talla_eu,
+        talla.Talla_US as talla_us,
+        dp.Cantidad as unidades,
+        dp.Precio_Unitario as precio_unitario
       FROM Devoluciones d
       INNER JOIN Pedidos p ON d.Id_Pedido = p.Id
       INNER JOIN Clientes c ON p.Id_Cliente = c.Id
       INNER JOIN Metodos_Devolucion md ON d.Id_Metodo_Devolucion = md.Id
-      LEFT JOIN Detalle_Pedidos dp ON p.Id = dp.Id_Pedido
-      LEFT JOIN Zapatos z ON dp.Id_Zapato = z.Id
-      LEFT JOIN Zapatos_Tallas zt ON z.Id = zt.Id_Zapato
-      LEFT JOIN Tallas t ON zt.Id_Talla = t.Id
-      GROUP BY d.Id, d.Fecha, d.Motivo, d.Monto, p.Id, c.Nombre, c.Apellido, c.Empresa, md.Metodo
-      ORDER BY d.Fecha DESC
+      LEFT JOIN Cliente_Telefonos ct ON c.Id = ct.Id_Cliente
+      LEFT JOIN Telefonos t ON ct.Id_Telefono = t.Id
+      INNER JOIN Detalle_Pedidos dp ON p.Id = dp.Id_Pedido
+      INNER JOIN Zapatos z ON dp.Id_Zapato = z.Id
+      LEFT JOIN Tallas talla ON dp.Id_Talla = talla.Id
+      ORDER BY d.Fecha DESC, d.Id, z.Codigo
     `;
     
     const result = await pool.query(query);

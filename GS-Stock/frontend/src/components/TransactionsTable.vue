@@ -48,20 +48,21 @@
             <!-- columnas para devoluciones -->
             <th v-if="type === 'devoluciones'">Teléfono</th>
             <th v-if="type === 'devoluciones'">Código</th>
+            <th v-if="type === 'devoluciones'">Producto</th>
+            <th v-if="type === 'devoluciones'">Talla</th>
             <th v-if="type === 'devoluciones'">Unidades</th>
-            <th v-if="type === 'devoluciones'">Tallas</th>
-            <th v-if="type === 'devoluciones'">Motivo de la Devolución</th>
+            <th v-if="type === 'devoluciones'">Motivo</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td :colspan="type === 'pagos' ? 5 : 6" class="loading-row">
+            <td :colspan="type === 'pagos' ? 5 : 7" class="loading-row">
               Cargando datos...
             </td>
           </tr>
           
           <tr v-else-if="data.length === 0">
-            <td :colspan="type === 'pagos' ? 5 : 6" class="no-data-row">
+            <td :colspan="type === 'pagos' ? 5 : 7" class="no-data-row">
               No se encontraron {{ type === 'pagos' ? 'pagos' : 'devoluciones' }}
             </td>
           </tr>
@@ -83,10 +84,14 @@
             <td v-if="type === 'devoluciones'">
               <span class="codigo-badge">{{ item.codigo || 'N/A' }}</span>
             </td>
-            <td v-if="type === 'devoluciones'">{{ item.unidades || 0 }}</td>
+            <td v-if="type === 'devoluciones'" class="producto-cell">
+              {{ item.nombre_zapato || 'N/A' }}
+            </td>
             <td v-if="type === 'devoluciones'">
               <span class="talla-badge">{{ item.talla_eu ? item.talla_eu + ' EU' : 'N/A' }}</span>
+              <span v-if="item.talla_us" class="talla-secondary"> / {{ item.talla_us }} US</span>
             </td>
+            <td v-if="type === 'devoluciones'" class="text-center">{{ item.unidades || 0 }}</td>
             <td v-if="type === 'devoluciones'" class="motivo-cell">
               {{ item.motivo || 'Sin motivo especificado' }}
             </td>
@@ -295,6 +300,31 @@ td {
 .motivo-cell:hover {
   white-space: normal;
   overflow: visible;
+}
+
+.producto-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.producto-cell:hover {
+  white-space: normal;
+  overflow: visible;
+}
+
+.talla-secondary {
+  font-size: 11px;
+  color: #6c757d;
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+.text-center {
+  text-align: center;
+  font-weight: 600;
 }
 
 /* Responsive adjustments */
