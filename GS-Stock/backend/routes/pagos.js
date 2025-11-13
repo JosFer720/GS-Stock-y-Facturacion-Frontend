@@ -37,6 +37,7 @@ router.get('/clientes-pendientes', auth, async (req, res) => {
 });
 
 // CORREGIDO: Get ALL pending orders for a specific client (id_pedido_estado_pago = 1)
+// Excluye pedidos con devolución completa y ajusta el total si hay devolución parcial
 router.get('/pedidos-cliente/:clienteId', auth, async (req, res) => {
   try {
     const { clienteId } = req.params;
@@ -46,18 +47,21 @@ router.get('/pedidos-cliente/:clienteId', auth, async (req, res) => {
     const query = `
       SELECT 
         p.id,
-        p.total,
+        p.total as total_original,
+        COALESCE(p.total - COALESCE(d.monto, 0), p.total) as total,
         p.fecha,
         pep.estado as estado_pago,
         CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
         c.empresa,
+        COALESCE(d.monto, 0) as monto_devuelto,
+        CASE WHEN d.id IS NOT NULL THEN true ELSE false END as tiene_devolucion,
         COALESCE((
           SELECT pp.total_pedido
           FROM pagos_pedidos pp
           WHERE pp.id_pedido = p.id
           ORDER BY pp.id DESC
           LIMIT 1
-        ), p.total) as saldo_pendiente,
+        ), COALESCE(p.total - COALESCE(d.monto, 0), p.total)) as saldo_pendiente,
         COALESCE((
           SELECT SUM(pp.monto_pagado)
           FROM pagos_pedidos pp
@@ -66,7 +70,10 @@ router.get('/pedidos-cliente/:clienteId', auth, async (req, res) => {
       FROM Pedidos p
       INNER JOIN Clientes c ON p.id_cliente = c.id
       INNER JOIN pedidos_estado_pago pep ON p.id_pedido_estado_pago = pep.id
-      WHERE p.id_cliente = $1 AND p.id_pedido_estado_pago = 1
+      LEFT JOIN Devoluciones d ON p.id = d.id_pedido
+      WHERE p.id_cliente = $1 
+        AND p.id_pedido_estado_pago = 1
+        AND (d.id IS NULL OR d.monto < p.total)
       ORDER BY p.fecha DESC
     `;
     
