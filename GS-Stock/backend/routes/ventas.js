@@ -1,7 +1,9 @@
+
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
 const auth = require('../middleware/auth'); 
+const { apiLimiter } = require('../middleware/rateLimiter'); // ADDED: Import rate limiter
 
 // Configuración de la conexión a postgres
 const pool = new Pool({
@@ -13,7 +15,7 @@ const pool = new Pool({
 });
 
 // ENDPOINT: Obtener métodos de pago
-router.get('/metodos-pago', auth, async (req, res) => {
+router.get('/metodos-pago', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const result = await pool.query('SELECT * FROM Metodos_De_Pago ORDER BY tipo');
     res.json({
@@ -31,7 +33,7 @@ router.get('/metodos-pago', auth, async (req, res) => {
 });
 
 // ENDPOINT: Obtener tipos de línea de producto
-router.get('/tipos-linea-producto', auth, async (req, res) => {
+router.get('/tipos-linea-producto', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const result = await pool.query('SELECT * FROM Tipos_Linea_Producto ORDER BY nombre');
     res.json({
@@ -48,7 +50,7 @@ router.get('/tipos-linea-producto', auth, async (req, res) => {
   }
 });
 
-router.post('/pedidos', auth, async (req, res) => {
+router.post('/pedidos', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   const client = await pool.connect();
   
   try {
@@ -86,24 +88,63 @@ router.post('/pedidos', auth, async (req, res) => {
 
     const stockValidation = [];
     for (const producto of productos) {
-      const stockResult = await client.query(`
-        SELECT zt.stock, z.nombre, t.talla_eu 
+      // VALIDACIÓN AGREGADA: Verificar si el producto está disponible en el inventario
+      const disponibilidadResult = await client.query(`
+        SELECT 
+          zt.stock, 
+          z.nombre, 
+          t.talla_eu,
+          i.estado as estado_inventario,
+          z.estado as estado_zapato
         FROM Zapatos_Tallas zt
         JOIN Zapatos z ON zt.id_zapato = z.id
         JOIN Tallas t ON zt.id_talla = t.id
+        LEFT JOIN Inventarios i ON z.id = i.id_zapatos
         WHERE zt.id_zapato = $1 AND zt.id_talla = $2
       `, [producto.id_zapato, producto.id_talla]);
 
-      if (stockResult.rows.length === 0) {
+      if (disponibilidadResult.rows.length === 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({ 
           error: `No se encontró la talla especificada para el zapato ID ${producto.id_zapato}` 
         });
       }
 
-      const stockDisponible = stockResult.rows[0].stock;
-      const nombreZapato = stockResult.rows[0].nombre;
-      const talla = stockResult.rows[0].talla_eu;
+      const productoInfo = disponibilidadResult.rows[0];
+      const stockDisponible = productoInfo.stock;
+      const nombreZapato = productoInfo.nombre;
+      const talla = productoInfo.talla_eu;
+      const estadoInventario = productoInfo.estado_inventario;
+      const estadoZapato = productoInfo.estado_zapato;
+
+      // VALIDACIÓN AGREGADA: Verificar si el producto está disponible para venta
+      if (estadoInventario === 'No disponible' || estadoZapato === 'No disponible') {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          error: `El producto "${nombreZapato}" no está disponible para la venta`,
+          codigo_error: 'PRODUCTO_NO_DISPONIBLE',
+          detalles: {
+            zapato: nombreZapato,
+            talla_eu: talla,
+            estado_inventario: estadoInventario,
+            estado_zapato: estadoZapato
+          }
+        });
+      }
+
+      // VALIDACIÓN AGREGADA: Verificar si el producto está agotado
+      if (stockDisponible <= 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          error: `El producto "${nombreZapato}" está agotado`,
+          codigo_error: 'PRODUCTO_AGOTADO',
+          detalles: {
+            zapato: nombreZapato,
+            talla_eu: talla,
+            stock_disponible: stockDisponible
+          }
+        });
+      }
 
       if (stockDisponible < producto.cantidad) {
         await client.query('ROLLBACK');
@@ -244,7 +285,7 @@ router.post('/pedidos', auth, async (req, res) => {
   }
 });
 
-router.get('/pedidos', auth, async (req, res) => {
+router.get('/pedidos', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const userRole = req.user?.rol;
     const userId = req.user?.id;
@@ -314,7 +355,7 @@ router.get('/pedidos', auth, async (req, res) => {
 });
 
 // ENDPOINT: Obtener información del vendedor actual
-router.get('/vendedor-actual', auth, async (req, res) => {
+router.get('/vendedor-actual', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const result = await pool.query(`
       SELECT 
@@ -364,7 +405,7 @@ router.get('/vendedor-actual', auth, async (req, res) => {
 });
 
 // Obtener vendedores 
-router.get('/vendedores', auth, async (req, res) => {
+router.get('/vendedores', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const result = await pool.query(`
       SELECT 
@@ -391,7 +432,7 @@ router.get('/vendedores', auth, async (req, res) => {
 });
 
 // Obtener tipos de cliente
-router.get('/tipos-cliente', auth, async (req, res) => {
+router.get('/tipos-cliente', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const result = await pool.query('SELECT * FROM Tipos_De_Cliente ORDER BY tipo');
     res.json({
@@ -492,7 +533,7 @@ async function getFullClientData(clientId) {
 }
 
 // Endpoint para obtener todos los clientes con sus direcciones y teléfonos 
-router.get('/clientes', auth, async (req, res) => {
+router.get('/clientes', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const result = await pool.query(`
       SELECT 
@@ -529,7 +570,7 @@ router.get('/clientes', auth, async (req, res) => {
 });
 
 // Obtener estados de pedidos
-router.get('/estados-pedidos', auth, async (req, res) => {
+router.get('/estados-pedidos', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const result = await pool.query('SELECT * FROM Estados_Pedidos ORDER BY id');
     res.json({
@@ -548,7 +589,7 @@ router.get('/estados-pedidos', auth, async (req, res) => {
 });
 
 // Obtener productos de un pedido (detalles)
-router.get('/pedidos/:id/productos', auth, async (req, res) => {
+router.get('/pedidos/:id/productos', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   try {
     const { id } = req.params;
 
@@ -607,7 +648,7 @@ router.get('/pedidos/:id/productos', auth, async (req, res) => {
 });
 
 // Actualizar estado de un pedido
-router.put('/pedidos/:id/estado', auth, async (req, res) => {
+router.put('/pedidos/:id/estado', auth, apiLimiter, async (req, res) => { // ADDED: apiLimiter
   const client = await pool.connect();
   
   try {
