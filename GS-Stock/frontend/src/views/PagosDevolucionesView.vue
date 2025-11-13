@@ -402,7 +402,6 @@ export default {
       id_pedido: '',
       id_metodo_pago: '',
       monto_pagado: null,
-      vuelto: null,
       observaciones: ''
     });
     
@@ -710,7 +709,6 @@ export default {
           id_pedido: '',
           id_metodo_pago: '',
           monto_pagado: null,
-          vuelto: null,
           observaciones: ''
         };
         clienteSearchTermPago.value = '';

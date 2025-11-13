@@ -38,20 +38,19 @@
             <th>Estado Pago</th>
             <th>Método de Pago</th>
             <th>Monto Pagado</th>
-            <th>Vuelto</th>
             <th>Fecha de Pago</th>
             <th>Observaciones</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="12" class="loading-row">
+            <td colspan="11" class="loading-row">
               Cargando pagos...
             </td>
           </tr>
           
           <tr v-else-if="filteredData.length === 0">
-            <td colspan="12" class="no-data-row">
+            <td colspan="11" class="no-data-row">
               No se encontraron pagos
             </td>
           </tr>
@@ -76,7 +75,6 @@
             </td>
             <td>{{ pago.metodo_pago || 'N/A' }}</td>
             <td>Q{{ formatCurrency(pago.monto_pagado) }}</td>
-            <td>{{ pago.vuelto ? 'Q' + formatCurrency(pago.vuelto) : '-' }}</td>
             <td>{{ formatDate(pago.fecha_de_pago) }}</td>
             <td>{{ pago.observaciones || '-' }}</td>
           </tr>
