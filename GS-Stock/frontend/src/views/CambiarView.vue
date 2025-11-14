@@ -86,7 +86,7 @@
       <div class="login-brand-section">
         <div class="brand-content">
           <div class="logo-display">
-            <img src="@/assets/images/logo.svg" alt="GENSER Logo" class="main-logo">
+            <img :src="logo" alt="GENSER Logo" class="main-logo">
           </div>
         </div>
       </div>
@@ -111,10 +111,13 @@
 </template>
 
 <script>
+import logo from '../assets/images/logo0.png'
+
 export default {
   name: 'CambiarView',
   data() {
     return {
+      logo,
       nuevaContrasena: '',
       confirmarContrasena: '',
       loading: false,
@@ -177,13 +180,9 @@ export default {
       }
       
       // Limpiar el token de espacios y caracteres extraños
-      // 1. Eliminar espacios al inicio y final
       let cleanToken = rawToken.trim();
-      // 2. Eliminar caracteres invisibles Unicode (espacios de ancho cero, etc)
       cleanToken = cleanToken.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
-      // 3. Decodificar URL encoding si existe
       cleanToken = decodeURIComponent(cleanToken);
-      // 4. Eliminar cualquier carácter que no sea hexadecimal válido
       cleanToken = cleanToken.replace(/[^a-fA-F0-9]/g, '');
       
       this.token = cleanToken;
@@ -192,7 +191,6 @@ export default {
       console.log('📏 Token length después de limpieza:', this.token.length);
       console.log('✅ Token es hexadecimal válido:', /^[a-fA-F0-9]+$/.test(this.token));
       
-      // Validar longitud esperada del token (debe ser 64 caracteres hex = 32 bytes)
       if (this.token.length !== 64) {
         console.log('⚠️ Token con longitud incorrecta. Esperado: 64, Recibido:', this.token.length);
         this.validandoToken = false;
@@ -207,7 +205,7 @@ export default {
     async validarToken() {
       try {
         console.log('=== VALIDANDO TOKEN EN FRONTEND ===');
-        console.log('🔐 Token a validar:', this.token);
+        console.log('🔑 Token a validar:', this.token);
         console.log('📏 Token length:', this.token.length);
         
         const requestBody = { token: this.token };
@@ -263,7 +261,6 @@ export default {
       console.log('=== INICIANDO CAMBIO DE CONTRASEÑA ===');
       this.loading = true;
       
-      // Validaciones frontend
       if (!this.nuevaContrasena || !this.confirmarContrasena) {
         console.log('❌ Campos vacíos');
         this.showMessage('Error', 'Por favor, complete todos los campos', 'error');
@@ -288,7 +285,7 @@ export default {
       try {
         console.log('✅ Validaciones pasadas');
         console.log('🚀 Enviando solicitud de cambio de contraseña...');
-        console.log('🔑 Token a usar:', this.token);
+        console.log('🔐 Token a usar:', this.token);
         console.log('📏 Token length:', this.token.length);
         
         const requestBody = {
@@ -317,7 +314,6 @@ export default {
           throw new Error(data.error || data.message || `Error ${response.status}`);
         }
         
-        // Éxito
         console.log('🎉 Contraseña cambiada exitosamente');
         this.showMessage(
           'Éxito', 
@@ -325,16 +321,12 @@ export default {
           'success'
         );
         
-        // Limpiar campos
         this.nuevaContrasena = '';
         this.confirmarContrasena = '';
         
-        // Redirigir al login después de 3 segundos
         setTimeout(() => {
           console.log('🔄 Redirigiendo al login...');
-          this.$router.push('/').catch(err => {
-            console.log('⚠️ Error en redirección (ignorado):', err);
-          });
+          window.location.href = '/';
         }, 3000);
         
       } catch (error) {
@@ -350,9 +342,7 @@ export default {
     
     volverALogin() {
       console.log('🔙 Volviendo al login...');
-      this.$router.push('/').catch(err => {
-        console.log('⚠️ Error en navegación (ignorado):', err);
-      });
+      window.location.href = '/';
     }
   }
 }

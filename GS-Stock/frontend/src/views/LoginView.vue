@@ -61,7 +61,7 @@
       <div class="login-brand-section">
         <div class="brand-content">
           <div class="logo-display">
-            <img src="@/assets/images/logo.svg" alt="GENSER Logo" class="main-logo">
+            <img :src="logo" alt="GENSER Logo" class="main-logo">
           </div>
         </div>
       </div>
@@ -86,10 +86,13 @@
 </template>
 
 <script>
+import logo from '../assets/images/logo0.png'
+
 export default {
   name: 'LoginView',
   data() {
     return {
+      logo,
       usuario: '',
       contrasena: '',
       showPassword: false,

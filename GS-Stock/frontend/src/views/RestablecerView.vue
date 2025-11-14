@@ -51,7 +51,7 @@
       <div class="login-brand-section">
         <div class="brand-content">
           <div class="logo-display">
-            <img src="@/assets/images/logo.svg" alt="GENSER Logo" class="main-logo">
+            <img :src="logo" alt="GENSER Logo" class="main-logo">
           </div>
         </div>
       </div>
@@ -76,10 +76,13 @@
 </template>
 
 <script>
+import logo from '../assets/images/logo0.png'
+
 export default {
   name: 'RestablecerView',
   data() {
     return {
+      logo,
       correo: '',
       loading: false,
       emailEnviado: false,
@@ -105,18 +108,15 @@ export default {
       this.correo = '';
     },
     
-    // Validar formato de email
     isValidEmail(email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       return emailRegex.test(email);
     },
     
-    // Conexión con el endpoint de forgot-password
     async enviarSolicitud() {
       console.log('=== SOLICITUD DE RECUPERACIÓN ===');
       console.log('Email ingresado:', this.correo);
       
-      // Validaciones frontend
       if (!this.correo) {
         console.log('❌ Email vacío');
         this.showMessage('Error', 'Por favor, ingrese su correo electrónico', 'error');
@@ -156,11 +156,9 @@ export default {
           throw new Error(data.error || data.message || 'Error al procesar la solicitud');
         }
         
-        // Mostrar éxito
         console.log('✅ Email de recuperación enviado exitosamente');
         this.emailEnviado = true;
         
-        // Si estamos en desarrollo y hay un resetLink, mostrarlo
         if (data.resetLink && process.env.NODE_ENV === 'development') {
           console.log('🔗 Enlace de recuperación (desarrollo):', data.resetLink);
         }
@@ -177,9 +175,7 @@ export default {
     
     volverAlLogin() {
       console.log('🔙 Volviendo al login...');
-      this.$router.push('/').catch(err => {
-        console.log('⚠️ Error en navegación (ignorado):', err);
-      });
+      window.location.href = '/';
     }
   }
 }
