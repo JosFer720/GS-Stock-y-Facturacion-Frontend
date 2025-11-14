@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
@@ -88,63 +87,24 @@ router.post('/pedidos', auth, apiLimiter, async (req, res) => { // ADDED: apiLim
 
     const stockValidation = [];
     for (const producto of productos) {
-      // VALIDACIÓN AGREGADA: Verificar si el producto está disponible en el inventario
-      const disponibilidadResult = await client.query(`
-        SELECT 
-          zt.stock, 
-          z.nombre, 
-          t.talla_eu,
-          i.estado as estado_inventario,
-          z.estado as estado_zapato
+      const stockResult = await client.query(`
+        SELECT zt.stock, z.nombre, t.talla_eu 
         FROM Zapatos_Tallas zt
         JOIN Zapatos z ON zt.id_zapato = z.id
         JOIN Tallas t ON zt.id_talla = t.id
-        LEFT JOIN Inventarios i ON z.id = i.id_zapatos
         WHERE zt.id_zapato = $1 AND zt.id_talla = $2
       `, [producto.id_zapato, producto.id_talla]);
 
-      if (disponibilidadResult.rows.length === 0) {
+      if (stockResult.rows.length === 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({ 
           error: `No se encontró la talla especificada para el zapato ID ${producto.id_zapato}` 
         });
       }
 
-      const productoInfo = disponibilidadResult.rows[0];
-      const stockDisponible = productoInfo.stock;
-      const nombreZapato = productoInfo.nombre;
-      const talla = productoInfo.talla_eu;
-      const estadoInventario = productoInfo.estado_inventario;
-      const estadoZapato = productoInfo.estado_zapato;
-
-      // VALIDACIÓN AGREGADA: Verificar si el producto está disponible para venta
-      if (estadoInventario === 'No disponible' || estadoZapato === 'No disponible') {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ 
-          error: `El producto "${nombreZapato}" no está disponible para la venta`,
-          codigo_error: 'PRODUCTO_NO_DISPONIBLE',
-          detalles: {
-            zapato: nombreZapato,
-            talla_eu: talla,
-            estado_inventario: estadoInventario,
-            estado_zapato: estadoZapato
-          }
-        });
-      }
-
-      // VALIDACIÓN AGREGADA: Verificar si el producto está agotado
-      if (stockDisponible <= 0) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ 
-          error: `El producto "${nombreZapato}" está agotado`,
-          codigo_error: 'PRODUCTO_AGOTADO',
-          detalles: {
-            zapato: nombreZapato,
-            talla_eu: talla,
-            stock_disponible: stockDisponible
-          }
-        });
-      }
+      const stockDisponible = stockResult.rows[0].stock;
+      const nombreZapato = stockResult.rows[0].nombre;
+      const talla = stockResult.rows[0].talla_eu;
 
       if (stockDisponible < producto.cantidad) {
         await client.query('ROLLBACK');
