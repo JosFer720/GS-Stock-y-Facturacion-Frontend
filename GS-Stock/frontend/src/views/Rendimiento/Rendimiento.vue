@@ -195,7 +195,7 @@
                 <p class="chart-subtitle">Tendencia mensual de ventas entre Línea Nacional e Importadora</p>
               </div>
               <div class="chart-wrapper">
-                <canvas id="lineChart" width="400" height="200"></canvas>
+                <canvas ref="lineChartCanvas" id="lineChart" width="400" height="200"></canvas>
               </div>
               <div v-if="!productLinesData.length" class="empty-state">
                 <p>No hay datos disponibles para la comparación de líneas</p>
@@ -209,7 +209,7 @@
                 <p class="chart-subtitle">Top {{ selectedLimit }} productos por cantidad vendida</p>
               </div>
               <div class="chart-wrapper">
-                <canvas id="barChart" width="400" height="200"></canvas>
+                <canvas ref="barChartCanvas" id="barChart" width="400" height="200"></canvas>
               </div>
               <div v-if="!bestSellingData.length" class="empty-state">
                 <p>No hay datos disponibles para productos más vendidos</p>
@@ -226,90 +226,81 @@
                 </p>
               </div>
               <div class="chart-wrapper">
-                <canvas id="vendedorChart" width="400" height="200"></canvas>
+                <canvas ref="vendedorChartCanvas" id="vendedorChart" width="400" height="200"></canvas>
               </div>
               <div v-if="!vendedorData.length" class="empty-state">
-                <p>No hay datos disponibles para el rendimiento de vendedores</p>
+                <p>No hay datos disponibles para rendimiento de vendedores</p>
               </div>
             </div>
 
-            <!-- Sales Performance Chart -->
+            <!-- Ventas Performance Chart -->
             <div v-if="activeChart === 'ventas'" class="chart-card">
               <div class="chart-header">
-                <h4 class="chart-title">Análisis de Ventas Generales</h4>
+                <h4 class="chart-title">Análisis de Ventas</h4>
                 <p class="chart-subtitle">
-                  Ventas {{ selectedPeriod === 'week' ? 'semanales' : 'mensuales' }} - {{ selectedYear }}
+                  Rendimiento general de ventas - {{ selectedPeriod === 'week' ? 'Por semana' : 'Por mes' }}
                 </p>
               </div>
               <div class="chart-wrapper">
-                <canvas id="ventasChart" width="400" height="200"></canvas>
+                <canvas ref="ventasChartCanvas" id="ventasChart" width="400" height="200"></canvas>
               </div>
               <div v-if="!ventasData.length" class="empty-state">
-                <p>No hay datos disponibles para el análisis de ventas</p>
+                <p>No hay datos disponibles para análisis de ventas</p>
               </div>
             </div>
           </div>
 
           <!-- Data Tables Section -->
           <div class="data-section">
-            <h3 class="section-title">Datos Detallados</h3>
             <div class="tabs-navigation">
               <button 
-                class="tab-button"
-                :class="{ active: activeDataTab === 'lines' }"
                 @click="activeDataTab = 'lines'"
-                v-if="activeChart === 'comparison'"
+                :class="['tab-button', { active: activeDataTab === 'lines' }]"
               >
-                Datos por Línea
+                Líneas de Producto
               </button>
               <button 
-                class="tab-button"
-                :class="{ active: activeDataTab === 'products' }"
                 @click="activeDataTab = 'products'"
-                v-if="activeChart === 'products'"
+                :class="['tab-button', { active: activeDataTab === 'products' }]"
               >
-                Datos de Productos
+                Productos
               </button>
               <button 
-                class="tab-button"
-                :class="{ active: activeDataTab === 'vendedor' }"
                 @click="activeDataTab = 'vendedor'"
-                v-if="activeChart === 'vendedor'"
+                :class="['tab-button', { active: activeDataTab === 'vendedor' }]"
               >
-                Datos de Vendedores
+                Vendedores
               </button>
               <button 
-                class="tab-button"
-                :class="{ active: activeDataTab === 'ventas' }"
                 @click="activeDataTab = 'ventas'"
-                v-if="activeChart === 'ventas'"
+                :class="['tab-button', { active: activeDataTab === 'ventas' }]"
               >
-                Datos de Ventas
+                Ventas
               </button>
             </div>
 
             <div class="data-content">
               <!-- Product Lines Data Table -->
-              <div v-show="activeDataTab === 'lines'" class="data-card">
-                <div v-if="productLinesData.length > 0" class="table-container">
+              <div v-if="activeDataTab === 'lines'" class="data-card">
+                <div class="table-container">
                   <table class="data-table">
                     <thead>
                       <tr>
-                        <th>Línea</th>
+                        <th>Línea de Producto</th>
                         <th>Período</th>
-                        <th>Pedidos</th>
-                        <th>Ventas</th>
+                        <th>Total Pedidos</th>
+                        <th>Venta Total</th>
                         <th>Promedio</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="item in productLinesData" :key="`${item.tipo_linea_producto}-${item.año}-${item.mes}`">
+                      <tr v-for="(item, index) in productLinesData" :key="index">
                         <td>
                           <span :class="['line-badge', item.tipo_linea_producto === 'Linea Nacional' ? 'nacional' : 'importadora']">
                             {{ item.tipo_linea_producto }}
                           </span>
                         </td>
-                        <td>{{ item.mes }}/{{ item.año }}</td>
+                        <td>{{ item.nombre_mes }} {{ item.año }}</td>
                         <td>{{ item.total_pedidos }}</td>
                         <td>Q{{ formatNumber(item.venta_total) }}</td>
                         <td>Q{{ formatNumber(item.promedio_venta) }}</td>
@@ -317,60 +308,68 @@
                     </tbody>
                   </table>
                 </div>
-                <div v-else class="empty-state">
-                  <p>No hay datos de líneas de producto disponibles</p>
+                <div v-if="!productLinesData.length" class="empty-state">
+                  <p>No hay datos disponibles</p>
                 </div>
               </div>
 
               <!-- Best Selling Products Data Table -->
-              <div v-show="activeDataTab === 'products'" class="data-card">
-                <div v-if="bestSellingData.length > 0" class="table-container">
+              <div v-if="activeDataTab === 'products'" class="data-card">
+                <div class="table-container">
                   <table class="data-table">
                     <thead>
                       <tr>
                         <th>#</th>
-                        <th>Producto</th>
                         <th>Código</th>
-                        <th>Vendidos</th>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Total Vendido</th>
                         <th>Ingresos</th>
+                        <th>Precio Promedio</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(item, index) in bestSellingData" :key="item.id_zapato">
+                      <tr v-for="(item, index) in bestSellingData" :key="index">
                         <td>
-                          <span class="rank-badge" :class="getRankClass(index)">{{ index + 1 }}</span>
+                          <span :class="['rank-badge', getRankClass(index)]">
+                            {{ index + 1 }}
+                          </span>
                         </td>
-                        <td>{{ item.nombre_zapato }}</td>
                         <td><code>{{ item.codigo_zapato }}</code></td>
+                        <td>{{ item.nombre_zapato }}</td>
+                        <td>{{ item.tipo_calzado }}</td>
                         <td>{{ item.total_vendido }}</td>
                         <td>Q{{ formatNumber(item.ingresos_totales) }}</td>
+                        <td>Q{{ formatNumber(item.precio_promedio) }}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
-                <div v-else class="empty-state">
-                  <p>No hay datos de productos más vendidos disponibles</p>
+                <div v-if="!bestSellingData.length" class="empty-state">
+                  <p>No hay datos disponibles</p>
                 </div>
               </div>
 
               <!-- Vendedor Performance Data Table -->
-              <div v-show="activeDataTab === 'vendedor'" class="data-card">
-                <div v-if="vendedorData.length > 0" class="table-container">
+              <div v-if="activeDataTab === 'vendedor'" class="data-card">
+                <div class="table-container">
                   <table class="data-table">
                     <thead>
                       <tr>
                         <th>Vendedor</th>
                         <th>Período</th>
-                        <th>Pedidos</th>
-                        <th>Ventas</th>
-                        <th>Promedio</th>
-                        <th>Clientes</th>
+                        <th>Total Pedidos</th>
+                        <th>Ventas Totales</th>
+                        <th>Promedio Venta</th>
+                        <th>Clientes Únicos</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="item in vendedorData" :key="`${item.vendedor_id}-${item.periodo_key}`">
+                      <tr v-for="(item, index) in vendedorData" :key="index">
                         <td>
-                          <span class="vendedor-badge">{{ item.vendedor_nombre }}</span>
+                          <span class="vendedor-badge">
+                            {{ item.vendedor_nombre }}
+                          </span>
                         </td>
                         <td>{{ item.periodo_display }}</td>
                         <td>{{ item.total_pedidos }}</td>
@@ -381,49 +380,49 @@
                     </tbody>
                   </table>
                 </div>
-                <div v-else class="empty-state">
-                  <p>No hay datos de vendedores disponibles</p>
+                <div v-if="!vendedorData.length" class="empty-state">
+                  <p>No hay datos disponibles</p>
                 </div>
               </div>
 
-              <!-- Sales Performance Data Table -->
-              <div v-show="activeDataTab === 'ventas'" class="data-card">
-                <div v-if="ventasData.length > 0" class="table-container">
+              <!-- Ventas Performance Data Table -->
+              <div v-if="activeDataTab === 'ventas'" class="data-card">
+                <div class="table-container">
                   <table class="data-table">
                     <thead>
                       <tr>
                         <th>Período</th>
-                        <th>Pedidos</th>
-                        <th>Ventas</th>
-                        <th>Nacional</th>
-                        <th>Importadora</th>
-                        <th>Vendedores</th>
+                        <th>Total Pedidos</th>
+                        <th>Ventas Totales</th>
+                        <th>Promedio Pedido</th>
+                        <th>Clientes Únicos</th>
+                        <th>Vendedores Activos</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="item in ventasData" :key="item.periodo_key">
+                      <tr v-for="(item, index) in ventasData" :key="index">
                         <td>{{ item.periodo_display }}</td>
                         <td>{{ item.total_pedidos }}</td>
                         <td>Q{{ formatNumber(item.ventas_totales) }}</td>
-                        <td>Q{{ formatNumber(item.ventas_nacional) }}</td>
-                        <td>Q{{ formatNumber(item.ventas_importadora) }}</td>
+                        <td>Q{{ formatNumber(item.promedio_pedido) }}</td>
+                        <td>{{ item.clientes_unicos }}</td>
                         <td>{{ item.vendedores_activos }}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
-                <div v-else class="empty-state">
-                  <p>No hay datos de ventas disponibles</p>
+                <div v-if="!ventasData.length" class="empty-state">
+                  <p>No hay datos disponibles</p>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Empty State (when no data at all) -->
-          <div v-if="!productLinesData.length && !bestSellingData.length && !vendedorData.length && !ventasData.length && !loading" class="empty-state global">
-            <h3>No hay datos disponibles</h3>
-            <p>No se encontraron datos para los filtros seleccionados. Intenta con diferentes parámetros.</p>
-          </div>
+        <!-- Global Empty State -->
+        <div v-else class="empty-state global">
+          <h3>No hay datos disponibles</h3>
+          <p>Selecciona diferentes filtros para ver información</p>
         </div>
       </div>
     </main>
@@ -431,9 +430,9 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import HeaderComponent from '../../components/HeaderComponent.vue'
+import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import axios from 'axios'
+import HeaderComponent from '@/components/HeaderComponent.vue'
 
 export default {
   name: 'RendimientoView',
@@ -441,7 +440,7 @@ export default {
     HeaderComponent
   },
   setup() {
-    // Reactive data
+    // Data references
     const productLinesData = ref([])
     const bestSellingData = ref([])
     const summaryData = ref(null)
@@ -462,11 +461,20 @@ export default {
     const selectedPeriod = ref('month')
     const selectedVendedor = ref('')
     
-    // Chart references
+    // Chart references - using template refs
+    const lineChartCanvas = ref(null)
+    const barChartCanvas = ref(null)
+    const vendedorChartCanvas = ref(null)
+    const ventasChartCanvas = ref(null)
+    
+    // Chart instances
     const lineChart = ref(null)
     const barChart = ref(null)
     const vendedorChart = ref(null)
     const ventasChart = ref(null)
+    
+    // Chart.js loaded flag
+    const chartJsLoaded = ref(false)
     
     // Available years for filter
     const availableYears = computed(() => {
@@ -527,16 +535,18 @@ const API_BASE_URL = '/api'
       error.value = null
     }
 
-    // Switch chart function
-    const switchChart = (chartType) => {
+    // Switch chart function - IMPROVED
+    const switchChart = async (chartType) => {
+      console.log('Switching to chart:', chartType)
+      
       // Destroy current chart before switching
       destroyCharts()
       
       activeChart.value = chartType
       activeDataTab.value = chartType === 'comparison' ? 'lines' : chartType
       
-      // Load data for the new chart and create it
-      loadData()
+      // Load data for the new chart
+      await loadData()
     }
 
     // Fetch dashboard summary
@@ -555,6 +565,7 @@ const API_BASE_URL = '/api'
         }
       } catch (err) {
         console.error('Error fetching summary data:', err)
+        error.value = 'Error al cargar datos de resumen'
       }
     }
 
@@ -577,7 +588,7 @@ const API_BASE_URL = '/api'
         }
       } catch (err) {
         console.error('Error fetching product lines data:', err)
-        error.value = 'Error al cargar datos de líneas de producto'
+        error.value = 'Error al cargar datos de comparación de líneas'
       }
     }
 
@@ -671,12 +682,14 @@ const API_BASE_URL = '/api'
       }
     }
 
-    // Load all data based on active chart
+    // Load all data based on active chart - IMPROVED
     const loadData = async () => {
       loading.value = true
       error.value = null
       
       try {
+        console.log('Loading data for chart:', activeChart.value)
+        
         // Always fetch summary data
         await fetchSummaryData()
         
@@ -701,43 +714,72 @@ const API_BASE_URL = '/api'
             ])
         }
         
-        // After data is loaded, create active chart
+        console.log('Data loaded, creating chart...')
+        
+        // After data is loaded, wait for DOM and create chart
         await nextTick()
-        setTimeout(() => {
-          createActiveChart()
-        }, 100)
+        
+        // Use multiple attempts with increasing delays to ensure chart creation
+        let attempts = 0
+        const maxAttempts = 5
+        const attemptChart = () => {
+          attempts++
+          console.log(`Chart creation attempt ${attempts}/${maxAttempts}`)
+          
+          const success = createActiveChart()
+          
+          if (!success && attempts < maxAttempts) {
+            // Try again with increasing delay
+            setTimeout(attemptChart, attempts * 100)
+          } else if (success) {
+            console.log('Chart created successfully')
+          } else {
+            console.warn('Failed to create chart after all attempts')
+          }
+        }
+        
+        setTimeout(attemptChart, 150)
+        
       } catch (err) {
+        console.error('Error loading data:', err)
         error.value = 'Error al cargar los datos'
       } finally {
         loading.value = false
       }
     }
 
-    // Create only the active chart
+    // Create only the active chart - IMPROVED with better error handling
     const createActiveChart = () => {
-      // Wait for DOM to be ready
-      nextTick(() => {
-        setTimeout(() => {
-          switch (activeChart.value) {
-            case 'comparison':
-              createLineChart()
-              break
-            case 'products':
-              createBarChart()
-              break
-            case 'vendedor':
-              createVendedorChart()
-              break
-            case 'ventas':
-              createVentasChart()
-              break
-          }
-        }, 200) // Increased timeout to ensure DOM is ready
-      })
+      if (!chartJsLoaded.value) {
+        console.warn('Chart.js not loaded yet')
+        return false
+      }
+      
+      console.log('Creating active chart:', activeChart.value)
+      
+      try {
+        switch (activeChart.value) {
+          case 'comparison':
+            return createLineChart()
+          case 'products':
+            return createBarChart()
+          case 'vendedor':
+            return createVendedorChart()
+          case 'ventas':
+            return createVentasChart()
+        }
+      } catch (error) {
+        console.error('Error in createActiveChart:', error)
+        return false
+      }
+      
+      return false
     }
 
     // Destroy all charts
     const destroyCharts = () => {
+      console.log('Destroying all charts')
+      
       if (lineChart.value) {
         lineChart.value.destroy()
         lineChart.value = null
@@ -756,14 +798,24 @@ const API_BASE_URL = '/api'
       }
     }
 
-    // Create line chart for product lines comparison
+    // Create line chart for product lines comparison - IMPROVED
     const createLineChart = () => {
-      if (!productLinesData.value.length || activeChart.value !== 'comparison') return
+      console.log('Creating line chart, data length:', productLinesData.value.length)
+      
+      if (!productLinesData.value.length) {
+        console.log('No product lines data available')
+        return false
+      }
+      
+      if (activeChart.value !== 'comparison') {
+        console.log('Active chart is not comparison')
+        return false
+      }
 
-      const canvas = document.getElementById('lineChart')
+      const canvas = lineChartCanvas.value || document.getElementById('lineChart')
       if (!canvas) {
         console.warn('Line chart canvas not found')
-        return
+        return false
       }
 
       // Destroy existing chart
@@ -806,8 +858,8 @@ const API_BASE_URL = '/api'
                 pointBackgroundColor: '#2C3E50',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
-                pointRadius: 6,
-                pointHoverRadius: 8
+                pointRadius: 5,
+                pointHoverRadius: 7
               },
               {
                 label: 'Línea Importadora',
@@ -820,8 +872,8 @@ const API_BASE_URL = '/api'
                 pointBackgroundColor: '#34495E',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
-                pointRadius: 6,
-                pointHoverRadius: 8
+                pointRadius: 5,
+                pointHoverRadius: 7
               }
             ]
           },
@@ -833,8 +885,8 @@ const API_BASE_URL = '/api'
                 position: 'top',
                 labels: {
                   usePointStyle: true,
-                  padding: 20,
-                  font: { size: 14 }
+                  padding: 15,
+                  font: { size: 12 }
                 }
               },
               tooltip: {
@@ -846,7 +898,16 @@ const API_BASE_URL = '/api'
                 borderColor: '#374151',
                 borderWidth: 1,
                 cornerRadius: 8,
-                displayColors: true
+                callbacks: {
+                  label: function(context) {
+                    let label = context.dataset.label || ''
+                    if (label) {
+                      label += ': '
+                    }
+                    label += 'Q' + formatNumber(context.parsed.y)
+                    return label
+                  }
+                }
               }
             },
             scales: {
@@ -871,19 +932,33 @@ const API_BASE_URL = '/api'
             }
           }
         })
+        
+        console.log('Line chart created successfully')
+        return true
       } catch (error) {
         console.error('Error creating line chart:', error)
+        return false
       }
     }
 
-    // Create bar chart for best selling products
+    // Create bar chart for best selling products - IMPROVED
     const createBarChart = () => {
-      if (!bestSellingData.value.length || activeChart.value !== 'products') return
+      console.log('Creating bar chart, data length:', bestSellingData.value.length)
+      
+      if (!bestSellingData.value.length) {
+        console.log('No best selling data available')
+        return false
+      }
+      
+      if (activeChart.value !== 'products') {
+        console.log('Active chart is not products')
+        return false
+      }
 
-      const canvas = document.getElementById('barChart')
+      const canvas = barChartCanvas.value || document.getElementById('barChart')
       if (!canvas) {
         console.warn('Bar chart canvas not found')
-        return
+        return false
       }
 
       // Destroy existing chart
@@ -966,19 +1041,33 @@ const API_BASE_URL = '/api'
             }
           }
         })
+        
+        console.log('Bar chart created successfully')
+        return true
       } catch (error) {
         console.error('Error creating bar chart:', error)
+        return false
       }
     }
 
-    // Create vendedor performance chart
+    // Create vendedor performance chart - IMPROVED
     const createVendedorChart = () => {
-      if (!vendedorData.value.length || activeChart.value !== 'vendedor') return
+      console.log('Creating vendedor chart, data length:', vendedorData.value.length)
+      
+      if (!vendedorData.value.length) {
+        console.log('No vendedor data available')
+        return false
+      }
+      
+      if (activeChart.value !== 'vendedor') {
+        console.log('Active chart is not vendedor')
+        return false
+      }
 
-      const canvas = document.getElementById('vendedorChart')
+      const canvas = vendedorChartCanvas.value || document.getElementById('vendedorChart')
       if (!canvas) {
         console.warn('Vendedor chart canvas not found')
-        return
+        return false
       }
 
       // Destroy existing chart
@@ -1058,20 +1147,15 @@ const API_BASE_URL = '/api'
                 borderWidth: 1,
                 cornerRadius: 8,
                 callbacks: {
+                  label: function(context) {
+                    return context.dataset.label + ': Q' + formatNumber(context.parsed.y)
+                  },
                   afterBody: function(context) {
                     const dataIndex = context[0].dataIndex
                     const vendedorName = context[0].dataset.label
-                    const periodData = vendedorData.value.find(item => 
-                      item.vendedor_nombre === vendedorName && 
-                      item.periodo_display === allPeriods[dataIndex]
-                    )
-                    
-                    if (periodData) {
-                      return [
-                        `Pedidos: ${periodData.total_pedidos}`,
-                        `Clientes: ${periodData.clientes_unicos}`,
-                        `Promedio: Q${formatNumber(periodData.promedio_venta)}`
-                      ]
+                    const item = groupedData[vendedorName][dataIndex]
+                    if (item) {
+                      return [`Pedidos: ${item.pedidos}`]
                     }
                     return []
                   }
@@ -1086,15 +1170,12 @@ const API_BASE_URL = '/api'
                   callback: function(value) {
                     return 'Q' + value.toLocaleString()
                   },
-                  font: { size: 11 }
+                  font: { size: 12 }
                 }
               },
               x: {
                 grid: { color: 'rgba(229, 231, 235, 0.8)' },
-                ticks: { 
-                  font: { size: 11 },
-                  maxRotation: 45
-                }
+                ticks: { font: { size: 12 } }
               }
             },
             interaction: {
@@ -1103,19 +1184,33 @@ const API_BASE_URL = '/api'
             }
           }
         })
+        
+        console.log('Vendedor chart created successfully')
+        return true
       } catch (error) {
         console.error('Error creating vendedor chart:', error)
+        return false
       }
     }
 
-    // Create sales performance chart
+    // Create ventas performance chart - IMPROVED
     const createVentasChart = () => {
-      if (!ventasData.value.length || activeChart.value !== 'ventas') return
+      console.log('Creating ventas chart, data length:', ventasData.value.length)
+      
+      if (!ventasData.value.length) {
+        console.log('No ventas data available')
+        return false
+      }
+      
+      if (activeChart.value !== 'ventas') {
+        console.log('Active chart is not ventas')
+        return false
+      }
 
-      const canvas = document.getElementById('ventasChart')
+      const canvas = ventasChartCanvas.value || document.getElementById('ventasChart')
       if (!canvas) {
         console.warn('Ventas chart canvas not found')
-        return
+        return false
       }
 
       // Destroy existing chart
@@ -1267,8 +1362,12 @@ const API_BASE_URL = '/api'
             }
           }
         })
+        
+        console.log('Ventas chart created successfully')
+        return true
       } catch (error) {
         console.error('Error creating ventas chart:', error)
+        return false
       }
     }
 
@@ -1295,19 +1394,47 @@ const API_BASE_URL = '/api'
       }
     })
 
-    // Lifecycle
-    onMounted(async () => {
-      // Load Chart.js
-      if (!window.Chart) {
+    // Load Chart.js library
+    const loadChartJs = () => {
+      return new Promise((resolve, reject) => {
+        if (window.Chart) {
+          chartJsLoaded.value = true
+          resolve()
+          return
+        }
+
         const script = document.createElement('script')
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js'
         script.onload = () => {
-          loadData()
+          chartJsLoaded.value = true
+          console.log('Chart.js loaded successfully')
+          resolve()
+        }
+        script.onerror = () => {
+          console.error('Failed to load Chart.js')
+          reject(new Error('Failed to load Chart.js'))
         }
         document.head.appendChild(script)
-      } else {
-        loadData()
+      })
+    }
+
+    // Lifecycle - onMounted
+    onMounted(async () => {
+      try {
+        // Load Chart.js first
+        await loadChartJs()
+        
+        // Then load initial data
+        await loadData()
+      } catch (error) {
+        console.error('Error in onMounted:', error)
+        error.value = 'Error al inicializar el dashboard'
       }
+    })
+
+    // Cleanup on unmount
+    onBeforeUnmount(() => {
+      destroyCharts()
     })
 
     return {
@@ -1333,6 +1460,12 @@ const API_BASE_URL = '/api'
       selectedVendedor,
       availableYears,
       availableMonths,
+      
+      // Template refs for canvas elements
+      lineChartCanvas,
+      barChartCanvas,
+      vendedorChartCanvas,
+      ventasChartCanvas,
       
       // Methods
       loadData,

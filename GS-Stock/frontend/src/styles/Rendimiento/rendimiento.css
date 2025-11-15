@@ -22,6 +22,9 @@
   max-width: none;
   box-sizing: border-box;
   margin-top: 60px;
+  padding-left: max(10px, env(safe-area-inset-left));
+  padding-right: max(10px, env(safe-area-inset-right));
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 
 /* Header Section */
@@ -86,12 +89,13 @@
   padding: 8px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   background: white;
   transition: border-color 0.2s ease;
   width: 100%;
   box-sizing: border-box;
-  min-height: 40px;
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .filter-select:focus {
@@ -114,8 +118,9 @@
   justify-content: center;
   width: 100%;
   box-sizing: border-box;
-  min-height: 40px;
+  min-height: 44px;
   font-size: 14px;
+  touch-action: manipulation;
 }
 
 .refresh-btn:hover:not(:disabled) {
@@ -182,6 +187,12 @@
   padding: 0;
   margin-left: 10px;
   flex-shrink: 0;
+  min-width: 30px;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
 }
 
 /* Dashboard Content */
@@ -300,6 +311,7 @@
   position: relative;
   overflow: hidden;
   min-height: 44px;
+  touch-action: manipulation;
 }
 
 .nav-btn::before {
@@ -426,6 +438,7 @@
   text-align: center;
   position: relative;
   white-space: nowrap;
+  touch-action: manipulation;
 }
 
 .tab-button:hover {
@@ -601,6 +614,18 @@
   color: #666;
   margin: 0;
   font-size: 13px;
+}
+
+/* iOS Safari input zoom fix */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Better tap targets for mobile */
+* {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
 }
 
 /* Responsive Design - Small Mobile (320px - 374px) */
