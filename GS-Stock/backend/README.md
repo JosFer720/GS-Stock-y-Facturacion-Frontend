@@ -98,4 +98,5 @@ Estado de la migración por capas:
 - [x] Catálogos (tallas, tiposCalzado, tiposLineaProducto)
 - [x] Facturas
 - [x] SugerenciasFacturacion
-- [ ] CrearFactura y Envíos (nacional/importadora) — generan PDF (pendientes)
+- [x] CrearFactura (PDF; corregida la transacción a client real)
+- [ ] Envíos (nacional/importadora) — generan PDF (pendientes)
