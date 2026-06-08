@@ -1,16 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const pool = require('../db');
 const auth = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
-
-const pool = new Pool({
-  user: process.env.DB_USER || 'admin',
-  host: process.env.DB_HOST || 'postgres',
-  database: process.env.DB_NAME || 'mydb',
-  password: process.env.DB_PASSWORD || 'secret',
-  port: process.env.DB_PORT || 5432,
-});
 
 // Obtener todos los usuarios
 router.get('/', auth, async (req, res) => {
@@ -213,7 +205,6 @@ router.post('/create-with-account', auth, async (req, res) => {
       return res.status(400).json({ error: 'El nombre de usuario debe tener al menos 3 caracteres' });
     }
     
-    // Verificar conexión a la base de datos
     console.log('🔍 Verificando conexión a la base de datos...');
     try {
       client = await pool.connect();
@@ -476,7 +467,6 @@ router.post('/create-with-account', auth, async (req, res) => {
       details: process.env.NODE_ENV === 'development' ? err.message : 'Error procesando la solicitud'
     });
   } finally {
-    // Asegurar que la conexión se libere
     if (client) {
       try {
         client.release();

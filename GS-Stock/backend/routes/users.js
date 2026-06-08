@@ -1,17 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const pool = require('../db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
-// Conexión DB
-const pool = new Pool({
-  user: process.env.DB_USER || 'admin',
-  host: process.env.DB_HOST || 'postgres',
-  database: process.env.DB_NAME || 'mydb',
-  password: process.env.DB_PASSWORD || 'secret',
-  port: process.env.DB_PORT || 5432,
-});
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fba7a07f4174d84d67ad67aedf16422a';
 

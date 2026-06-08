@@ -25,7 +25,7 @@ const dashboardRoutes = require('./routes/dashboard');
 
 const graphicsRoutes = require('./routes/Routesforgraphics/graphics');
 
-const { Pool } = require('pg');
+const pool = require('./db');
 
 const app = express();
 app.use(cors({ origin: '*', credentials: true }));
@@ -35,14 +35,6 @@ app.use(express.json());
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} ${req.url} - Body:`, JSON.stringify(req.body).substring(0, 100));
   next();
-});
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
 });
 
 app.use('/api/auth', authRoutes);

@@ -1,18 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const pool = require('../db');
 const SocketService = require('../services/socketService');
 
 const { checkRole, roles } = require('../middleware/roles');
-
-// Configuración de la conexión a PostgreSQL
-const pool = new Pool({
-  user: process.env.DB_USER || 'admin',
-  host: process.env.DB_HOST || 'postgres',
-  database: process.env.DB_NAME || 'mydb',
-  password: process.env.DB_PASSWORD || 'secret',
-  port: process.env.DB_PORT || 5432,
-});
 
 // Middleware para obtener el servicio socket
 router.use((req, res, next) => {

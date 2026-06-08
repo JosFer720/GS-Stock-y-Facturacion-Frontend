@@ -6,7 +6,9 @@ const inventoryRouter = require('../../routes/inventory');
 // Mock de la base de datos
 jest.mock('pg', () => {
   const mockPool = {
-    query: jest.fn()
+    query: jest.fn(),
+    connect: jest.fn(),
+    on: jest.fn()
   };
   return {
     Pool: jest.fn(() => mockPool)
@@ -14,7 +16,7 @@ jest.mock('pg', () => {
 });
 
 // Mock del servicio de sockets
-jest.mock('../services/socketService', () => {
+jest.mock('../../services/socketService', () => {
   return jest.fn().mockImplementation(() => ({
     emitInventoryUpdate: jest.fn(),
     emitNewProduct: jest.fn(),
