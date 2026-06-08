@@ -86,4 +86,5 @@ utils/nitGuatemala.js           → validación/formato de NIT (con tests)
 Estado de la migración por capas:
 
 - [x] Clientes (piloto)
-- [ ] Usuarios, Ventas, Auth, Inventario, Facturas, Pagos, Devoluciones, Envíos, Dashboard, Graphics, … (pendientes)
+- [x] Usuarios
+- [ ] Ventas, Auth, Inventario, Facturas, Pagos, Devoluciones, Envíos, Dashboard, Graphics, … (pendientes)
