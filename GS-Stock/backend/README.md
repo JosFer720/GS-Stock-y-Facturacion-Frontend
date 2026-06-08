@@ -93,4 +93,5 @@ Estado de la migración por capas:
 - [x] Devoluciones
 - [x] Pagos
 - [x] Dashboard
-- [ ] Facturas, Envíos, Graphics, y catálogos (pendientes)
+- [x] Graphics
+- [ ] Facturas, CrearFactura, Envíos, Productos (agregar/modificar/eliminar) y catálogos (pendientes)
