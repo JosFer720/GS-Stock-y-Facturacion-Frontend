@@ -95,4 +95,7 @@ Estado de la migración por capas:
 - [x] Dashboard
 - [x] Graphics
 - [x] Productos (agregar/modificar/eliminar — controlador/servicio/repositorio compartidos)
-- [ ] Facturas, CrearFactura, Envíos, SugerenciasFacturacion y catálogos (pendientes)
+- [x] Catálogos (tallas, tiposCalzado, tiposLineaProducto)
+- [x] Facturas
+- [x] SugerenciasFacturacion
+- [ ] CrearFactura y Envíos (nacional/importadora) — generan PDF (pendientes)
