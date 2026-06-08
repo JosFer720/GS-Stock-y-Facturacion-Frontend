@@ -30,16 +30,16 @@ services:
       - /app/node_modules
     environment:
       - DB_HOST=postgres
-      - DB_USER=admin
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - DB_NAME=mydb
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD es obligatorio (definir en .env)}
+      - DB_NAME=${DB_NAME:-mydb}
       - DB_PORT=5432
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-fba7a07f4174d84d67ad67aedf16422a}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET es obligatorio (definir en .env)}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1h}
       - FRONTEND_URL=${FRONTEND_URL:-https://importadoragenser.com}
-      - EMAIL_USER=${EMAIL_USER:-distribuidoragenser@gmail.com}
-      - EMAIL_PASSWORD=${EMAIL_PASSWORD:-glls fzzd lcvx fwut}
+      - EMAIL_USER=${EMAIL_USER:?EMAIL_USER es obligatorio (definir en .env)}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD:?EMAIL_PASSWORD es obligatorio (definir en .env)}
       - EMAIL_FROM=${EMAIL_FROM:-GS Stock <distribuidoragenser@gmail.com>}
     depends_on:
       postgres:
@@ -59,9 +59,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-      POSTGRES_DB: mydb
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatorio (definir en .env)}
+      POSTGRES_DB: ${DB_NAME:-mydb}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d
