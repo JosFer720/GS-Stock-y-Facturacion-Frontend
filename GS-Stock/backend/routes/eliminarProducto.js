@@ -1,17 +1,8 @@
 // routes/eliminarProducto.js
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const pool = require('../db');
 const auth = require('../middleware/auth');
-
-// Configuración de la conexión a PostgreSQL usando las variables del docker-compose
-const pool = new Pool({
-  user: process.env.DB_USER || 'admin',
-  host: process.env.DB_HOST || 'postgres',
-  database: process.env.DB_NAME || 'mydb',
-  password: process.env.DB_PASSWORD || 'secret',
-  port: process.env.DB_PORT || 5432,
-});
 
 // Endpoint para eliminar un producto
 router.delete('/productos/:id', auth, async (req, res) => {

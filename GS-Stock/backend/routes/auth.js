@@ -3,16 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { Pool } = require('pg');
-
-const pool = new Pool({
-  user: process.env.DB_USER || 'admin',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'mydb',
-  password: process.env.DB_PASSWORD || 'secret',
-  port: process.env.DB_PORT || 5432,
-  client_encoding: 'utf8' 
-});
+const pool = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fba7a07f4174d84d67ad67aedf16422a';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1h';
@@ -122,7 +113,6 @@ router.post('/register', async (req, res) => {
   } catch (err) {
     console.error('💀 Error general en registro:', err);
     
-    // Manejar errores específicos de PostgreSQL
     if (err.code === '23505') { // Unique constraint violation
       if (err.detail && err.detail.toLowerCase().includes('email')) {
         return res.status(400).json({ error: 'El email ya está registrado' });
