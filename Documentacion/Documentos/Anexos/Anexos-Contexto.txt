@@ -1,0 +1,17 @@
+ANEXOS DEL PROYECTO GS STOCK & FACTURACIÓN
+
+Estos anexos son documentos que fuimos desarrollando a lo largo del curso donde recopilamos información importante para avanzar en el proyecto, como pruebas de UX, pruebas de RTF, pruebas automatizadas, hasta los primeros análisis de diseño y nuestro primer abordaje de la problemática que pensábamos mitigar con el proyecto. Cada documento representa una etapa clave del desarrollo, mostrando la evolución desde la fase de empatía hasta la implementación técnica y validación del sistema.
+
+---
+
+ANEXO 1 - PLAN MAESTRO DE PRUEBAS
+Define el plan completo de testing con casos de prueba para backend (usando Postman) y frontend (usando Katalon Studio). Incluye tablas de pruebas funcionales organizadas por módulos: ventas, usuarios, clientes, inventario y login. Este documento estableció la estrategia de calidad del software y nos guió en la validación sistemática de todas las funcionalidades implementadas.
+
+ANEXO 2 - REVISIÓN TÉCNICA FORMAL (RTF)
+Informe de la primera RTF del sistema donde se evaluó la calidad del código, arquitectura y metodología. Se detectaron problemas críticos como falta de patrón de diseño consistente, acoplamiento excesivo y ausencia de normas de codificación. Este documento nos ayudó a identificar debilidades técnicas tempranas y establecer un plan de corrección para mejorar la calidad del software.
+
+ANEXO 3 - PRUEBAS DE EXPERIENCIA DE USUARIO (UX)
+Documentación de pruebas de usabilidad realizadas con el cliente real sobre seis módulos clave del sistema. Se recopiló retroalimentación mediante observación directa y encuestas de Google Forms, identificando mejoras en gestión de clientes y diferenciación de envíos. Estas pruebas validaron que el sistema cumplía con las expectativas del usuario y nos permitieron realizar ajustes antes del despliegue final.
+
+ANEXO 4 - PRUEBAS AUTOMATIZADAS
+Describe la implementación de pruebas automatizadas usando Vitest para frontend (componentes Vue) y SuperJest para backend (APIs Express). Incluye casos de smoke tests y pruebas de integración con videos demostrativos. Este documento consolidó nuestra estrategia de testing automatizado, permitiendo validar funcionalidades de forma rápida y confiable en cada iteración del desarrollo.

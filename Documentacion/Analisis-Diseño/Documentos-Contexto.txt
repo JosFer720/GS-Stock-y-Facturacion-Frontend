@@ -1,0 +1,15 @@
+PROYECTO GS STOCK & FACTURACIÓN
+
+Estos documento son los principales utilizados para la realizacion el proyecto.
+
+---
+
+ESIGN THINKING: EMPATÍA
+Documento inicial donde se identificó la problemática de la zapatería Genser S.A. mediante Design Thinking. Se definieron usuarios (jefe, vendedor, secretaria, bodeguero), se analizaron sus flujos de trabajo con Excel y se establecieron los objetivos del proyecto para automatizar inventario y facturación. Este documento fue fundamental para comprender las necesidades reales del cliente y establecer la visión del sistema.
+
+ANÁLISIS Y DISEÑO DEL SISTEMA
+Presenta el análisis completo del sistema incluyendo diagramas de clases, modelo de base de datos, requisitos funcionales y selección de tecnologías (Node.js, Vue.js, PostgreSQL). Define la arquitectura del proyecto mediante diagramas de paquetes y entidad-relación, estableciendo las bases técnicas para el desarrollo. Este documento nos ayudó a estructurar la solución técnica y tomar decisiones informadas sobre las tecnologías a utilizar.
+
+ANÁLISIS DE CASOS DE FALLA EN SOFTWARE
+Estudio de proyectos fallidos (HealthCare.gov y sistema de conteo electoral guatemalteco) para identificar errores comunes en desarrollo de software. Se analizaron fallas en metodología, gestión y calidad, estableciendo aprendizajes para evitar problemas similares en nuestro proyecto. Este análisis nos permitió anticipar riesgos y reforzar nuestras prácticas de desarrollo.
+
