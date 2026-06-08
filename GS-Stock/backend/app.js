@@ -4,7 +4,6 @@ const cors = require('cors');
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const pruebaRoutes = require('./routes/prueba');
 const agregarProductoRoutes = require('./routes/agregarProducto');
 const eliminarProductoRoutes = require('./routes/eliminarProducto');
 const modificarProductoRoutes = require('./routes/modificarProducto');
@@ -48,7 +47,6 @@ const pool = new Pool({
 
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api/prueba', pruebaRoutes);
 app.use('/api/agregarProducto', agregarProductoRoutes);
 app.use('/api/eliminarProducto', eliminarProductoRoutes);
 app.use('/api/modificarProducto', modificarProductoRoutes);

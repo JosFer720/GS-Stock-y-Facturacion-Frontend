@@ -8,6 +8,27 @@
 # Node modules
 node_modules/
 
+# Builds / artefactos
+dist/
+build/
+*.local
+
+# Tests / cobertura
+coverage/
+cypress/videos/
+cypress/screenshots/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Editores
+*.swp
+
 # Otros archivos sensibles
 *.pem
 *.key
