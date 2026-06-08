@@ -90,4 +90,5 @@ Estado de la migración por capas:
 - [x] Ventas
 - [x] Auth
 - [x] Inventario
-- [ ] Facturas, Pagos, Devoluciones, Envíos, Dashboard, Graphics, … (pendientes)
+- [x] Devoluciones
+- [ ] Facturas, Pagos, Envíos, Dashboard, Graphics, … (pendientes)
