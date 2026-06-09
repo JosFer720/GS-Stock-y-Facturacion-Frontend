@@ -99,4 +99,7 @@ Estado de la migración por capas:
 - [x] Facturas
 - [x] SugerenciasFacturacion
 - [x] CrearFactura (PDF; corregida la transacción a client real)
-- [ ] Envíos (nacional/importadora) — generan PDF (pendientes)
+- [x] Envíos (nacional/importadora — PDF; repo/service/controller compartidos)
+- [x] Users (/api/user — middleware authenticateJWT extraído)
+
+**Fase 2 completa: los 24 route files quedaron como wiring delgado, sin SQL inline.**
